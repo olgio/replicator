@@ -81,17 +81,21 @@ class RaftProtocolController<C>(
             LOGGER.warn("$nodeIdentifier :: cannot commit because node is not leader. currentNodeType = ${nodeState.currentNodeType}")
             return@coroutineScope
         }
+        val lastLogIndex: Long = replicatedLogStore.lastLogIndex() ?: return@coroutineScope
         val firstUncommittedIndex: Long = replicatedLogStore.lastCommitIndex()?.plus(1) ?: 0
-        LOGGER.debug("$nodeIdentifier :: firstUncommittedIndex = $firstUncommittedIndex")
 
+        LOGGER.debug("$nodeIdentifier :: lastLogIndex = $lastLogIndex, firstUncommittedIndex = $firstUncommittedIndex")
 
-        val lastCommittableIndex: Long? = generateSequence(firstUncommittedIndex) {
-            it + 1
+        val lastCommittableIndex: Long? = generateSequence(lastLogIndex) {
+            it - 1
         }.takeWhile { uncommittedIndex ->
-            //TODO check cluster
+            if (uncommittedIndex < firstUncommittedIndex) {
+                return@takeWhile false
+            }
+            //TODO check cluster majority
             val logEntry = replicatedLogStore.getLogEntryByIndex(uncommittedIndex)
             if (logEntry == null) {
-                LOGGER.warn("$nodeIdentifier :: uncommitted logEntry with index $uncommittedIndex skipped because doesn't exists in store")
+                LOGGER.error("$nodeIdentifier :: uncommitted logEntry with index $uncommittedIndex skipped because doesn't exists in store")
                 return@takeWhile false
             }
             if (logEntry.term != nodeState.currentTerm) {
@@ -99,7 +103,7 @@ class RaftProtocolController<C>(
                 return@takeWhile false
             }
             return@takeWhile true
-        }.lastOrNull()
+        }.firstOrNull()
 
         LOGGER.debug("$nodeIdentifier :: lastCommittableIndex = $lastCommittableIndex")
 
