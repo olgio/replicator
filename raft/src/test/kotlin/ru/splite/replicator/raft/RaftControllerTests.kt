@@ -3,8 +3,6 @@ package ru.splite.replicator.raft
 import kotlinx.coroutines.runBlocking
 import org.assertj.core.api.Assertions.assertThat
 import ru.splite.replicator.bus.NodeIdentifier
-import ru.splite.replicator.raft.message.RaftMessage
-import ru.splite.replicator.raft.message.RaftMessageReceiver
 import ru.splite.replicator.raft.message.StubClusterTopology
 import kotlin.test.Test
 
@@ -12,20 +10,8 @@ class RaftControllerTests {
 
     private data class Command(val value: Long = 0)
 
-    private class RaftMessageReceiverDelegate<C>(private val receiver: RaftMessageReceiver<C>) :
-        RaftMessageReceiver<C> {
-
-        override suspend fun handleAppendEntries(request: RaftMessage.AppendEntries<C>): RaftMessage.AppendEntriesResponse {
-            TODO("Not yet implemented")
-        }
-
-        override suspend fun handleVoteRequest(request: RaftMessage.VoteRequest): RaftMessage.VoteResponse {
-            TODO("Not yet implemented")
-        }
-    }
-
     @Test
-    fun twoCommandsCommitTest() = runBlocking() {
+    fun singleTermLogEntriesCommitTest() = runBlocking() {
         val clusterTopology = StubClusterTopology<Command>()
 
         val node1 = clusterTopology.buildNode("node-1")
@@ -47,7 +33,7 @@ class RaftControllerTests {
     }
 
     @Test
-    fun twoCommandsCommitTest2() {
+    fun commitFromPreviousTermTest() {
         runBlocking {
             val clusterTopology = StubClusterTopology<Command>()
 
@@ -64,7 +50,7 @@ class RaftControllerTests {
             node3.apply {
                 sendVoteRequestsAsCandidate()
                 applyCommand(Command(2))
-                sendAppendEntriesIfLeader()
+                applyCommand(Command(3))
                 commitLogEntriesIfLeader()
                 sendAppendEntriesIfLeader()
             }
