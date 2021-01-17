@@ -2,9 +2,9 @@ package ru.splite.replicator.raft.message
 
 import ru.splite.replicator.bus.NodeIdentifier
 
-interface ClusterTopology<C> {
+interface ClusterTopology<out R> {
 
     val nodes: Collection<NodeIdentifier>
 
-    operator fun get(nodeIdentifier: NodeIdentifier): RaftMessageReceiver<C>
+    operator fun get(nodeIdentifier: NodeIdentifier): R
 }
