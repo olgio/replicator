@@ -26,7 +26,7 @@ class NodeState<C>(val nodeIdentifier: NodeIdentifier, val logStore: ReplicatedL
         this.currentNodeType = NodeType.CANDIDATE
 
         val lastLogIndex: Long? = logStore.lastLogIndex()
-        val lastLogTerm: Long? = lastLogIndex?.also { logStore.getLogEntryByIndex(it)!!.term }
+        val lastLogTerm: Long? = lastLogIndex?.let { logStore.getLogEntryByIndex(it)!!.term }
 
         return RaftMessage.VoteRequest(
             term = this.currentTerm, candidateIdentifier = this.nodeIdentifier,
@@ -43,9 +43,15 @@ class NodeState<C>(val nodeIdentifier: NodeIdentifier, val logStore: ReplicatedL
 
     fun handleVoteRequest(request: RaftMessage.VoteRequest): RaftMessage.VoteResponse {
 
-        //текущий терм больше полученного -> получили устаревший запрос -> игнорируем
-        if (this.currentTerm > request.term || !candidateCanBeLeader(request)) {
-            LOGGER.debug("$nodeIdentifier :: request skipped $request because of currentTerm ${this.currentTerm} < requestTerm ${request.term}")
+        //текущий терм больше полученного -> получили устаревший запрос -> отклоняем
+        if (this.currentTerm > request.term) {
+            LOGGER.debug("$nodeIdentifier :: VoteRequest rejected: currentTerm ${this.currentTerm} > requestTerm ${request.term}. request = $request")
+            return RaftMessage.VoteResponse(term = this.currentTerm, voteGranted = false)
+        }
+
+        //проверяем что лог не отстает
+        if (!candidateCanBeLeader(request)) {
+            LOGGER.debug("$nodeIdentifier :: VoteRequest rejected: detected stale log on candidate. request = $request")
             return RaftMessage.VoteResponse(term = this.currentTerm, voteGranted = false)
         }
 
@@ -54,7 +60,7 @@ class NodeState<C>(val nodeIdentifier: NodeIdentifier, val logStore: ReplicatedL
             this.currentTerm = request.term
             this.lastVotedLeaderIdentifier = request.candidateIdentifier
             currentNodeType = NodeType.FOLLOWER
-            LOGGER.debug("$nodeIdentifier :: voting for candidate ${request.candidateIdentifier}")
+            LOGGER.debug("$nodeIdentifier :: VoteRequest accepted: currentTerm < requestTerm. request = $request")
             return RaftMessage.VoteResponse(term = this.currentTerm, voteGranted = true)
         }
 
@@ -63,9 +69,15 @@ class NodeState<C>(val nodeIdentifier: NodeIdentifier, val logStore: ReplicatedL
             if (this.lastVotedLeaderIdentifier == null && currentNodeType != NodeType.LEADER) {
                 this.lastVotedLeaderIdentifier = request.candidateIdentifier
             }
+            val voteGranted: Boolean = lastVotedLeaderIdentifier == request.candidateIdentifier
+            if (voteGranted) {
+                LOGGER.debug("$nodeIdentifier :: VoteRequest accepted. request = $request")
+            } else {
+                LOGGER.debug("$nodeIdentifier :: VoteRequest rejected: detected another candidate ${lastVotedLeaderIdentifier} in this term. request = $request")
+            }
             return RaftMessage.VoteResponse(
                 term = this.currentTerm,
-                voteGranted = lastVotedLeaderIdentifier == request.candidateIdentifier
+                voteGranted = voteGranted
             )
         }
 
@@ -146,8 +158,9 @@ class NodeState<C>(val nodeIdentifier: NodeIdentifier, val logStore: ReplicatedL
 
         val lastLogIndex: Long? = logStore.lastLogIndex()
 
-        if (lastLogIndex != null) {
-            val lastCommitIndex: Long? = logStore.lastCommitIndex()
+        val lastCommitIndex: Long? = logStore.lastCommitIndex()
+
+        if (lastLogIndex != null && fromIndex <= lastLogIndex) {
 
             val prevLogIndex: Long? = if (fromIndex > 0) fromIndex - 1 else null
 
@@ -165,12 +178,14 @@ class NodeState<C>(val nodeIdentifier: NodeIdentifier, val logStore: ReplicatedL
             )
         }
 
+        val lastLogTerm = lastLogIndex?.let { logStore.getLogEntryByIndex(it)!!.term }
+
         return RaftMessage.AppendEntries(
             term = this.currentTerm,
             leaderIdentifier = this.nodeIdentifier,
-            prevLogIndex = null,
-            prevLogTerm = null,
-            lastCommitIndex = null,
+            prevLogIndex = lastLogIndex,
+            prevLogTerm = lastLogTerm,
+            lastCommitIndex = lastCommitIndex,
             entries = emptyList()
         )
     }

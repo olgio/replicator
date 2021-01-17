@@ -8,17 +8,19 @@ import ru.splite.replicator.raft.log.ReplicatedLogStore
 import ru.splite.replicator.raft.message.ClusterTopology
 import ru.splite.replicator.raft.message.RaftMessage
 import ru.splite.replicator.raft.message.RaftMessageReceiver
+import ru.splite.replicator.raft.state.ExternalNodeState
 import ru.splite.replicator.raft.state.NodeState
 import ru.splite.replicator.raft.state.NodeType
 import ru.splite.replicator.raft.timer.RenewableTimerFactory
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 
 class RaftProtocolController<C>(
-    private val clusterTopology: ClusterTopology<C>,
-    val nodeIdentifier: NodeIdentifier
-) : RaftMessageReceiver<C> {
+    private val clusterTopology: ClusterTopology<RaftMessageReceiver<C>>,
+    override val nodeIdentifier: NodeIdentifier
+) : RaftMessageReceiver<C>, RaftProtocol<C> {
 
-    val replicatedLogStore: ReplicatedLogStore<C> = InMemoryReplicatedLogStore()
+    override val replicatedLogStore: ReplicatedLogStore<C> = InMemoryReplicatedLogStore()
 
     private val renewableTimerFactory = RenewableTimerFactory()
 
@@ -32,8 +34,13 @@ class RaftProtocolController<C>(
     //TODO implement send entries and commit if majority
 //    private lateinit var appendEntriesSenderTask: Timer
 
+    private val majority: Int
+        get() = Math.floorDiv(clusterTopology.nodes.size, 2)
+
     private val clusterNodeIdentifiers: Collection<NodeIdentifier>
         get() = clusterTopology.nodes.minus(nodeIdentifier) //TODO
+
+    private val externalNodeStates: MutableMap<NodeIdentifier, ExternalNodeState> = ConcurrentHashMap()
 
 //    fun CoroutineScope.initializeTimers() {
 //        termIncrementerTimerTask = renewableTimerFactory.scheduleWithPeriodAndInitialDelay(5000) {
@@ -52,31 +59,47 @@ class RaftProtocolController<C>(
 //        }
 //    }
 
-    suspend fun sendVoteRequestsAsCandidate() = coroutineScope {
+    private fun reinitializeExternalNodeStates() {
+        val lastLogIndex = nodeState.logStore.lastLogIndex()?.plus(1) ?: 0
+        clusterNodeIdentifiers.forEach { dstNodeIdentifier ->
+            externalNodeStates[dstNodeIdentifier] = ExternalNodeState(nextIndex = lastLogIndex, matchIndex = -1)
+        }
+    }
+
+    override suspend fun sendVoteRequestsAsCandidate(): Boolean = coroutineScope {
         val nodes = clusterNodeIdentifiers
 
         if (nodes.isEmpty()) {
             error("Cluster cannot be empty")
         }
-        val newTerm = nodeState.currentTerm + 1
-        val voteRequest = nodeState.becomeCandidate(newTerm)
+        val newTerm: Long = nodeState.currentTerm + 1
+        val voteRequest: RaftMessage.VoteRequest = nodeState.becomeCandidate(newTerm)
         val successResponses = nodes.map { dstNodeIdentifier ->
             async {
-                clusterTopology[dstNodeIdentifier].handleVoteRequest(voteRequest)
+                kotlin.runCatching {
+                    val voteResponse: RaftMessage.VoteResponse = withTimeout(1000) {
+                        clusterTopology[dstNodeIdentifier].handleVoteRequest(voteRequest)
+                    }
+                    voteResponse
+                }.getOrNull()
             }
         }.mapNotNull {
-            withTimeoutOrNull(2000) {
-                it.await()
-            }
+            it.await()
+        }.filter {
+            it.voteGranted
         }
 
-        val majority = Math.floorDiv(nodes.size, 2)
+        LOGGER.info("$nodeIdentifier :: VoteResult for term ${nodeState.currentTerm}: ${successResponses.size + 1}/${nodes.size + 1} (majority = ${majority + 1})")
         if (successResponses.size >= majority) {
             nodeState.becomeLeader()
+            reinitializeExternalNodeStates()
+            true
+        } else {
+            false
         }
     }
 
-    suspend fun commitLogEntriesIfLeader() = coroutineScope {
+    override suspend fun commitLogEntriesIfLeader() = coroutineScope {
         if (nodeState.currentNodeType != NodeType.LEADER) {
             LOGGER.warn("$nodeIdentifier :: cannot commit because node is not leader. currentNodeType = ${nodeState.currentNodeType}")
             return@coroutineScope
@@ -92,7 +115,6 @@ class RaftProtocolController<C>(
             if (uncommittedIndex < firstUncommittedIndex) {
                 return@takeWhile false
             }
-            //TODO check cluster majority
             val logEntry = replicatedLogStore.getLogEntryByIndex(uncommittedIndex)
             if (logEntry == null) {
                 LOGGER.error("$nodeIdentifier :: uncommitted logEntry with index $uncommittedIndex skipped because doesn't exists in store")
@@ -102,6 +124,14 @@ class RaftProtocolController<C>(
                 LOGGER.warn("$nodeIdentifier :: uncommitted logEntry with index $uncommittedIndex skipped because its term ${logEntry.term} != currentTerm ${nodeState.currentTerm}")
                 return@takeWhile false
             }
+            val countOfMatchedNodes = clusterNodeIdentifiers.count {
+                externalNodeStates[it]!!.matchIndex >= uncommittedIndex
+            }
+
+            if (countOfMatchedNodes < majority) {
+                return@takeWhile false
+            }
+
             return@takeWhile true
         }.firstOrNull()
 
@@ -112,22 +142,46 @@ class RaftProtocolController<C>(
         }
     }
 
-    suspend fun sendAppendEntriesIfLeader() = coroutineScope {
+    override suspend fun sendAppendEntriesIfLeader() = coroutineScope {
+
+        data class AppendEntriesResult(
+            val dstNodeIdentifier: NodeIdentifier,
+            val matchIndex: Long,
+            val isSuccess: Boolean
+        )
+
         if (nodeState.currentNodeType != NodeType.LEADER) {
             LOGGER.warn("$nodeIdentifier :: cannot send appendEntries because node is not leader. currentNodeType = ${nodeState.currentNodeType}")
             return@coroutineScope
         }
         clusterNodeIdentifiers.map { dstNodeIdentifier ->
-            val appendEntriesRequest = nodeState.buildAppendEntries(0) // TODO extract index
-            async {
-                clusterTopology[dstNodeIdentifier].handleAppendEntries(appendEntriesRequest)
+            val nextIndexPerNode: Long = externalNodeStates[dstNodeIdentifier]!!.nextIndex
+            val appendEntriesRequest: RaftMessage.AppendEntries<C> =
+                nodeState.buildAppendEntries(fromIndex = nextIndexPerNode)
+            val matchIndexIfSuccess = nextIndexPerNode + appendEntriesRequest.entries.size - 1
+            val deferredAppendEntriesResult: Deferred<AppendEntriesResult> = async {
+                kotlin.runCatching {
+                    val appendEntriesResponse = withTimeout(1000) {
+                        clusterTopology[dstNodeIdentifier].handleAppendEntries(appendEntriesRequest)
+                    }
+                    AppendEntriesResult(dstNodeIdentifier, matchIndexIfSuccess, appendEntriesResponse.entriesAppended)
+                }.getOrElse {
+                    AppendEntriesResult(dstNodeIdentifier, matchIndexIfSuccess, false)
+                }
             }
-        }.mapNotNull {
-            withTimeoutOrNull(1000) {
-                it.await()
+            deferredAppendEntriesResult
+        }.map { deferredAppendEntriesResult ->
+            val appendEntriesResult = deferredAppendEntriesResult.await()
+            if (appendEntriesResult.isSuccess) {
+                externalNodeStates[appendEntriesResult.dstNodeIdentifier]!!.matchIndex = appendEntriesResult.matchIndex
+                externalNodeStates[appendEntriesResult.dstNodeIdentifier]!!.nextIndex =
+                    appendEntriesResult.matchIndex + 1
+            } else {
+                externalNodeStates[appendEntriesResult.dstNodeIdentifier]!!.nextIndex =
+                    maxOf(0, externalNodeStates[appendEntriesResult.dstNodeIdentifier]!!.nextIndex - 1)
             }
         }
-        //TODO handle results
+        Unit
     }
 
     override suspend fun handleAppendEntries(request: RaftMessage.AppendEntries<C>): RaftMessage.AppendEntriesResponse {
@@ -150,7 +204,7 @@ class RaftProtocolController<C>(
         return response
     }
 
-    fun applyCommand(command: C) {
+    override fun applyCommand(command: C) {
         nodeState.addCommand(command)
     }
 
