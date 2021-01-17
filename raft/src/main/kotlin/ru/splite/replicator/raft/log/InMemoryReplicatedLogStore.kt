@@ -13,6 +13,9 @@ class InMemoryReplicatedLogStore<C> : ReplicatedLogStore<C> {
     private val lastCommitIndex = AtomicLong(-1)
 
     override fun setLogEntry(index: Long, logEntry: LogEntry<C>) {
+        if (lastCommitIndex.get() >= index) {
+            error("Cannot override committed log entry at index $index")
+        }
         logEntries[index] = logEntry
         lastIndex.set(index)
         LOGGER.info("Set log entry with index $index: $logEntry")
@@ -33,6 +36,9 @@ class InMemoryReplicatedLogStore<C> : ReplicatedLogStore<C> {
     }
 
     override fun prune(index: Long): Long {
+        if (lastCommitIndex.get() >= index) {
+            error("Cannot prune log because lastCommitIndex ${lastCommitIndex.get()} >= $index")
+        }
         lastIndex.set(index - 1)
         return 0L
     }
