@@ -3,7 +3,7 @@ package ru.splite.replicator.raft
 import kotlinx.coroutines.runBlocking
 import org.assertj.core.api.Assertions.assertThat
 import ru.splite.replicator.bus.NodeIdentifier
-import ru.splite.replicator.raft.message.StubClusterTopology
+import ru.splite.replicator.bus.StubClusterTopology
 import kotlin.test.Test
 
 class RaftControllerTests {

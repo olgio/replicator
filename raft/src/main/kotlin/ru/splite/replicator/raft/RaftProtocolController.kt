@@ -2,15 +2,15 @@ package ru.splite.replicator.raft
 
 import kotlinx.coroutines.*
 import org.slf4j.LoggerFactory
+import ru.splite.replicator.bus.ClusterTopology
 import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.raft.log.InMemoryReplicatedLogStore
 import ru.splite.replicator.raft.log.ReplicatedLogStore
-import ru.splite.replicator.raft.message.ClusterTopology
 import ru.splite.replicator.raft.message.RaftMessage
 import ru.splite.replicator.raft.message.RaftMessageReceiver
 import ru.splite.replicator.raft.state.ExternalNodeState
-import ru.splite.replicator.raft.state.NodeState
 import ru.splite.replicator.raft.state.NodeType
+import ru.splite.replicator.raft.state.RaftStateMutationManager
 import ru.splite.replicator.raft.timer.RenewableTimerFactory
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
@@ -24,7 +24,7 @@ class RaftProtocolController<C>(
 
     private val renewableTimerFactory = RenewableTimerFactory()
 
-    private val nodeState = NodeState(nodeIdentifier, replicatedLogStore)
+    private val nodeState = RaftStateMutationManager(nodeIdentifier, replicatedLogStore)
 
     //TODO refactor and integrate with Java Timer
 //    private lateinit var termIncrementerTimerTask: RenewableTimerTask

@@ -4,8 +4,8 @@ import org.assertj.core.api.Assertions.assertThat
 import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.raft.log.InMemoryReplicatedLogStore
 import ru.splite.replicator.raft.log.ReplicatedLogStore
-import ru.splite.replicator.raft.state.NodeState
 import ru.splite.replicator.raft.state.NodeType
+import ru.splite.replicator.raft.state.RaftStateMutationManager
 import kotlin.test.Test
 
 class RaftStateTransitionsTests {
@@ -15,13 +15,13 @@ class RaftStateTransitionsTests {
     @Test
     fun test() {
         val replicatedLogStore1: ReplicatedLogStore<Command> = InMemoryReplicatedLogStore()
-        val node1 = NodeState(NodeIdentifier("node-1"), replicatedLogStore1)
+        val node1 = RaftStateMutationManager(NodeIdentifier("node-1"), replicatedLogStore1)
 
         val replicatedLogStore2: ReplicatedLogStore<Command> = InMemoryReplicatedLogStore()
-        val node2 = NodeState(NodeIdentifier("node-2"), replicatedLogStore2)
+        val node2 = RaftStateMutationManager(NodeIdentifier("node-2"), replicatedLogStore2)
 
         val replicatedLogStore3: ReplicatedLogStore<Command> = InMemoryReplicatedLogStore()
-        val node3 = NodeState(NodeIdentifier("node-3"), replicatedLogStore3)
+        val node3 = RaftStateMutationManager(NodeIdentifier("node-3"), replicatedLogStore3)
 
         /*
         Leader election

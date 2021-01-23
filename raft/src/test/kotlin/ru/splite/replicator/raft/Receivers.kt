@@ -1,7 +1,7 @@
 package ru.splite.replicator.raft
 
 import org.slf4j.LoggerFactory
-import ru.splite.replicator.raft.message.ClusterTopology
+import ru.splite.replicator.bus.ClusterTopology
 import ru.splite.replicator.raft.message.RaftMessage
 import ru.splite.replicator.raft.message.RaftMessageReceiver
 import java.util.concurrent.atomic.AtomicBoolean

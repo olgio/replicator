@@ -6,7 +6,7 @@ import ru.splite.replicator.raft.log.LogEntry
 import ru.splite.replicator.raft.log.ReplicatedLogStore
 import ru.splite.replicator.raft.message.RaftMessage
 
-class NodeState<C>(val nodeIdentifier: NodeIdentifier, val logStore: ReplicatedLogStore<C>) {
+class RaftStateMutationManager<C>(val nodeIdentifier: NodeIdentifier, val logStore: ReplicatedLogStore<C>) {
 
     var currentNodeType: NodeType = NodeType.FOLLOWER
         private set

@@ -1,6 +1,4 @@
-package ru.splite.replicator.raft.message
-
-import ru.splite.replicator.bus.NodeIdentifier
+package ru.splite.replicator.bus
 
 interface ClusterTopology<out R> {
 
