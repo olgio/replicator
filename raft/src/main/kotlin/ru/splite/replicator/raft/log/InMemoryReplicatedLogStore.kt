@@ -13,6 +13,7 @@ class InMemoryReplicatedLogStore<C> : ReplicatedLogStore<C> {
     private val lastCommitIndex = AtomicLong(-1)
 
     override fun setLogEntry(index: Long, logEntry: LogEntry<C>) {
+        validateIndex(index)
         if (lastCommitIndex.get() >= index) {
             error("Cannot override committed log entry at index $index")
         }
@@ -29,6 +30,7 @@ class InMemoryReplicatedLogStore<C> : ReplicatedLogStore<C> {
     }
 
     override fun getLogEntryByIndex(index: Long): LogEntry<C>? {
+        validateIndex(index)
         if (index > lastIndex.get()) {
             return null
         }
@@ -36,6 +38,7 @@ class InMemoryReplicatedLogStore<C> : ReplicatedLogStore<C> {
     }
 
     override fun prune(index: Long): Long {
+        validateIndex(index)
         if (lastCommitIndex.get() >= index) {
             error("Cannot prune log because lastCommitIndex ${lastCommitIndex.get()} >= $index")
         }
@@ -44,9 +47,9 @@ class InMemoryReplicatedLogStore<C> : ReplicatedLogStore<C> {
     }
 
     override fun commit(index: Long): Long {
-        checkNotEmpty()
+        validateIndex(index)
         if (index > lastIndex.get()) {
-            error("$index > ${lastIndex.get()}")
+            error("Cannot commit log with gaps: $index > ${lastIndex.get()}")
         }
         LOGGER.info("Committed command with index {}: {}", index, this.getLogEntryByIndex(index))
         lastCommitIndex.set(index)
@@ -65,9 +68,9 @@ class InMemoryReplicatedLogStore<C> : ReplicatedLogStore<C> {
         }
     }
 
-    private fun checkNotEmpty() {
-        if (lastIndex.get() < 0) {
-            error("Log is empty")
+    private fun validateIndex(index: Long) {
+        if (index < 0) {
+            error("Log entry index cannot be less than 0")
         }
     }
 
