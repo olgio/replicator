@@ -29,7 +29,7 @@ class RaftProtocolController<C>(
         get() = localNodeState.currentNodeType == NodeType.LEADER
 
     private val majority: Int
-        get() = Math.floorDiv(clusterTopology.nodes.size, 2)
+        get() = Math.floorDiv(clusterTopology.nodes.size, 2) + 1
 
     private val appendEntriesSender = AppendEntriesSender(localNodeState, replicatedLogStore)
 
@@ -48,7 +48,7 @@ class RaftProtocolController<C>(
     }
 
     override suspend fun commitLogEntriesIfLeader() = coroutineScope {
-        commitEntries.commitLogEntriesIfLeader(clusterTopology.nodes, majority)
+        commitEntries.commitLogEntriesIfLeader(clusterTopology, majority)
     }
 
     override suspend fun sendAppendEntriesIfLeader() = coroutineScope {

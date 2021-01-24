@@ -29,7 +29,7 @@ class VoteRequestSender(
         }
 
         val voteRequest: RaftMessage.VoteRequest = becomeCandidate()
-        val successResponses = clusterNodeIdentifiers.map { dstNodeIdentifier ->
+        val voteGrantedCount = clusterNodeIdentifiers.map { dstNodeIdentifier ->
             async {
                 kotlin.runCatching {
                     val voteResponse: RaftMessage.VoteResponse = withTimeout(1000) {
@@ -42,10 +42,10 @@ class VoteRequestSender(
             it.await()
         }.filter {
             it.voteGranted
-        }
+        }.size + 1
 
-        LOGGER.info("${localNodeState.nodeIdentifier} :: VoteResult for term ${localNodeState.currentTerm}: ${successResponses.size + 1}/${clusterNodeIdentifiers.size + 1} (majority = ${majority + 1})")
-        if (successResponses.size >= majority) {
+        LOGGER.info("${localNodeState.nodeIdentifier} :: VoteResult for term ${localNodeState.currentTerm}: ${voteGrantedCount}/${clusterTopology.nodes.size} (majority = ${majority})")
+        if (voteGrantedCount >= majority) {
             becomeLeader()
             reinitializeExternalNodeStates(clusterTopology.nodes)
             true
