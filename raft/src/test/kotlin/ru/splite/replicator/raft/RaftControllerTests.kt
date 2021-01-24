@@ -4,6 +4,8 @@ import kotlinx.coroutines.runBlocking
 import org.assertj.core.api.Assertions.assertThat
 import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.bus.StubClusterTopology
+import ru.splite.replicator.raft.log.InMemoryReplicatedLogStore
+import ru.splite.replicator.raft.state.LocalNodeState
 import kotlin.test.Test
 
 class RaftControllerTests {
@@ -339,7 +341,10 @@ class RaftControllerTests {
     }
 
     private fun StubClusterTopology<ManagedRaftProtocolNode<Command>>.buildNode(name: String): ManagedRaftProtocolNode<Command> {
-        val node = RaftProtocolController(this, NodeIdentifier(name)).asManaged()
+        val nodeIdentifier = NodeIdentifier(name)
+        val logStore = InMemoryReplicatedLogStore<Command>()
+        val localNodeState = LocalNodeState(nodeIdentifier)
+        val node = RaftProtocolController(logStore, this, localNodeState).asManaged()
         this[node.nodeIdentifier] = node
         return node
     }

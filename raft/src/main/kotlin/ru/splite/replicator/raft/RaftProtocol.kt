@@ -9,6 +9,8 @@ interface RaftProtocol<C> {
 
     val replicatedLogStore: ReplicatedLogStore<C>
 
+    val isLeader: Boolean
+
     suspend fun sendVoteRequestsAsCandidate(): Boolean
 
     suspend fun commitLogEntriesIfLeader()
