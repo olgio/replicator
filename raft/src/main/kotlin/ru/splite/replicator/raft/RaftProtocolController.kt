@@ -19,17 +19,23 @@ import ru.splite.replicator.raft.state.leader.VoteRequestSender
 class RaftProtocolController<C>(
     override val replicatedLogStore: ReplicatedLogStore<C>,
     private val clusterTopology: ClusterTopology<RaftMessageReceiver<C>>,
-    private val localNodeState: LocalNodeState
+    private val localNodeState: LocalNodeState,
+    private val leaderElectionQuorumSize: Int = clusterTopology.nodes.size.asMajority(),
+    private val logReplicationQuorumSize: Int = clusterTopology.nodes.size.asMajority()
 ) : RaftMessageReceiver<C>, RaftProtocol<C> {
+
+    init {
+        val fullClusterSize = clusterTopology.nodes.size
+        if (leaderElectionQuorumSize + logReplicationQuorumSize <= fullClusterSize) {
+            error("Quorum requirement violation: $leaderElectionQuorumSize + $logReplicationQuorumSize >= $fullClusterSize")
+        }
+    }
 
     override val nodeIdentifier: NodeIdentifier
         get() = localNodeState.nodeIdentifier
 
     override val isLeader: Boolean
         get() = localNodeState.currentNodeType == NodeType.LEADER
-
-    private val majority: Int
-        get() = Math.floorDiv(clusterTopology.nodes.size, 2) + 1
 
     private val appendEntriesSender = AppendEntriesSender(localNodeState, replicatedLogStore)
 
@@ -44,11 +50,11 @@ class RaftProtocolController<C>(
     private val commandAppender = CommandAppender(localNodeState, replicatedLogStore)
 
     override suspend fun sendVoteRequestsAsCandidate(): Boolean {
-        return voteRequestSender.sendVoteRequestsAsCandidate(clusterTopology, majority)
+        return voteRequestSender.sendVoteRequestsAsCandidate(clusterTopology, leaderElectionQuorumSize)
     }
 
     override suspend fun commitLogEntriesIfLeader() = coroutineScope {
-        commitEntries.commitLogEntriesIfLeader(clusterTopology, majority)
+        commitEntries.commitLogEntriesIfLeader(clusterTopology, logReplicationQuorumSize)
     }
 
     override suspend fun sendAppendEntriesIfLeader() = coroutineScope {

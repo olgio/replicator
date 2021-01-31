@@ -340,18 +340,27 @@ class RaftControllerTests {
         return StubClusterTopology()
     }
 
-    private fun StubClusterTopology<ManagedRaftProtocolNode<Command>>.buildNode(name: String): ManagedRaftProtocolNode<Command> {
+    private fun StubClusterTopology<ManagedRaftProtocolNode<Command>>.buildNode(
+        name: String,
+        fullSize: Int
+    ): ManagedRaftProtocolNode<Command> {
         val nodeIdentifier = NodeIdentifier(name)
         val logStore = InMemoryReplicatedLogStore<Command>()
         val localNodeState = LocalNodeState(nodeIdentifier)
-        val node = RaftProtocolController(logStore, this, localNodeState).asManaged()
+        val node = RaftProtocolController(
+            logStore,
+            this,
+            localNodeState,
+            fullSize.asMajority(),
+            fullSize.asMajority()
+        ).asManaged()
         this[node.nodeIdentifier] = node
         return node
     }
 
     private fun StubClusterTopology<ManagedRaftProtocolNode<Command>>.buildNodes(n: Int): List<ManagedRaftProtocolNode<Command>> {
         return (1..n).map {
-            buildNode("node-$it")
+            buildNode("node-$it", n)
         }
     }
 }
