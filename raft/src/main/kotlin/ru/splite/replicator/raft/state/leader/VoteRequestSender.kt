@@ -6,20 +6,20 @@ import kotlinx.coroutines.withTimeout
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.bus.ClusterTopology
 import ru.splite.replicator.bus.NodeIdentifier
-import ru.splite.replicator.raft.log.ReplicatedLogStore
+import ru.splite.replicator.log.ReplicatedLogStore
 import ru.splite.replicator.raft.message.RaftMessage
-import ru.splite.replicator.raft.message.RaftMessageReceiver
+import ru.splite.replicator.raft.message.VoteRequestMessageReceiver
 import ru.splite.replicator.raft.state.ExternalNodeState
-import ru.splite.replicator.raft.state.LocalNodeState
 import ru.splite.replicator.raft.state.NodeType
+import ru.splite.replicator.raft.state.RaftLocalNodeState
 
 class VoteRequestSender(
-    private val localNodeState: LocalNodeState,
+    private val localNodeState: RaftLocalNodeState,
     private val logStore: ReplicatedLogStore<*>
 ) {
 
     suspend fun sendVoteRequestsAsCandidate(
-        clusterTopology: ClusterTopology<RaftMessageReceiver<*>>,
+        clusterTopology: ClusterTopology<VoteRequestMessageReceiver<*>>,
         majority: Int
     ): Boolean = coroutineScope {
         val clusterNodeIdentifiers = clusterTopology.nodes.minus(localNodeState.nodeIdentifier)

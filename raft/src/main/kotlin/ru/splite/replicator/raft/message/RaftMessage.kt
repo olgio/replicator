@@ -1,7 +1,7 @@
 package ru.splite.replicator.raft.message
 
 import ru.splite.replicator.bus.NodeIdentifier
-import ru.splite.replicator.raft.log.LogEntry
+import ru.splite.replicator.log.LogEntry
 
 sealed class RaftMessage(open val term: Long) {
 

@@ -1,13 +1,13 @@
 package ru.splite.replicator.raft.state.follower
 
 import org.slf4j.LoggerFactory
-import ru.splite.replicator.raft.log.ReplicatedLogStore
+import ru.splite.replicator.log.ReplicatedLogStore
 import ru.splite.replicator.raft.message.RaftMessage
-import ru.splite.replicator.raft.state.LocalNodeState
 import ru.splite.replicator.raft.state.NodeType
+import ru.splite.replicator.raft.state.RaftLocalNodeState
 
 class AppendEntriesHandler<C>(
-    private val localNodeState: LocalNodeState,
+    private val localNodeState: RaftLocalNodeState,
     private val logStore: ReplicatedLogStore<C>
 ) {
 

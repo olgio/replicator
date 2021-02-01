@@ -2,17 +2,18 @@ package ru.splite.replicator.raft.state.leader;
 
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.bus.ClusterTopology
-import ru.splite.replicator.raft.log.ReplicatedLogStore
-import ru.splite.replicator.raft.message.RaftMessageReceiver
-import ru.splite.replicator.raft.state.LocalNodeState
+import ru.splite.replicator.log.LogEntry
+import ru.splite.replicator.log.ReplicatedLogStore
 import ru.splite.replicator.raft.state.NodeType
+import ru.splite.replicator.raft.state.RaftLocalNodeState
 
-public class CommitEntries<C>(
-    private val localNodeState: LocalNodeState,
-    private val logStore: ReplicatedLogStore<C>
+class CommitEntries<C>(
+    private val localNodeState: RaftLocalNodeState,
+    private val logStore: ReplicatedLogStore<C>,
+    private val logEntryCommittableCondition: (LogEntry<C>, Long) -> Boolean
 ) {
 
-    fun commitLogEntriesIfLeader(clusterTopology: ClusterTopology<RaftMessageReceiver<*>>, majority: Int) {
+    fun commitLogEntriesIfLeader(clusterTopology: ClusterTopology<*>, majority: Int) {
         if (localNodeState.currentNodeType != NodeType.LEADER) {
             LOGGER.warn("${localNodeState.nodeIdentifier} :: cannot commit because node is not leader. currentNodeType = ${localNodeState.currentNodeType}")
             return
@@ -36,8 +37,8 @@ public class CommitEntries<C>(
                 LOGGER.error("${localNodeState.nodeIdentifier} :: uncommitted logEntry with index $uncommittedIndex skipped because doesn't exists in store")
                 return@takeWhile false
             }
-            if (logEntry.term != localNodeState.currentTerm) {
-                LOGGER.warn("${localNodeState.nodeIdentifier} :: uncommitted logEntry with index $uncommittedIndex skipped because its term ${logEntry.term} != currentTerm ${localNodeState.currentTerm}")
+            if (!logEntryCommittableCondition.invoke(logEntry, localNodeState.currentTerm)) {
+                LOGGER.warn("${localNodeState.nodeIdentifier} :: uncommitted logEntry with index $uncommittedIndex skipped because committable condition is not met")
                 return@takeWhile false
             }
             val matchedNodesCount = clusterNodeIdentifiers.count {

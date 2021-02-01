@@ -1,4 +1,4 @@
-package ru.splite.replicator.raft.log
+package ru.splite.replicator.log
 
 import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentHashMap

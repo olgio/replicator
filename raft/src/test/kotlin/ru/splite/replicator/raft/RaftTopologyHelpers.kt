@@ -1,10 +1,15 @@
 package ru.splite.replicator.raft
 
 import org.slf4j.LoggerFactory
+import ru.splite.replicator.LogStoreAssert
 import ru.splite.replicator.bus.ClusterTopology
 import ru.splite.replicator.raft.message.RaftMessage
 import ru.splite.replicator.raft.message.RaftMessageReceiver
 import java.util.concurrent.atomic.AtomicBoolean
+
+fun <C> assertThatLogs(vararg nodes: RaftProtocol<C>): LogStoreAssert<C> {
+    return LogStoreAssert.assertThatLogs(*nodes.map { it.replicatedLogStore }.toTypedArray())
+}
 
 fun <C> RaftProtocolController<C>.asManaged(): ManagedRaftProtocolNode<C> = ManagedRaftProtocolNode(this)
 

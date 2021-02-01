@@ -4,11 +4,11 @@ import kotlinx.coroutines.coroutineScope
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.bus.ClusterTopology
 import ru.splite.replicator.bus.NodeIdentifier
-import ru.splite.replicator.raft.log.ReplicatedLogStore
+import ru.splite.replicator.log.ReplicatedLogStore
 import ru.splite.replicator.raft.message.RaftMessage
 import ru.splite.replicator.raft.message.RaftMessageReceiver
-import ru.splite.replicator.raft.state.LocalNodeState
 import ru.splite.replicator.raft.state.NodeType
+import ru.splite.replicator.raft.state.RaftLocalNodeState
 import ru.splite.replicator.raft.state.follower.AppendEntriesHandler
 import ru.splite.replicator.raft.state.follower.VoteRequestHandler
 import ru.splite.replicator.raft.state.leader.AppendEntriesSender
@@ -19,7 +19,7 @@ import ru.splite.replicator.raft.state.leader.VoteRequestSender
 class RaftProtocolController<C>(
     override val replicatedLogStore: ReplicatedLogStore<C>,
     private val clusterTopology: ClusterTopology<RaftMessageReceiver<C>>,
-    private val localNodeState: LocalNodeState,
+    private val localNodeState: RaftLocalNodeState,
     private val leaderElectionQuorumSize: Int = clusterTopology.nodes.size.asMajority(),
     private val logReplicationQuorumSize: Int = clusterTopology.nodes.size.asMajority()
 ) : RaftMessageReceiver<C>, RaftProtocol<C> {
@@ -45,7 +45,9 @@ class RaftProtocolController<C>(
 
     private val voteRequestHandler = VoteRequestHandler(localNodeState, replicatedLogStore)
 
-    private val commitEntries = CommitEntries(localNodeState, replicatedLogStore)
+    private val commitEntries = CommitEntries(localNodeState, replicatedLogStore) { logEntry, currentTerm ->
+        logEntry.term == currentTerm
+    }
 
     private val commandAppender = CommandAppender(localNodeState, replicatedLogStore)
 

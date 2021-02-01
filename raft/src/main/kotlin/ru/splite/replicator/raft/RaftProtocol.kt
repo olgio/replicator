@@ -1,7 +1,7 @@
 package ru.splite.replicator.raft
 
 import ru.splite.replicator.bus.NodeIdentifier
-import ru.splite.replicator.raft.log.ReplicatedLogStore
+import ru.splite.replicator.log.ReplicatedLogStore
 
 interface RaftProtocol<C> {
 

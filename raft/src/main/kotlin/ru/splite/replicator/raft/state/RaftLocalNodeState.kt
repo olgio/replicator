@@ -3,9 +3,10 @@ package ru.splite.replicator.raft.state
 import ru.splite.replicator.bus.NodeIdentifier
 import java.util.concurrent.ConcurrentHashMap
 
-class LocalNodeState(val nodeIdentifier: NodeIdentifier) {
-
+open class RaftLocalNodeState(
+    val nodeIdentifier: NodeIdentifier,
     var currentTerm: Long = 0L
+) {
 
     var lastVotedLeaderIdentifier: NodeIdentifier? = null
 

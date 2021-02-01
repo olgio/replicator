@@ -17,6 +17,13 @@
             <version>DEV-SNAPSHOT</version>
             <scope>compile</scope>
         </dependency>
+
+        <dependency>
+            <groupId>ru.splite.replicator</groupId>
+            <artifactId>replicator-tests</artifactId>
+            <version>DEV-SNAPSHOT</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <properties>
