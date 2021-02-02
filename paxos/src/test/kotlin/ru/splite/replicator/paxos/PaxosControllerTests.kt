@@ -94,18 +94,29 @@ class PaxosControllerTests {
             assertThat(sendVoteRequestsAsCandidate()).isTrue
             applyCommand(Command(1))
             sendAppendEntriesIfLeader()
+
+            assertThatLogs(node1, node2, node3)
+                .hasCommittedEntriesSize(0)
+                .hasOnlyCommands(1L)
+                .hasOnlyTerms(1L)
         }
-        assertThatLogs(node1, node2, node3).hasCommittedEntriesSize(0)
 
         node3.apply {
             assertThat(sendVoteRequestsAsCandidate()).isTrue
             commitLogEntriesIfLeader()
-            assertThatLogs(node1, node2, node3).hasCommittedEntriesSize(0)
+
+            assertThatLogs(node1, node2, node3)
+                .hasCommittedEntriesSize(0)
+
             sendAppendEntriesIfLeader()
             commitLogEntriesIfLeader()
             sendAppendEntriesIfLeader()
-            assertThatLogs(node1, node2, node3).hasCommittedEntriesSize(1)
+
+            assertThatLogs(node1, node2, node3)
+                .hasCommittedEntriesSize(1)
                 .isCommittedEntriesInSync()
+                .hasOnlyCommands(1L)
+                .hasOnlyTerms(2L)
         }
     }
 
@@ -151,26 +162,31 @@ class PaxosControllerTests {
         val (node1, node2, node3) = clusterTopology.buildNodes(3)
 
         assertThat(node1.sendVoteRequestsAsCandidate()).isTrue
-
+        node1.sendAppendEntriesIfLeader()
         clusterTopology.isolateNodes(node1) {
-            node1.apply {
-                applyCommand(Command(1))
-                applyCommand(Command(2))
-            }
+            node1.applyCommand(Command(1))
+            node1.applyCommand(Command(2))
         }
+        assertThatLogs(node1)
+            .hasCommittedEntriesSize(0)
+            .hasOnlyCommands(1, 2)
+            .hasOnlyTerms(3L, 3L)
 
         clusterTopology.isolateNodes(node2, node3) {
             node3.apply {
-                sendVoteRequestsAsCandidate()
+                assertThat(sendVoteRequestsAsCandidate()).isTrue
                 applyCommand(Command(3))
                 applyCommand(Command(4))
                 sendAppendEntriesIfLeader()
                 commitLogEntriesIfLeader()
                 sendAppendEntriesIfLeader()
             }
-            assertThatLogs(node2, node3).hasCommittedEntriesSize(2)
-            assertThatLogs(node1).hasCommittedEntriesSize(0)
-
+            assertThatLogs(node2, node3)
+                .hasCommittedEntriesSize(2)
+                .hasOnlyCommands(3, 4)
+                .hasOnlyTerms(5L, 5L)
+            assertThatLogs(node1)
+                .hasCommittedEntriesSize(0)
         }
 
         clusterTopology.isolateNodes(node1, node2, node3) {
@@ -178,6 +194,7 @@ class PaxosControllerTests {
             node3.sendAppendEntriesIfLeader()
             assertThatLogs(node1, node2, node3)
                 .hasCommittedEntriesSize(2)
+                .hasOnlyCommands(3, 4)
                 .isCommittedEntriesInSync()
         }
     }
@@ -227,7 +244,7 @@ class PaxosControllerTests {
     }
 
     @Test
-    fun overrideLogEntryAppendedOnMajorityIfFailedBeforeCommit(): Unit = runBlocking {
+    fun overrideLogEntryIfNotAppendedOnMajority(): Unit = runBlocking {
         val clusterTopology = buildTopology()
 
         val (node1, node2, node3, node4, node5) = clusterTopology.buildNodes(5)
@@ -242,37 +259,74 @@ class PaxosControllerTests {
             node1.applyCommand(Command(2))
             node1.sendAppendEntriesIfLeader()
         }
-        assertThatLogs(node2).hasOnlyCommands(1, 2)
+        assertThatLogs(node1, node2)
+            .hasOnlyCommands(1, 2)
+            .hasOnlyTerms(5L, 5L)
 
-        clusterTopology.isolateNodes(node2, node3, node4, node5) {
-            assertThat(node5.sendVoteRequestsAsCandidate()).isTrue
-            node5.sendAppendEntriesIfLeader()
-            node5.applyCommand(Command(3))
+        clusterTopology.isolateNodes(node3, node4, node5) {
+            assertThat(node3.sendVoteRequestsAsCandidate()).isTrue
+            node3.sendAppendEntriesIfLeader()
+            node3.applyCommand(Command(3))
+            node3.sendAppendEntriesIfLeader()
+            node3.commitLogEntriesIfLeader()
+            node3.sendAppendEntriesIfLeader()
         }
-        assertThatLogs(node5).hasOnlyCommands(1, 2, 3)
-
-        clusterTopology.isolateNodes(node1, node2, node3) {
-            assertThat(node1.sendVoteRequestsAsCandidate()).isTrue
-            repeat(2) {
-                node1.sendAppendEntriesIfLeader()
-            }
-        }
-        assertThatLogs(node2, node3).hasOnlyCommands(1, 2)
+        assertThatLogs(node3, node4, node5)
+            .hasOnlyCommands(1, 3)
+            .hasOnlyTerms(7L, 7L)
 
         clusterTopology.isolateNodes(node1, node2, node3, node4, node5) {
-            assertThat(node5.sendVoteRequestsAsCandidate()).isTrue
-            node5.applyCommand(Command(5))
-
-            repeat(3) {
-                node5.sendAppendEntriesIfLeader()
-                node5.commitLogEntriesIfLeader()
-            }
+            node3.sendAppendEntriesIfLeader()
         }
-        assertThatLogs(node3).hasOnlyCommands(1, 2, 3, 5)
 
         assertThatLogs(node1, node2, node3, node4, node5)
-            .hasCommittedEntriesSize(4)
+            .hasCommittedEntriesSize(2L)
             .isCommittedEntriesInSync()
+            .hasOnlyCommands(1, 3)
+            .hasOnlyTerms(7L, 7L)
+    }
+
+    @Test
+    fun cannotOverrideLogEntryIfAppendedOnMajority(): Unit = runBlocking {
+        val clusterTopology = buildTopology()
+
+        val (node1, node2, node3, node4, node5) = clusterTopology.buildNodes(5)
+
+        node1.apply {
+            assertThat(sendVoteRequestsAsCandidate()).isTrue
+            applyCommand(Command(1))
+            sendAppendEntriesIfLeader()
+        }
+
+        clusterTopology.isolateNodes(node1, node2, node4) {
+            node1.applyCommand(Command(2))
+            node1.sendAppendEntriesIfLeader()
+        }
+        assertThatLogs(node1, node2, node4)
+            .hasOnlyCommands(1, 2)
+            .hasOnlyTerms(5L, 5L)
+
+        clusterTopology.isolateNodes(node3, node4, node5) {
+            assertThat(node3.sendVoteRequestsAsCandidate()).isTrue
+            node3.sendAppendEntriesIfLeader()
+            node3.applyCommand(Command(3))
+            node3.sendAppendEntriesIfLeader()
+            node3.commitLogEntriesIfLeader()
+            node3.sendAppendEntriesIfLeader()
+        }
+        assertThatLogs(node3, node4, node5)
+            .hasOnlyCommands(1, 2, 3)
+            .hasOnlyTerms(7L, 7L, 7L)
+
+        clusterTopology.isolateNodes(node1, node2, node3, node4, node5) {
+            node3.sendAppendEntriesIfLeader()
+        }
+
+        assertThatLogs(node1, node2, node3, node4, node5)
+            .hasCommittedEntriesSize(3L)
+            .isCommittedEntriesInSync()
+            .hasOnlyCommands(1, 2, 3)
+            .hasOnlyTerms(7L, 7L, 7L)
     }
 
     private fun buildTopology(): StubClusterTopology<ManagedPaxosProtocolNode<Command>> {
@@ -299,7 +353,7 @@ class PaxosControllerTests {
     }
 
     private fun StubClusterTopology<ManagedPaxosProtocolNode<Command>>.buildNodes(n: Int): List<ManagedPaxosProtocolNode<Command>> {
-        return (1..n).map {
+        return (0 until n).map {
             buildNode("node-$it", it, n)
         }
     }

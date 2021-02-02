@@ -28,7 +28,7 @@ class VoteRequestSender<C>(
         if (clusterNodeIdentifiers.isEmpty()) {
             error("Cluster cannot be empty")
         }
-        val nextTerm: Long = localNodeState.currentTerm + clusterNodeIdentifiers.size
+        val nextTerm: Long = calculateNextTerm(clusterTopology.nodes.size.toLong())
 
         val lastCommitIndex: Long? = logStore.lastCommitIndex()
         val voteRequest: PaxosMessage.VoteRequest = becomeCandidate(nextTerm, lastCommitIndex)
@@ -113,6 +113,13 @@ class VoteRequestSender<C>(
             LOGGER.debug("${localNodeState.nodeIdentifier} :: logEntry with index ${firstUncommittedIndex + index} set to ${logEntry.command} with term ${nextTerm}")
             logStore.setLogEntry(firstUncommittedIndex + index, LogEntry(nextTerm, logEntry.command))
         }
+    }
+
+    private fun calculateNextTerm(fullClusterSize: Long): Long {
+        val currentTerm: Long = localNodeState.currentTerm
+        val currentRoundDelta = if (currentTerm % fullClusterSize >= localNodeState.uniqueNodeIdentifier) 1L else 0L
+        val currentRound = currentTerm / fullClusterSize + currentRoundDelta
+        return currentRound * fullClusterSize + localNodeState.uniqueNodeIdentifier
     }
 
     companion object {
