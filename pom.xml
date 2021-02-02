@@ -9,6 +9,7 @@
         <module>raft</module>
         <module>replicator-api</module>
         <module>replicator-tests</module>
+        <module>paxos</module>
     </modules>
     <groupId>ru.splite.replicator</groupId>
     <version>DEV-SNAPSHOT</version>
