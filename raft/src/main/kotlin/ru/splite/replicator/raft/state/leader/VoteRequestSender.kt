@@ -15,11 +15,11 @@ import ru.splite.replicator.raft.state.RaftLocalNodeState
 
 class VoteRequestSender(
     private val localNodeState: RaftLocalNodeState,
-    private val logStore: ReplicatedLogStore<*>
+    private val logStore: ReplicatedLogStore
 ) {
 
     suspend fun sendVoteRequestsAsCandidate(
-        clusterTopology: ClusterTopology<VoteRequestMessageReceiver<*>>,
+        clusterTopology: ClusterTopology<VoteRequestMessageReceiver>,
         majority: Int
     ): Boolean = coroutineScope {
         val clusterNodeIdentifiers = clusterTopology.nodes.minus(localNodeState.nodeIdentifier)

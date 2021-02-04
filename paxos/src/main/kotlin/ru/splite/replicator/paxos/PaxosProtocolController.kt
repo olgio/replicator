@@ -18,13 +18,13 @@ import ru.splite.replicator.raft.state.leader.AppendEntriesSender
 import ru.splite.replicator.raft.state.leader.CommandAppender
 import ru.splite.replicator.raft.state.leader.CommitEntries
 
-class PaxosProtocolController<C>(
-    override val replicatedLogStore: ReplicatedLogStore<C>,
-    private val clusterTopology: ClusterTopology<PaxosMessageReceiver<C>>,
-    private val localNodeState: PaxosLocalNodeState<C>,
+class PaxosProtocolController(
+    override val replicatedLogStore: ReplicatedLogStore,
+    private val clusterTopology: ClusterTopology<PaxosMessageReceiver>,
+    private val localNodeState: PaxosLocalNodeState,
     private val leaderElectionQuorumSize: Int = clusterTopology.nodes.size.asMajority(),
     private val logReplicationQuorumSize: Int = clusterTopology.nodes.size.asMajority()
-) : PaxosMessageReceiver<C>, PaxosProtocol<C> {
+) : PaxosMessageReceiver, PaxosProtocol {
 
     init {
         val fullClusterSize = clusterTopology.nodes.size
@@ -65,7 +65,7 @@ class PaxosProtocolController<C>(
         appendEntriesSender.sendAppendEntriesIfLeader(clusterTopology)
     }
 
-    override suspend fun handleAppendEntries(request: RaftMessage.AppendEntries<C>): RaftMessage.AppendEntriesResponse {
+    override suspend fun handleAppendEntries(request: RaftMessage.AppendEntries): RaftMessage.AppendEntriesResponse {
         LOGGER.debug("$nodeIdentifier :: received $request")
         val response = appendEntriesHandler.handleAppendEntries(request)
         if (response.entriesAppended) {
@@ -75,7 +75,7 @@ class PaxosProtocolController<C>(
         return response
     }
 
-    override suspend fun handleVoteRequest(request: PaxosMessage.VoteRequest): PaxosMessage.VoteResponse<C> {
+    override suspend fun handleVoteRequest(request: PaxosMessage.VoteRequest): PaxosMessage.VoteResponse {
         LOGGER.debug("$nodeIdentifier :: received $request")
         val response = voteRequestHandler.handleVoteRequest(request)
         if (response.voteGranted) {
@@ -85,7 +85,7 @@ class PaxosProtocolController<C>(
         return response
     }
 
-    override fun applyCommand(command: C) {
+    override fun applyCommand(command: ByteArray) {
         commandAppender.addCommand(command)
     }
 

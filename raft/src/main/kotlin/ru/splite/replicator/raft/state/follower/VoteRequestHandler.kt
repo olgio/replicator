@@ -8,7 +8,7 @@ import ru.splite.replicator.raft.state.RaftLocalNodeState
 
 class VoteRequestHandler(
     private val localNodeState: RaftLocalNodeState,
-    private val logStore: ReplicatedLogStore<*>
+    private val logStore: ReplicatedLogStore
 ) {
 
     fun handleVoteRequest(request: RaftMessage.VoteRequest): RaftMessage.VoteResponse {

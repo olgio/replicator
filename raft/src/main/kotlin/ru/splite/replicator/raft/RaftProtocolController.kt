@@ -16,13 +16,13 @@ import ru.splite.replicator.raft.state.leader.CommandAppender
 import ru.splite.replicator.raft.state.leader.CommitEntries
 import ru.splite.replicator.raft.state.leader.VoteRequestSender
 
-class RaftProtocolController<C>(
-    override val replicatedLogStore: ReplicatedLogStore<C>,
-    private val clusterTopology: ClusterTopology<RaftMessageReceiver<C>>,
+class RaftProtocolController(
+    override val replicatedLogStore: ReplicatedLogStore,
+    private val clusterTopology: ClusterTopology<RaftMessageReceiver>,
     private val localNodeState: RaftLocalNodeState,
     private val leaderElectionQuorumSize: Int = clusterTopology.nodes.size.asMajority(),
     private val logReplicationQuorumSize: Int = clusterTopology.nodes.size.asMajority()
-) : RaftMessageReceiver<C>, RaftProtocol<C> {
+) : RaftMessageReceiver, RaftProtocol {
 
     init {
         val fullClusterSize = clusterTopology.nodes.size
@@ -63,7 +63,7 @@ class RaftProtocolController<C>(
         appendEntriesSender.sendAppendEntriesIfLeader(clusterTopology)
     }
 
-    override suspend fun handleAppendEntries(request: RaftMessage.AppendEntries<C>): RaftMessage.AppendEntriesResponse {
+    override suspend fun handleAppendEntries(request: RaftMessage.AppendEntries): RaftMessage.AppendEntriesResponse {
         LOGGER.debug("$nodeIdentifier :: received $request")
         val response = appendEntriesHandler.handleAppendEntries(request)
         if (response.entriesAppended) {
@@ -83,7 +83,7 @@ class RaftProtocolController<C>(
         return response
     }
 
-    override fun applyCommand(command: C) {
+    override fun applyCommand(command: ByteArray) {
         commandAppender.addCommand(command)
     }
 

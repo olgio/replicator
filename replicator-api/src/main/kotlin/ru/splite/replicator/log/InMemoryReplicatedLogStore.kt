@@ -4,15 +4,15 @@ import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
-class InMemoryReplicatedLogStore<C> : ReplicatedLogStore<C> {
+class InMemoryReplicatedLogStore : ReplicatedLogStore {
 
-    private val logEntries: MutableMap<Long, LogEntry<C>> = ConcurrentHashMap()
+    private val logEntries: MutableMap<Long, LogEntry> = ConcurrentHashMap()
 
     private val lastIndex = AtomicLong(-1)
 
     private val lastCommitIndex = AtomicLong(-1)
 
-    override fun setLogEntry(index: Long, logEntry: LogEntry<C>) {
+    override fun setLogEntry(index: Long, logEntry: LogEntry) {
         validateIndex(index)
         if (lastCommitIndex.get() >= index) {
             error("Cannot override committed log entry at index $index")
@@ -22,14 +22,14 @@ class InMemoryReplicatedLogStore<C> : ReplicatedLogStore<C> {
         LOGGER.info("Set log entry with index $index: $logEntry")
     }
 
-    override fun appendLogEntry(logEntry: LogEntry<C>): Long {
+    override fun appendLogEntry(logEntry: LogEntry): Long {
         val newIndex = lastIndex.incrementAndGet()
         logEntries[newIndex] = logEntry
         LOGGER.info("Appended log with index $newIndex: $logEntry")
         return newIndex
     }
 
-    override fun getLogEntryByIndex(index: Long): LogEntry<C>? {
+    override fun getLogEntryByIndex(index: Long): LogEntry? {
         validateIndex(index)
         if (index > lastIndex.get()) {
             return null

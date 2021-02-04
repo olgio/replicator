@@ -1,6 +1,6 @@
 package ru.splite.replicator.raft.message
 
-interface AppendEntriesMessageReceiver<C> {
+interface AppendEntriesMessageReceiver {
 
-    suspend fun handleAppendEntries(request: RaftMessage.AppendEntries<C>): RaftMessage.AppendEntriesResponse
+    suspend fun handleAppendEntries(request: RaftMessage.AppendEntries): RaftMessage.AppendEntriesResponse
 }

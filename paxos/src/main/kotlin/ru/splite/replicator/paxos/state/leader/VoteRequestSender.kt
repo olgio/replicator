@@ -14,13 +14,13 @@ import ru.splite.replicator.paxos.state.PaxosLocalNodeState
 import ru.splite.replicator.raft.state.ExternalNodeState
 import ru.splite.replicator.raft.state.NodeType
 
-class VoteRequestSender<C>(
-    private val localNodeState: PaxosLocalNodeState<C>,
-    private val logStore: ReplicatedLogStore<C>
+class VoteRequestSender(
+    private val localNodeState: PaxosLocalNodeState,
+    private val logStore: ReplicatedLogStore
 ) {
 
     suspend fun sendVoteRequestsAsCandidate(
-        clusterTopology: ClusterTopology<PaxosMessageReceiver<C>>,
+        clusterTopology: ClusterTopology<PaxosMessageReceiver>,
         majority: Int
     ): Boolean = coroutineScope {
         val clusterNodeIdentifiers = clusterTopology.nodes.minus(localNodeState.nodeIdentifier)
@@ -33,10 +33,10 @@ class VoteRequestSender<C>(
         val lastCommitIndex: Long? = logStore.lastCommitIndex()
         val voteRequest: PaxosMessage.VoteRequest = becomeCandidate(nextTerm, lastCommitIndex)
 
-        val voteResponses: List<PaxosMessage.VoteResponse<C>> = clusterNodeIdentifiers.map { dstNodeIdentifier ->
+        val voteResponses: List<PaxosMessage.VoteResponse> = clusterNodeIdentifiers.map { dstNodeIdentifier ->
             async {
                 kotlin.runCatching {
-                    val voteResponse: PaxosMessage.VoteResponse<C> = withTimeout(1000) {
+                    val voteResponse: PaxosMessage.VoteResponse = withTimeout(1000) {
                         clusterTopology[dstNodeIdentifier].handleVoteRequest(voteRequest)
                     }
                     voteResponse
@@ -86,10 +86,10 @@ class VoteRequestSender<C>(
         }
     }
 
-    private fun handleVoteResponsesIfMajority(nextTerm: Long, voteResponses: List<PaxosMessage.VoteResponse<C>>) {
+    private fun handleVoteResponsesIfMajority(nextTerm: Long, voteResponses: List<PaxosMessage.VoteResponse>) {
         val firstUncommittedIndex: Long = logStore.lastCommitIndex()?.plus(1) ?: 0
 
-        val entries: MutableList<LogEntry<C>> = generateSequence(firstUncommittedIndex) {
+        val entries: MutableList<LogEntry> = generateSequence(firstUncommittedIndex) {
             it + 1
         }.map {
             logStore.getLogEntryByIndex(it)

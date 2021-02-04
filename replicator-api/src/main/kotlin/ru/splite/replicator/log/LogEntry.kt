@@ -1,3 +1,6 @@
 package ru.splite.replicator.log
 
-data class LogEntry<C>(val term: Long, val command: C)
+import kotlinx.serialization.Serializable
+
+@Serializable
+class LogEntry(val term: Long, val command: ByteArray)

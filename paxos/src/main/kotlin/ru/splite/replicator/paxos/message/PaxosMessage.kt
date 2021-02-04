@@ -1,25 +1,29 @@
 package ru.splite.replicator.paxos.message
 
+import kotlinx.serialization.Serializable
 import ru.splite.replicator.log.LogEntry
 
-sealed class PaxosMessage(open val term: Long) {
+@Serializable
+sealed class PaxosMessage() {
 
+    @Serializable
     data class VoteRequest(
         /**
          * candidate’s term
          */
-        override val term: Long,
+        val term: Long,
         /**
          * candidate’s commit index
          */
         val leaderCommit: Long?
-    ) : PaxosMessage(term)
+    ) : PaxosMessage()
 
-    data class VoteResponse<C>(
+    @Serializable
+    data class VoteResponse(
         /**
          * currentTerm, for candidate to update itself
          */
-        override val term: Long,
+        val term: Long,
         /**
          * true indicates candidate received vote
          */
@@ -27,6 +31,6 @@ sealed class PaxosMessage(open val term: Long) {
         /**
          * follower’s log entries after leaderCommit
          */
-        val entries: List<LogEntry<C>>
-    ) : PaxosMessage(term)
+        val entries: List<LogEntry>
+    ) : PaxosMessage()
 }

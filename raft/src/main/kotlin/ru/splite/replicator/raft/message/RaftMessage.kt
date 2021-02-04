@@ -1,34 +1,40 @@
 package ru.splite.replicator.raft.message
 
+import kotlinx.serialization.Serializable
 import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.log.LogEntry
 
-sealed class RaftMessage(open val term: Long) {
+@Serializable
+sealed class RaftMessage() {
 
+    @Serializable
     data class VoteRequest(
-        override val term: Long,
+        val term: Long,
         val candidateIdentifier: NodeIdentifier,
         val lastLogIndex: Long?,
         val lastLogTerm: Long?
-    ) : RaftMessage(term)
+    ) : RaftMessage()
 
+    @Serializable
     data class VoteResponse(
-        override val term: Long,
+        val term: Long,
         val voteGranted: Boolean
-    ) : RaftMessage(term)
+    ) : RaftMessage()
 
-    data class AppendEntries<C>(
-        override val term: Long,
+    @Serializable
+    data class AppendEntries(
+        val term: Long,
         val leaderIdentifier: NodeIdentifier,
         val prevLogIndex: Long?,
         val prevLogTerm: Long?,
         val lastCommitIndex: Long?,
-        val entries: List<LogEntry<C>>
-    ) : RaftMessage(term)
+        val entries: List<LogEntry>
+    ) : RaftMessage()
 
+    @Serializable
     data class AppendEntriesResponse(
-        override val term: Long,
+        val term: Long,
         val entriesAppended: Boolean
-    ) : RaftMessage(term)
+    ) : RaftMessage()
 
 }

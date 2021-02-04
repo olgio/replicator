@@ -1,5 +1,8 @@
 package ru.splite.replicator.bus
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class NodeIdentifier(val identifier: String) {
 
     override fun toString(): String {

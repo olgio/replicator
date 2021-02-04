@@ -5,12 +5,12 @@ import ru.splite.replicator.log.ReplicatedLogStore
 import ru.splite.replicator.paxos.message.PaxosMessage
 import ru.splite.replicator.paxos.state.PaxosLocalNodeState
 
-class VoteRequestHandler<C>(
-    private val localNodeState: PaxosLocalNodeState<C>,
-    private val logStore: ReplicatedLogStore<C>
+class VoteRequestHandler(
+    private val localNodeState: PaxosLocalNodeState,
+    private val logStore: ReplicatedLogStore
 ) {
 
-    fun handleVoteRequest(request: PaxosMessage.VoteRequest): PaxosMessage.VoteResponse<C> {
+    fun handleVoteRequest(request: PaxosMessage.VoteRequest): PaxosMessage.VoteResponse {
 
         //текущий терм больше полученного -> получили устаревший запрос -> отклоняем
         if (localNodeState.currentTerm > request.term) {

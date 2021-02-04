@@ -7,10 +7,10 @@ import ru.splite.replicator.log.ReplicatedLogStore
 import ru.splite.replicator.raft.state.NodeType
 import ru.splite.replicator.raft.state.RaftLocalNodeState
 
-class CommitEntries<C>(
+class CommitEntries(
     private val localNodeState: RaftLocalNodeState,
-    private val logStore: ReplicatedLogStore<C>,
-    private val logEntryCommittableCondition: (LogEntry<C>, Long) -> Boolean
+    private val logStore: ReplicatedLogStore,
+    private val logEntryCommittableCondition: (LogEntry, Long) -> Boolean
 ) {
 
     fun commitLogEntriesIfLeader(clusterTopology: ClusterTopology<*>, majority: Int) {

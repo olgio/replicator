@@ -8,7 +8,7 @@ import ru.splite.replicator.raft.timer.RenewableTimerTask
 import java.util.*
 import kotlin.concurrent.fixedRateTimer
 
-class RaftProtocolScheduler(private val raftProtocol: RaftProtocol<*>) {
+class RaftProtocolScheduler(private val raftProtocol: RaftProtocol) {
 
     private val renewableTimerFactory = RenewableTimerFactory()
 

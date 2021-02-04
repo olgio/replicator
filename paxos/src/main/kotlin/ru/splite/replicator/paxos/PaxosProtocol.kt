@@ -3,11 +3,11 @@ package ru.splite.replicator.paxos
 import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.log.ReplicatedLogStore
 
-interface PaxosProtocol<C> {
+interface PaxosProtocol {
 
     val nodeIdentifier: NodeIdentifier
 
-    val replicatedLogStore: ReplicatedLogStore<C>
+    val replicatedLogStore: ReplicatedLogStore
 
     val isLeader: Boolean
 
@@ -17,5 +17,5 @@ interface PaxosProtocol<C> {
 
     suspend fun sendAppendEntriesIfLeader()
 
-    fun applyCommand(command: C)
+    fun applyCommand(command: ByteArray)
 }

@@ -13,9 +13,9 @@ import ru.splite.replicator.raft.message.RaftMessage
 import ru.splite.replicator.raft.state.NodeType
 import ru.splite.replicator.raft.state.RaftLocalNodeState
 
-class AppendEntriesSender<C>(
+class AppendEntriesSender(
     private val localNodeState: RaftLocalNodeState,
-    private val logStore: ReplicatedLogStore<C>
+    private val logStore: ReplicatedLogStore
 ) {
 
     private data class AppendEntriesResult(
@@ -24,13 +24,13 @@ class AppendEntriesSender<C>(
         val isSuccess: Boolean
     )
 
-    suspend fun sendAppendEntriesIfLeader(clusterTopology: ClusterTopology<AppendEntriesMessageReceiver<C>>) =
+    suspend fun sendAppendEntriesIfLeader(clusterTopology: ClusterTopology<AppendEntriesMessageReceiver>) =
         coroutineScope {
             val clusterNodeIdentifiers = clusterTopology.nodes.minus(localNodeState.nodeIdentifier)
 
             clusterNodeIdentifiers.map { dstNodeIdentifier ->
                 val nextIndexPerNode: Long = localNodeState.externalNodeStates[dstNodeIdentifier]!!.nextIndex
-                val appendEntriesRequest: RaftMessage.AppendEntries<C> =
+                val appendEntriesRequest: RaftMessage.AppendEntries =
                     buildAppendEntries(fromIndex = nextIndexPerNode)
                 val matchIndexIfSuccess = nextIndexPerNode + appendEntriesRequest.entries.size - 1
                 val deferredAppendEntriesResult: Deferred<AppendEntriesResult> = async {
@@ -59,7 +59,7 @@ class AppendEntriesSender<C>(
         Unit
     }
 
-    private fun buildAppendEntries(fromIndex: Long): RaftMessage.AppendEntries<C> {
+    private fun buildAppendEntries(fromIndex: Long): RaftMessage.AppendEntries {
         if (fromIndex < 0) {
             error("fromIndex cannot be negative")
         }

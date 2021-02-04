@@ -1,6 +1,8 @@
 package ru.splite.replicator.paxos
 
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.encodeToByteArray
+import kotlinx.serialization.protobuf.ProtoBuf
 import org.assertj.core.api.Assertions.assertThat
 import ru.splite.replicator.Command
 import ru.splite.replicator.bus.NodeIdentifier
@@ -21,8 +23,8 @@ class PaxosControllerTests {
 
         node2.apply {
             assertThat(sendVoteRequestsAsCandidate()).isTrue
-            applyCommand(Command(1))
-            applyCommand(Command(2))
+            applyCommand(newCommand(1))
+            applyCommand(newCommand(2))
             sendAppendEntriesIfLeader()
             commitLogEntriesIfLeader()
             sendAppendEntriesIfLeader()
@@ -42,12 +44,12 @@ class PaxosControllerTests {
 
         node2.apply {
             assertThat(sendVoteRequestsAsCandidate()).isTrue
-            applyCommand(Command(1))
+            applyCommand(newCommand(1))
             sendAppendEntriesIfLeader()
             commitLogEntriesIfLeader()
             assertThatLogs(node1).hasCommittedEntriesSize(0)
 
-            applyCommand(Command(2))
+            applyCommand(newCommand(2))
             sendAppendEntriesIfLeader()
             commitLogEntriesIfLeader()
             sendAppendEntriesIfLeader()
@@ -67,7 +69,7 @@ class PaxosControllerTests {
 
         clusterTopology.isolateNodes(node1, node2) {
             assertThat(node1.sendVoteRequestsAsCandidate()).isTrue
-            node1.applyCommand(Command(1))
+            node1.applyCommand(newCommand(1))
             node1.sendAppendEntriesIfLeader()
             assertThatLogs(node2).hasOnlyCommands(1)
         }
@@ -78,7 +80,7 @@ class PaxosControllerTests {
             node2.sendAppendEntriesIfLeader()
             assertThatLogs(node3).hasOnlyCommands(1)
 
-            node2.applyCommand(Command(2))
+            node2.applyCommand(newCommand(2))
             node2.sendAppendEntriesIfLeader()
             assertThatLogs(node3).hasOnlyCommands(1, 2)
         }
@@ -92,7 +94,7 @@ class PaxosControllerTests {
 
         node2.apply {
             assertThat(sendVoteRequestsAsCandidate()).isTrue
-            applyCommand(Command(1))
+            applyCommand(newCommand(1))
             sendAppendEntriesIfLeader()
 
             assertThatLogs(node1, node2, node3)
@@ -128,7 +130,7 @@ class PaxosControllerTests {
 
         node2.apply {
             sendVoteRequestsAsCandidate()
-            applyCommand(Command(1))
+            applyCommand(newCommand(1))
             sendAppendEntriesIfLeader()
         }
 
@@ -136,8 +138,8 @@ class PaxosControllerTests {
 
         node3.apply {
             sendVoteRequestsAsCandidate()
-            applyCommand(Command(2))
-            applyCommand(Command(3))
+            applyCommand(newCommand(2))
+            applyCommand(newCommand(3))
             sendAppendEntriesIfLeader()
             commitLogEntriesIfLeader()
             sendAppendEntriesIfLeader()
@@ -164,8 +166,8 @@ class PaxosControllerTests {
         assertThat(node1.sendVoteRequestsAsCandidate()).isTrue
         node1.sendAppendEntriesIfLeader()
         clusterTopology.isolateNodes(node1) {
-            node1.applyCommand(Command(1))
-            node1.applyCommand(Command(2))
+            node1.applyCommand(newCommand(1))
+            node1.applyCommand(newCommand(2))
         }
         assertThatLogs(node1)
             .hasCommittedEntriesSize(0)
@@ -175,8 +177,8 @@ class PaxosControllerTests {
         clusterTopology.isolateNodes(node2, node3) {
             node3.apply {
                 assertThat(sendVoteRequestsAsCandidate()).isTrue
-                applyCommand(Command(3))
-                applyCommand(Command(4))
+                applyCommand(newCommand(3))
+                applyCommand(newCommand(4))
                 sendAppendEntriesIfLeader()
                 commitLogEntriesIfLeader()
                 sendAppendEntriesIfLeader()
@@ -226,7 +228,7 @@ class PaxosControllerTests {
         assertThat(node1.sendVoteRequestsAsCandidate()).isTrue
 
         clusterTopology.isolateNodes(node1) {
-            node1.applyCommand(Command(1))
+            node1.applyCommand(newCommand(1))
             repeat(2) {
                 node1.sendAppendEntriesIfLeader()
                 node1.commitLogEntriesIfLeader()
@@ -251,12 +253,12 @@ class PaxosControllerTests {
 
         node1.apply {
             assertThat(sendVoteRequestsAsCandidate()).isTrue
-            applyCommand(Command(1))
+            applyCommand(newCommand(1))
             sendAppendEntriesIfLeader()
         }
 
         clusterTopology.isolateNodes(node1, node2) {
-            node1.applyCommand(Command(2))
+            node1.applyCommand(newCommand(2))
             node1.sendAppendEntriesIfLeader()
         }
         assertThatLogs(node1, node2)
@@ -266,7 +268,7 @@ class PaxosControllerTests {
         clusterTopology.isolateNodes(node3, node4, node5) {
             assertThat(node3.sendVoteRequestsAsCandidate()).isTrue
             node3.sendAppendEntriesIfLeader()
-            node3.applyCommand(Command(3))
+            node3.applyCommand(newCommand(3))
             node3.sendAppendEntriesIfLeader()
             node3.commitLogEntriesIfLeader()
             node3.sendAppendEntriesIfLeader()
@@ -294,12 +296,12 @@ class PaxosControllerTests {
 
         node1.apply {
             assertThat(sendVoteRequestsAsCandidate()).isTrue
-            applyCommand(Command(1))
+            applyCommand(newCommand(1))
             sendAppendEntriesIfLeader()
         }
 
         clusterTopology.isolateNodes(node1, node2, node4) {
-            node1.applyCommand(Command(2))
+            node1.applyCommand(newCommand(2))
             node1.sendAppendEntriesIfLeader()
         }
         assertThatLogs(node1, node2, node4)
@@ -309,7 +311,7 @@ class PaxosControllerTests {
         clusterTopology.isolateNodes(node3, node4, node5) {
             assertThat(node3.sendVoteRequestsAsCandidate()).isTrue
             node3.sendAppendEntriesIfLeader()
-            node3.applyCommand(Command(3))
+            node3.applyCommand(newCommand(3))
             node3.sendAppendEntriesIfLeader()
             node3.commitLogEntriesIfLeader()
             node3.sendAppendEntriesIfLeader()
@@ -329,18 +331,22 @@ class PaxosControllerTests {
             .hasOnlyTerms(7L, 7L, 7L)
     }
 
-    private fun buildTopology(): StubClusterTopology<ManagedPaxosProtocolNode<Command>> {
+    private fun newCommand(value: Long): ByteArray {
+        return ProtoBuf.encodeToByteArray(Command(value))
+    }
+
+    private fun buildTopology(): StubClusterTopology<ManagedPaxosProtocolNode> {
         return StubClusterTopology()
     }
 
-    private fun StubClusterTopology<ManagedPaxosProtocolNode<Command>>.buildNode(
+    private fun StubClusterTopology<ManagedPaxosProtocolNode>.buildNode(
         name: String,
         n: Int,
         fullSize: Int
-    ): ManagedPaxosProtocolNode<Command> {
+    ): ManagedPaxosProtocolNode {
         val nodeIdentifier = NodeIdentifier(name)
-        val logStore = InMemoryReplicatedLogStore<Command>()
-        val localNodeState = PaxosLocalNodeState<Command>(nodeIdentifier, n.toLong())
+        val logStore = InMemoryReplicatedLogStore()
+        val localNodeState = PaxosLocalNodeState(nodeIdentifier, n.toLong())
         val node = PaxosProtocolController(
             logStore,
             this,
@@ -352,7 +358,7 @@ class PaxosControllerTests {
         return node
     }
 
-    private fun StubClusterTopology<ManagedPaxosProtocolNode<Command>>.buildNodes(n: Int): List<ManagedPaxosProtocolNode<Command>> {
+    private fun StubClusterTopology<ManagedPaxosProtocolNode>.buildNodes(n: Int): List<ManagedPaxosProtocolNode> {
         return (0 until n).map {
             buildNode("node-$it", it, n)
         }

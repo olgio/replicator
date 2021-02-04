@@ -6,12 +6,12 @@ import ru.splite.replicator.raft.message.RaftMessage
 import ru.splite.replicator.raft.state.NodeType
 import ru.splite.replicator.raft.state.RaftLocalNodeState
 
-class AppendEntriesHandler<C>(
+class AppendEntriesHandler(
     private val localNodeState: RaftLocalNodeState,
-    private val logStore: ReplicatedLogStore<C>
+    private val logStore: ReplicatedLogStore
 ) {
 
-    fun handleAppendEntries(request: RaftMessage.AppendEntries<C>): RaftMessage.AppendEntriesResponse {
+    fun handleAppendEntries(request: RaftMessage.AppendEntries): RaftMessage.AppendEntriesResponse {
 
         //игнорируем запрос из терма меньше текущего
         if (localNodeState.currentTerm > request.term) {

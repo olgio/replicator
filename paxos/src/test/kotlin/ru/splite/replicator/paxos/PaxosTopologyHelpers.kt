@@ -8,14 +8,14 @@ import ru.splite.replicator.paxos.message.PaxosMessageReceiver
 import ru.splite.replicator.raft.message.RaftMessage
 import java.util.concurrent.atomic.AtomicBoolean
 
-fun <C> assertThatLogs(vararg nodes: PaxosProtocol<C>): LogStoreAssert<C> {
+fun assertThatLogs(vararg nodes: PaxosProtocol): LogStoreAssert {
     return LogStoreAssert.assertThatLogs(*nodes.map { it.replicatedLogStore }.toTypedArray())
 }
 
-fun <C> PaxosProtocolController<C>.asManaged(): ManagedPaxosProtocolNode<C> = ManagedPaxosProtocolNode(this)
+fun PaxosProtocolController.asManaged(): ManagedPaxosProtocolNode = ManagedPaxosProtocolNode(this)
 
-suspend fun <C> ClusterTopology<ManagedPaxosProtocolNode<C>>.isolateNodes(
-    vararg nodes: ManagedPaxosProtocolNode<C>,
+suspend fun ClusterTopology<ManagedPaxosProtocolNode>.isolateNodes(
+    vararg nodes: ManagedPaxosProtocolNode,
     action: suspend () -> Unit
 ) {
     this.nodes.map {
@@ -30,8 +30,8 @@ suspend fun <C> ClusterTopology<ManagedPaxosProtocolNode<C>>.isolateNodes(
     action.invoke()
 }
 
-class ManagedPaxosProtocolNode<C>(private val receiver: PaxosProtocolController<C>) : PaxosProtocol<C> by receiver,
-    PaxosMessageReceiver<C> {
+class ManagedPaxosProtocolNode(private val receiver: PaxosProtocolController) : PaxosProtocol by receiver,
+    PaxosMessageReceiver {
 
     private val isAvailable = AtomicBoolean(true)
 
@@ -43,12 +43,12 @@ class ManagedPaxosProtocolNode<C>(private val receiver: PaxosProtocolController<
         isAvailable.set(true)
     }
 
-    override suspend fun handleAppendEntries(request: RaftMessage.AppendEntries<C>): RaftMessage.AppendEntriesResponse {
+    override suspend fun handleAppendEntries(request: RaftMessage.AppendEntries): RaftMessage.AppendEntriesResponse {
         throwIfNotAvailable()
         return receiver.handleAppendEntries(request)
     }
 
-    override suspend fun handleVoteRequest(request: PaxosMessage.VoteRequest): PaxosMessage.VoteResponse<C> {
+    override suspend fun handleVoteRequest(request: PaxosMessage.VoteRequest): PaxosMessage.VoteResponse {
         throwIfNotAvailable()
         return receiver.handleVoteRequest(request)
     }

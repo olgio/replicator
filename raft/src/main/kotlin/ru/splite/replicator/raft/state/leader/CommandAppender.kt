@@ -5,12 +5,12 @@ import ru.splite.replicator.log.ReplicatedLogStore
 import ru.splite.replicator.raft.state.NodeType
 import ru.splite.replicator.raft.state.RaftLocalNodeState
 
-class CommandAppender<C>(
+class CommandAppender(
     private val localNodeState: RaftLocalNodeState,
-    private val logStore: ReplicatedLogStore<C>
+    private val logStore: ReplicatedLogStore
 ) {
 
-    fun addCommand(command: C): Long {
+    fun addCommand(command: ByteArray): Long {
         if (localNodeState.currentNodeType != NodeType.LEADER) {
             error("Only leader can add command")
         }

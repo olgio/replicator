@@ -1,12 +1,12 @@
 package ru.splite.replicator.log
 
-interface ReplicatedLogStore<C> {
+interface ReplicatedLogStore {
 
-    fun setLogEntry(index: Long, logEntry: LogEntry<C>)
+    fun setLogEntry(index: Long, logEntry: LogEntry)
 
-    fun appendLogEntry(logEntry: LogEntry<C>): Long
+    fun appendLogEntry(logEntry: LogEntry): Long
 
-    fun getLogEntryByIndex(index: Long): LogEntry<C>?
+    fun getLogEntryByIndex(index: Long): LogEntry?
 
     fun prune(index: Long): Long
 

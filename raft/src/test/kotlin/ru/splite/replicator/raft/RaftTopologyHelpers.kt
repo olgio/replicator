@@ -7,14 +7,14 @@ import ru.splite.replicator.raft.message.RaftMessage
 import ru.splite.replicator.raft.message.RaftMessageReceiver
 import java.util.concurrent.atomic.AtomicBoolean
 
-fun <C> assertThatLogs(vararg nodes: RaftProtocol<C>): LogStoreAssert<C> {
+fun assertThatLogs(vararg nodes: RaftProtocol): LogStoreAssert {
     return LogStoreAssert.assertThatLogs(*nodes.map { it.replicatedLogStore }.toTypedArray())
 }
 
-fun <C> RaftProtocolController<C>.asManaged(): ManagedRaftProtocolNode<C> = ManagedRaftProtocolNode(this)
+fun RaftProtocolController.asManaged(): ManagedRaftProtocolNode = ManagedRaftProtocolNode(this)
 
-suspend fun <C> ClusterTopology<ManagedRaftProtocolNode<C>>.isolateNodes(
-    vararg nodes: ManagedRaftProtocolNode<C>,
+suspend fun ClusterTopology<ManagedRaftProtocolNode>.isolateNodes(
+    vararg nodes: ManagedRaftProtocolNode,
     action: suspend () -> Unit
 ) {
     this.nodes.map {
@@ -29,8 +29,8 @@ suspend fun <C> ClusterTopology<ManagedRaftProtocolNode<C>>.isolateNodes(
     action.invoke()
 }
 
-class ManagedRaftProtocolNode<C>(private val receiver: RaftProtocolController<C>) : RaftProtocol<C> by receiver,
-    RaftMessageReceiver<C> {
+class ManagedRaftProtocolNode(private val receiver: RaftProtocolController) : RaftProtocol by receiver,
+    RaftMessageReceiver {
 
     private val isAvailable = AtomicBoolean(true)
 
@@ -42,8 +42,10 @@ class ManagedRaftProtocolNode<C>(private val receiver: RaftProtocolController<C>
         isAvailable.set(true)
     }
 
-    override suspend fun handleAppendEntries(request: RaftMessage.AppendEntries<C>): RaftMessage.AppendEntriesResponse {
+    override suspend fun handleAppendEntries(request: RaftMessage.AppendEntries): RaftMessage.AppendEntriesResponse {
         throwIfNotAvailable()
+//        val encoded: ByteArray = ProtoBuf.encodeToByteArray<RaftMessage>(request)
+//        val decoded = ProtoBuf.decodeFromByteArray<RaftMessage>(encoded)
         return receiver.handleAppendEntries(request)
     }
 
