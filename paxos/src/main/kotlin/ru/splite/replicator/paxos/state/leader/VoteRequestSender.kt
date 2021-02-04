@@ -68,7 +68,7 @@ class VoteRequestSender(
 
         return PaxosMessage.VoteRequest(
             term = localNodeState.currentTerm,
-            leaderCommit = lastCommitIndex
+            leaderCommit = lastCommitIndex ?: -1
         )
     }
 

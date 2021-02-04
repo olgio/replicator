@@ -27,7 +27,7 @@ class AppendEntriesHandler(
         localNodeState.leaderIdentifier = request.leaderIdentifier
         localNodeState.currentNodeType = NodeType.FOLLOWER
 
-        if (request.prevLogIndex != null) {
+        if (request.prevLogIndex >= 0) {
             val prevLogConsistent: Boolean = logStore.getLogEntryByIndex(request.prevLogIndex)?.let { prevLogEntry ->
                 prevLogEntry.term == request.prevLogTerm
             } ?: false
@@ -39,7 +39,7 @@ class AppendEntriesHandler(
         }
 
         request.entries.forEachIndexed { index, logEntry ->
-            val logIndex: Long = (request.prevLogIndex ?: -1) + index + 1
+            val logIndex: Long = (request.prevLogIndex) + index + 1
             if (logStore.getLogEntryByIndex(logIndex) != null) {
                 logStore.prune(logIndex)
             }
@@ -47,7 +47,7 @@ class AppendEntriesHandler(
         }
 
 
-        if (request.lastCommitIndex != null) {
+        if (request.lastCommitIndex >= 0) {
             logStore.commit(request.lastCommitIndex)
         }
 

@@ -59,8 +59,8 @@ class VoteRequestHandler(
         val lastLogIndex: Long = logStore.lastLogIndex() ?: -1
         val lastLogTerm: Long = if (lastLogIndex < 0) -1 else logStore.getLogEntryByIndex(lastLogIndex)!!.term
 
-        val candidateLastLogIndex = request.lastLogIndex ?: -1
-        val candidateLastLogTerm = request.lastLogTerm ?: -1
+        val candidateLastLogIndex = request.lastLogIndex
+        val candidateLastLogTerm = request.lastLogTerm
 
         LOGGER.debug(
             "{} voting for {}. lastLogTerm = [current = {}, candidate = {}], lastLogIndex = [current = {}, candidate = {}]",

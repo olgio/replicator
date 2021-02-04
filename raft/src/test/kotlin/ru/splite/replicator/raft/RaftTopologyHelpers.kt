@@ -44,8 +44,6 @@ class ManagedRaftProtocolNode(private val receiver: RaftProtocolController) : Ra
 
     override suspend fun handleAppendEntries(request: RaftMessage.AppendEntries): RaftMessage.AppendEntriesResponse {
         throwIfNotAvailable()
-//        val encoded: ByteArray = ProtoBuf.encodeToByteArray<RaftMessage>(request)
-//        val decoded = ProtoBuf.decodeFromByteArray<RaftMessage>(encoded)
         return receiver.handleAppendEntries(request)
     }
 

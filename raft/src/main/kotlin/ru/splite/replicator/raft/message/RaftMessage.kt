@@ -5,14 +5,14 @@ import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.log.LogEntry
 
 @Serializable
-sealed class RaftMessage() {
+sealed class RaftMessage {
 
     @Serializable
     data class VoteRequest(
         val term: Long,
         val candidateIdentifier: NodeIdentifier,
-        val lastLogIndex: Long?,
-        val lastLogTerm: Long?
+        val lastLogIndex: Long,
+        val lastLogTerm: Long
     ) : RaftMessage()
 
     @Serializable
@@ -25,9 +25,9 @@ sealed class RaftMessage() {
     data class AppendEntries(
         val term: Long,
         val leaderIdentifier: NodeIdentifier,
-        val prevLogIndex: Long?,
-        val prevLogTerm: Long?,
-        val lastCommitIndex: Long?,
+        val prevLogIndex: Long,
+        val prevLogTerm: Long,
+        val lastCommitIndex: Long,
         val entries: List<LogEntry>
     ) : RaftMessage()
 

@@ -65,7 +65,7 @@ class VoteRequestSender(
 
         return RaftMessage.VoteRequest(
             term = localNodeState.currentTerm, candidateIdentifier = localNodeState.nodeIdentifier,
-            lastLogIndex = lastLogIndex, lastLogTerm = lastLogTerm
+            lastLogIndex = lastLogIndex ?: -1, lastLogTerm = lastLogTerm ?: -1
         )
     }
 

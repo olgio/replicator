@@ -22,7 +22,7 @@ class VoteRequestHandler(
             )
         }
 
-        val fromLogIndex: Long = request.leaderCommit?.plus(1) ?: 0
+        val fromLogIndex: Long = request.leaderCommit + 1
 
         val entries = generateSequence(fromLogIndex) {
             it + 1

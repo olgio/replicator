@@ -4,7 +4,7 @@ import kotlinx.serialization.Serializable
 import ru.splite.replicator.log.LogEntry
 
 @Serializable
-sealed class PaxosMessage() {
+sealed class PaxosMessage {
 
     @Serializable
     data class VoteRequest(
@@ -15,7 +15,7 @@ sealed class PaxosMessage() {
         /**
          * candidate’s commit index
          */
-        val leaderCommit: Long?
+        val leaderCommit: Long
     ) : PaxosMessage()
 
     @Serializable

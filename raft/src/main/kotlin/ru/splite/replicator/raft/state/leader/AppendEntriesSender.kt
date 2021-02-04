@@ -84,9 +84,9 @@ class AppendEntriesSender(
             return RaftMessage.AppendEntries(
                 term = localNodeState.currentTerm,
                 leaderIdentifier = localNodeState.nodeIdentifier,
-                prevLogIndex = prevLogIndex,
-                prevLogTerm = prevLogTerm,
-                lastCommitIndex = lastCommitIndex,
+                prevLogIndex = prevLogIndex ?: -1,
+                prevLogTerm = prevLogTerm ?: -1,
+                lastCommitIndex = lastCommitIndex ?: -1,
                 entries = entries
             )
         }
@@ -96,9 +96,9 @@ class AppendEntriesSender(
         return RaftMessage.AppendEntries(
             term = localNodeState.currentTerm,
             leaderIdentifier = localNodeState.nodeIdentifier,
-            prevLogIndex = lastLogIndex,
-            prevLogTerm = lastLogTerm,
-            lastCommitIndex = lastCommitIndex,
+            prevLogIndex = lastLogIndex ?: -1,
+            prevLogTerm = lastLogTerm ?: -1,
+            lastCommitIndex = lastCommitIndex ?: -1,
             entries = emptyList()
         )
     }
