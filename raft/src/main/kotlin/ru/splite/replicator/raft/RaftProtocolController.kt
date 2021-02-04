@@ -1,8 +1,10 @@
 package ru.splite.replicator.raft
 
 import kotlinx.coroutines.coroutineScope
+import kotlinx.serialization.decodeFromByteArray
+import kotlinx.serialization.encodeToByteArray
+import kotlinx.serialization.protobuf.ProtoBuf
 import org.slf4j.LoggerFactory
-import ru.splite.replicator.bus.ClusterTopology
 import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.log.ReplicatedLogStore
 import ru.splite.replicator.raft.message.RaftMessage
@@ -15,17 +17,19 @@ import ru.splite.replicator.raft.state.leader.AppendEntriesSender
 import ru.splite.replicator.raft.state.leader.CommandAppender
 import ru.splite.replicator.raft.state.leader.CommitEntries
 import ru.splite.replicator.raft.state.leader.VoteRequestSender
+import ru.splite.replicator.transport.Actor
+import ru.splite.replicator.transport.Transport
 
 class RaftProtocolController(
     override val replicatedLogStore: ReplicatedLogStore,
-    private val clusterTopology: ClusterTopology<RaftMessageReceiver>,
+    private val transport: Transport,
     private val localNodeState: RaftLocalNodeState,
-    private val leaderElectionQuorumSize: Int = clusterTopology.nodes.size.asMajority(),
-    private val logReplicationQuorumSize: Int = clusterTopology.nodes.size.asMajority()
-) : RaftMessageReceiver, RaftProtocol {
+    private val leaderElectionQuorumSize: Int = transport.nodes.size.asMajority(),
+    private val logReplicationQuorumSize: Int = transport.nodes.size.asMajority()
+) : RaftMessageReceiver, RaftProtocol, Actor(localNodeState.nodeIdentifier, transport) {
 
     init {
-        val fullClusterSize = clusterTopology.nodes.size
+        val fullClusterSize = transport.nodes.size
         if (leaderElectionQuorumSize + logReplicationQuorumSize <= fullClusterSize) {
             error("Quorum requirement violation: $leaderElectionQuorumSize + $logReplicationQuorumSize >= $fullClusterSize")
         }
@@ -52,15 +56,23 @@ class RaftProtocolController(
     private val commandAppender = CommandAppender(localNodeState, replicatedLogStore)
 
     override suspend fun sendVoteRequestsAsCandidate(): Boolean {
-        return voteRequestSender.sendVoteRequestsAsCandidate(clusterTopology, leaderElectionQuorumSize)
+        return voteRequestSender.sendVoteRequestsAsCandidate(
+            this@RaftProtocolController,
+            transport,
+            leaderElectionQuorumSize
+        )
     }
 
     override suspend fun commitLogEntriesIfLeader() = coroutineScope {
-        commitEntries.commitLogEntriesIfLeader(clusterTopology, logReplicationQuorumSize)
+        commitEntries.commitLogEntriesIfLeader(transport, logReplicationQuorumSize)
     }
 
     override suspend fun sendAppendEntriesIfLeader() = coroutineScope {
-        appendEntriesSender.sendAppendEntriesIfLeader(clusterTopology)
+        appendEntriesSender.sendAppendEntriesIfLeader(this@RaftProtocolController, transport)
+    }
+
+    override fun applyCommand(command: ByteArray) {
+        commandAppender.addCommand(command)
     }
 
     override suspend fun handleAppendEntries(request: RaftMessage.AppendEntries): RaftMessage.AppendEntriesResponse {
@@ -83,8 +95,13 @@ class RaftProtocolController(
         return response
     }
 
-    override fun applyCommand(command: ByteArray) {
-        commandAppender.addCommand(command)
+    override suspend fun receive(src: NodeIdentifier, payload: ByteArray): ByteArray {
+        val request: RaftMessage = ProtoBuf.decodeFromByteArray<RaftMessage>(payload)
+        return when (request) {
+            is RaftMessage.VoteRequest -> ProtoBuf.encodeToByteArray<RaftMessage>(handleVoteRequest(request))
+            is RaftMessage.AppendEntries -> ProtoBuf.encodeToByteArray<RaftMessage>(handleAppendEntries(request))
+            else -> error("Message type ${request.javaClass} is not supported")
+        }
     }
 
     companion object {

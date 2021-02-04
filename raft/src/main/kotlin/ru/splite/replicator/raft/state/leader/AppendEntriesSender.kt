@@ -5,13 +5,14 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withTimeout
 import org.slf4j.LoggerFactory
-import ru.splite.replicator.bus.ClusterTopology
 import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.log.ReplicatedLogStore
-import ru.splite.replicator.raft.message.AppendEntriesMessageReceiver
 import ru.splite.replicator.raft.message.RaftMessage
 import ru.splite.replicator.raft.state.NodeType
 import ru.splite.replicator.raft.state.RaftLocalNodeState
+import ru.splite.replicator.transport.Actor
+import ru.splite.replicator.transport.Transport
+import ru.splite.replicator.transport.sendProto
 
 class AppendEntriesSender(
     private val localNodeState: RaftLocalNodeState,
@@ -24,9 +25,9 @@ class AppendEntriesSender(
         val isSuccess: Boolean
     )
 
-    suspend fun sendAppendEntriesIfLeader(clusterTopology: ClusterTopology<AppendEntriesMessageReceiver>) =
+    suspend fun sendAppendEntriesIfLeader(actor: Actor, transport: Transport) =
         coroutineScope {
-            val clusterNodeIdentifiers = clusterTopology.nodes.minus(localNodeState.nodeIdentifier)
+            val clusterNodeIdentifiers = transport.nodes.minus(localNodeState.nodeIdentifier)
 
             clusterNodeIdentifiers.map { dstNodeIdentifier ->
                 val nextIndexPerNode: Long = localNodeState.externalNodeStates[dstNodeIdentifier]!!.nextIndex
@@ -36,28 +37,38 @@ class AppendEntriesSender(
                 val deferredAppendEntriesResult: Deferred<AppendEntriesResult> = async {
                     kotlin.runCatching {
                         val appendEntriesResponse = withTimeout(1000) {
-                            clusterTopology[dstNodeIdentifier].handleAppendEntries(appendEntriesRequest)
+                            actor.sendProto<RaftMessage, RaftMessage>(
+                                dstNodeIdentifier, appendEntriesRequest
+                            ) as RaftMessage.AppendEntriesResponse
+                        }
+                        AppendEntriesResult(
+                            dstNodeIdentifier,
+                            matchIndexIfSuccess,
+                            appendEntriesResponse.entriesAppended
+                        )
+                    }.getOrElse {
+                        LOGGER.error("Exception while sending AppendEntries to $dstNodeIdentifier", it)
+                        AppendEntriesResult(dstNodeIdentifier, matchIndexIfSuccess, false)
                     }
-                    AppendEntriesResult(dstNodeIdentifier, matchIndexIfSuccess, appendEntriesResponse.entriesAppended)
-                }.getOrElse {
-                    AppendEntriesResult(dstNodeIdentifier, matchIndexIfSuccess, false)
+                }
+                deferredAppendEntriesResult
+            }.map { deferredAppendEntriesResult ->
+                val appendEntriesResult = deferredAppendEntriesResult.await()
+                if (appendEntriesResult.isSuccess) {
+                    localNodeState.externalNodeStates[appendEntriesResult.dstNodeIdentifier]!!.matchIndex =
+                        appendEntriesResult.matchIndex
+                    localNodeState.externalNodeStates[appendEntriesResult.dstNodeIdentifier]!!.nextIndex =
+                        appendEntriesResult.matchIndex + 1
+                } else {
+                    localNodeState.externalNodeStates[appendEntriesResult.dstNodeIdentifier]!!.nextIndex =
+                        maxOf(
+                            0,
+                            localNodeState.externalNodeStates[appendEntriesResult.dstNodeIdentifier]!!.nextIndex - 1
+                        )
                 }
             }
-            deferredAppendEntriesResult
-        }.map { deferredAppendEntriesResult ->
-            val appendEntriesResult = deferredAppendEntriesResult.await()
-            if (appendEntriesResult.isSuccess) {
-                localNodeState.externalNodeStates[appendEntriesResult.dstNodeIdentifier]!!.matchIndex =
-                    appendEntriesResult.matchIndex
-                localNodeState.externalNodeStates[appendEntriesResult.dstNodeIdentifier]!!.nextIndex =
-                    appendEntriesResult.matchIndex + 1
-            } else {
-                localNodeState.externalNodeStates[appendEntriesResult.dstNodeIdentifier]!!.nextIndex =
-                    maxOf(0, localNodeState.externalNodeStates[appendEntriesResult.dstNodeIdentifier]!!.nextIndex - 1)
-            }
+            Unit
         }
-        Unit
-    }
 
     private fun buildAppendEntries(fromIndex: Long): RaftMessage.AppendEntries {
         if (fromIndex < 0) {

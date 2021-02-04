@@ -1,11 +1,11 @@
 package ru.splite.replicator.raft.state.leader;
 
 import org.slf4j.LoggerFactory
-import ru.splite.replicator.bus.ClusterTopology
 import ru.splite.replicator.log.LogEntry
 import ru.splite.replicator.log.ReplicatedLogStore
 import ru.splite.replicator.raft.state.NodeType
 import ru.splite.replicator.raft.state.RaftLocalNodeState
+import ru.splite.replicator.transport.Transport
 
 class CommitEntries(
     private val localNodeState: RaftLocalNodeState,
@@ -13,13 +13,13 @@ class CommitEntries(
     private val logEntryCommittableCondition: (LogEntry, Long) -> Boolean
 ) {
 
-    fun commitLogEntriesIfLeader(clusterTopology: ClusterTopology<*>, majority: Int) {
+    fun commitLogEntriesIfLeader(transport: Transport, majority: Int) {
         if (localNodeState.currentNodeType != NodeType.LEADER) {
             LOGGER.warn("${localNodeState.nodeIdentifier} :: cannot commit because node is not leader. currentNodeType = ${localNodeState.currentNodeType}")
             return
         }
 
-        val clusterNodeIdentifiers = clusterTopology.nodes.minus(localNodeState.nodeIdentifier)
+        val clusterNodeIdentifiers = transport.nodes.minus(localNodeState.nodeIdentifier)
 
         val lastLogIndex: Long = logStore.lastLogIndex() ?: return
         val firstUncommittedIndex: Long = logStore.lastCommitIndex()?.plus(1) ?: 0

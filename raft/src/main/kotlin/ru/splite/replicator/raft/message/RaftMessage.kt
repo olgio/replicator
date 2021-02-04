@@ -28,7 +28,7 @@ sealed class RaftMessage {
         val prevLogIndex: Long,
         val prevLogTerm: Long,
         val lastCommitIndex: Long,
-        val entries: List<LogEntry>
+        val entries: List<LogEntry> = emptyList()
     ) : RaftMessage()
 
     @Serializable
@@ -37,4 +37,31 @@ sealed class RaftMessage {
         val entriesAppended: Boolean
     ) : RaftMessage()
 
+    @Serializable
+    data class PaxosVoteRequest(
+        /**
+         * candidate’s term
+         */
+        val term: Long,
+        /**
+         * candidate’s commit index
+         */
+        val leaderCommit: Long
+    ) : RaftMessage()
+
+    @Serializable
+    data class PaxosVoteResponse(
+        /**
+         * currentTerm, for candidate to update itself
+         */
+        val term: Long,
+        /**
+         * true indicates candidate received vote
+         */
+        val voteGranted: Boolean,
+        /**
+         * follower’s log entries after leaderCommit
+         */
+        val entries: List<LogEntry> = emptyList()
+    ) : RaftMessage()
 }

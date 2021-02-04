@@ -1,17 +1,20 @@
-package ru.splite.replicator.raft
+package ru.splite.replicator.paxos
 
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.runBlocking
-import kotlinx.serialization.encodeToByteArray
-import kotlinx.serialization.protobuf.ProtoBuf
 import org.assertj.core.api.Assertions.assertThat
 import ru.splite.replicator.Command
 import ru.splite.replicator.bus.NodeIdentifier
-import ru.splite.replicator.bus.StubClusterTopology
 import ru.splite.replicator.log.InMemoryReplicatedLogStore
-import ru.splite.replicator.raft.state.RaftLocalNodeState
+import ru.splite.replicator.paxos.state.PaxosLocalNodeState
+import ru.splite.replicator.raft.asMajority
+import ru.splite.replicator.raft.hasOnlyCommands
+import ru.splite.replicator.transport.CoroutineChannelTransport
+import ru.splite.replicator.transport.Transport
+import ru.splite.replicator.transport.isolateNodes
 import kotlin.test.Test
 
-class RaftControllerTests {
+class PaxosProtocolTests {
 
     @Test
     fun singleTermMultipleLogEntriesCommitTest(): Unit = runBlocking() {
@@ -91,23 +94,33 @@ class RaftControllerTests {
         val (node1, node2, node3) = clusterTopology.buildNodes(3)
 
         node2.apply {
-            sendVoteRequestsAsCandidate()
+            assertThat(sendVoteRequestsAsCandidate()).isTrue
             applyCommand(newCommand(1))
             sendAppendEntriesIfLeader()
+
+            assertThatLogs(node1, node2, node3)
+                .hasCommittedEntriesSize(0)
+                .hasOnlyCommands(1L)
+                .hasOnlyTerms(1L)
         }
-        assertThatLogs(node1, node2, node3).hasCommittedEntriesSize(0)
 
         node3.apply {
-            sendVoteRequestsAsCandidate()
-            applyCommand(newCommand(2))
-            applyCommand(newCommand(3))
+            assertThat(sendVoteRequestsAsCandidate()).isTrue
+            commitLogEntriesIfLeader()
+
+            assertThatLogs(node1, node2, node3)
+                .hasCommittedEntriesSize(0)
+
             sendAppendEntriesIfLeader()
             commitLogEntriesIfLeader()
             sendAppendEntriesIfLeader()
-        }
-        assertThatLogs(node1, node2, node3).hasCommittedEntriesSize(3)
-            .isCommittedEntriesInSync()
 
+            assertThatLogs(node1, node2, node3)
+                .hasCommittedEntriesSize(1)
+                .isCommittedEntriesInSync()
+                .hasOnlyCommands(1L)
+                .hasOnlyTerms(2L)
+        }
     }
 
     @Test
@@ -122,26 +135,26 @@ class RaftControllerTests {
             sendAppendEntriesIfLeader()
         }
 
-        node2.down()
-
-        node3.apply {
-            sendVoteRequestsAsCandidate()
-            applyCommand(newCommand(2))
-            applyCommand(newCommand(3))
-            sendAppendEntriesIfLeader()
-            commitLogEntriesIfLeader()
-            sendAppendEntriesIfLeader()
+        clusterTopology.isolateNodes(node1, node3) {
+            node3.apply {
+                sendVoteRequestsAsCandidate()
+                applyCommand(newCommand(2))
+                applyCommand(newCommand(3))
+                sendAppendEntriesIfLeader()
+                commitLogEntriesIfLeader()
+                sendAppendEntriesIfLeader()
+            }
         }
 
         assertThatLogs(node2).hasCommittedEntriesSize(0)
         assertThatLogs(node1, node3).hasCommittedEntriesSize(3)
 
-        node2.up()
-
-        node3.apply {
-            sendAppendEntriesIfLeader()
-            commitLogEntriesIfLeader()
-            sendAppendEntriesIfLeader()
+        clusterTopology.isolateNodes(node1, node2, node3) {
+            node3.apply {
+                sendAppendEntriesIfLeader()
+                commitLogEntriesIfLeader()
+                sendAppendEntriesIfLeader()
+            }
         }
         assertThatLogs(node2).hasCommittedEntriesSize(3)
     }
@@ -152,26 +165,31 @@ class RaftControllerTests {
         val (node1, node2, node3) = clusterTopology.buildNodes(3)
 
         assertThat(node1.sendVoteRequestsAsCandidate()).isTrue
-
+        node1.sendAppendEntriesIfLeader()
         clusterTopology.isolateNodes(node1) {
-            node1.apply {
-                applyCommand(newCommand(1))
-                applyCommand(newCommand(2))
-            }
+            node1.applyCommand(newCommand(1))
+            node1.applyCommand(newCommand(2))
         }
+        assertThatLogs(node1)
+            .hasCommittedEntriesSize(0)
+            .hasOnlyCommands(1, 2)
+            .hasOnlyTerms(3L, 3L)
 
         clusterTopology.isolateNodes(node2, node3) {
             node3.apply {
-                sendVoteRequestsAsCandidate()
+                assertThat(sendVoteRequestsAsCandidate()).isTrue
                 applyCommand(newCommand(3))
                 applyCommand(newCommand(4))
                 sendAppendEntriesIfLeader()
                 commitLogEntriesIfLeader()
                 sendAppendEntriesIfLeader()
             }
-            assertThatLogs(node2, node3).hasCommittedEntriesSize(2)
-            assertThatLogs(node1).hasCommittedEntriesSize(0)
-
+            assertThatLogs(node2, node3)
+                .hasCommittedEntriesSize(2)
+                .hasOnlyCommands(3, 4)
+                .hasOnlyTerms(5L, 5L)
+            assertThatLogs(node1)
+                .hasCommittedEntriesSize(0)
         }
 
         clusterTopology.isolateNodes(node1, node2, node3) {
@@ -179,6 +197,7 @@ class RaftControllerTests {
             node3.sendAppendEntriesIfLeader()
             assertThatLogs(node1, node2, node3)
                 .hasCommittedEntriesSize(2)
+                .hasOnlyCommands(3, 4)
                 .isCommittedEntriesInSync()
         }
     }
@@ -228,7 +247,7 @@ class RaftControllerTests {
     }
 
     @Test
-    fun overrideLogEntryAppendedOnMajorityIfFailedBeforeCommit(): Unit = runBlocking {
+    fun overrideLogEntryIfNotAppendedOnMajority(): Unit = runBlocking {
         val clusterTopology = buildTopology()
 
         val (node1, node2, node3, node4, node5) = clusterTopology.buildNodes(5)
@@ -243,41 +262,35 @@ class RaftControllerTests {
             node1.applyCommand(newCommand(2))
             node1.sendAppendEntriesIfLeader()
         }
-        assertThatLogs(node2).hasOnlyCommands(1, 2)
+        assertThatLogs(node1, node2)
+            .hasOnlyCommands(1, 2)
+            .hasOnlyTerms(5L, 5L)
 
-        clusterTopology.isolateNodes(node2, node3, node4, node5) {
-            assertThat(node5.sendVoteRequestsAsCandidate()).isTrue
-            node5.sendAppendEntriesIfLeader()
-            node5.applyCommand(newCommand(3))
+        clusterTopology.isolateNodes(node3, node4, node5) {
+            assertThat(node3.sendVoteRequestsAsCandidate()).isTrue
+            node3.sendAppendEntriesIfLeader()
+            node3.applyCommand(newCommand(3))
+            node3.sendAppendEntriesIfLeader()
+            node3.commitLogEntriesIfLeader()
+            node3.sendAppendEntriesIfLeader()
         }
-        assertThatLogs(node5).hasOnlyCommands(1, 3)
-
-        clusterTopology.isolateNodes(node1, node2, node3) {
-            assertThat(node1.sendVoteRequestsAsCandidate()).isTrue
-            repeat(2) {
-                node1.sendAppendEntriesIfLeader()
-            }
-        }
-        assertThatLogs(node2, node3).hasOnlyCommands(1, 2)
+        assertThatLogs(node3, node4, node5)
+            .hasOnlyCommands(1, 3)
+            .hasOnlyTerms(7L, 7L)
 
         clusterTopology.isolateNodes(node1, node2, node3, node4, node5) {
-            assertThat(node5.sendVoteRequestsAsCandidate()).isTrue
-            node5.applyCommand(newCommand(5))
-
-            repeat(3) {
-                node5.sendAppendEntriesIfLeader()
-                node5.commitLogEntriesIfLeader()
-            }
+            node3.sendAppendEntriesIfLeader()
         }
-        assertThatLogs(node3).hasOnlyCommands(1, 3, 5)
 
         assertThatLogs(node1, node2, node3, node4, node5)
-            .hasCommittedEntriesSize(3)
+            .hasCommittedEntriesSize(2L)
             .isCommittedEntriesInSync()
+            .hasOnlyCommands(1, 3)
+            .hasOnlyTerms(7L, 7L)
     }
 
     @Test
-    fun cannotOverrideLogEntryAppendedOnMajorityIfNotFailedBeforeCommit(): Unit = runBlocking {
+    fun cannotOverrideLogEntryIfAppendedOnMajority(): Unit = runBlocking {
         val clusterTopology = buildTopology()
 
         val (node1, node2, node3, node4, node5) = clusterTopology.buildNodes(5)
@@ -287,64 +300,67 @@ class RaftControllerTests {
             applyCommand(newCommand(1))
             sendAppendEntriesIfLeader()
         }
-        clusterTopology.isolateNodes(node1, node2) {
+
+        clusterTopology.isolateNodes(node1, node2, node4) {
             node1.applyCommand(newCommand(2))
             node1.sendAppendEntriesIfLeader()
         }
-        assertThatLogs(node2).hasOnlyCommands(1, 2)
+        assertThatLogs(node1, node2, node4)
+            .hasOnlyCommands(1, 2)
+            .hasOnlyTerms(5L, 5L)
 
-        clusterTopology.isolateNodes(node2, node3, node4, node5) {
-            assertThat(node5.sendVoteRequestsAsCandidate()).isTrue
-            node5.sendAppendEntriesIfLeader()
-            node5.applyCommand(newCommand(3))
+        clusterTopology.isolateNodes(node3, node4, node5) {
+            assertThat(node3.sendVoteRequestsAsCandidate()).isTrue
+            node3.sendAppendEntriesIfLeader()
+            node3.applyCommand(newCommand(3))
+            node3.sendAppendEntriesIfLeader()
+            node3.commitLogEntriesIfLeader()
+            node3.sendAppendEntriesIfLeader()
         }
-        assertThatLogs(node5).hasOnlyCommands(1, 3)
+        assertThatLogs(node3, node4, node5)
+            .hasOnlyCommands(1, 2, 3)
+            .hasOnlyTerms(7L, 7L, 7L)
 
-        clusterTopology.isolateNodes(node1, node2, node3) {
-            assertThat(node1.sendVoteRequestsAsCandidate()).isTrue
-            node1.applyCommand(newCommand(4))
-            repeat(2) {
-                node1.sendAppendEntriesIfLeader()
-            }
-        }
         clusterTopology.isolateNodes(node1, node2, node3, node4, node5) {
-            assertThat(node5.sendVoteRequestsAsCandidate()).isFalse
+            node3.sendAppendEntriesIfLeader()
         }
 
         assertThatLogs(node1, node2, node3, node4, node5)
-            .hasCommittedEntriesSize(0)
+            .hasCommittedEntriesSize(3L)
             .isCommittedEntriesInSync()
+            .hasOnlyCommands(1, 2, 3)
+            .hasOnlyTerms(7L, 7L, 7L)
     }
 
     private fun newCommand(value: Long): ByteArray {
-        return ProtoBuf.encodeToByteArray(Command(value))
+        return Command.Serializer.serialize(Command(value))
     }
 
-    private fun buildTopology(): StubClusterTopology<ManagedRaftProtocolNode> {
-        return StubClusterTopology()
+    private fun CoroutineScope.buildTopology(): CoroutineChannelTransport {
+        return CoroutineChannelTransport(this)
     }
 
-    private fun StubClusterTopology<ManagedRaftProtocolNode>.buildNode(
+    private fun Transport.buildNode(
         name: String,
+        n: Int,
         fullSize: Int
-    ): ManagedRaftProtocolNode {
+    ): PaxosProtocolController {
         val nodeIdentifier = NodeIdentifier(name)
         val logStore = InMemoryReplicatedLogStore()
-        val localNodeState = RaftLocalNodeState(nodeIdentifier)
-        val node = RaftProtocolController(
+        val localNodeState = PaxosLocalNodeState(nodeIdentifier, n.toLong())
+        val node = PaxosProtocolController(
             logStore,
             this,
             localNodeState,
             fullSize.asMajority(),
             fullSize.asMajority()
-        ).asManaged()
-        this[node.nodeIdentifier] = node
+        )
         return node
     }
 
-    private fun StubClusterTopology<ManagedRaftProtocolNode>.buildNodes(n: Int): List<ManagedRaftProtocolNode> {
-        return (1..n).map {
-            buildNode("node-$it", n)
+    private fun Transport.buildNodes(n: Int): List<PaxosProtocolController> {
+        return (0 until n).map {
+            buildNode("node-$it", it, n)
         }
     }
 }
