@@ -40,10 +40,13 @@ class AppendEntriesHandler(
 
         request.entries.forEachIndexed { index, logEntry ->
             val logIndex: Long = (request.prevLogIndex) + index + 1
-            if (logStore.getLogEntryByIndex(logIndex) != null) {
+            val conflictLogEntry = logStore.getLogEntryByIndex(logIndex)
+            if (conflictLogEntry == null) {
+                logStore.setLogEntry(logIndex, logEntry)
+            } else if (conflictLogEntry.term != logEntry.term) {
                 logStore.prune(logIndex)
+                logStore.setLogEntry(logIndex, logEntry)
             }
-            logStore.setLogEntry(logIndex, logEntry)
         }
 
 
