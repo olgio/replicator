@@ -46,7 +46,7 @@ class DelayTimerFactory(
                 while (true) {
                     delayBefore(TimeTick(runAt.get()))
                     val currentTimeTick = currentTimeTick()
-                    LOGGER.info("currentTime = ${currentTimeTick.tick}, runAt = ${runAt.get()}")
+                    LOGGER.trace("currentTime = ${currentTimeTick.tick}, runAt = ${runAt.get()}")
                     if (runAt.get() <= currentTimeTick.tick) {
                         emit(currentTimeTick)
                         runAt.updateIfGreater(currentTimeTick.tick + random.nextLong(period))
@@ -68,7 +68,7 @@ class DelayTimerFactory(
 
     private suspend fun delayBefore(timeTick: TimeTick) {
         val diff = timeTick.tick - currentTimeTick().tick
-        LOGGER.debug("Delay for $diff ms")
+        LOGGER.trace("Delay for $diff ms")
         if (diff <= 0) {
             return
         } else {
