@@ -11,7 +11,7 @@ import java.util.concurrent.ConcurrentHashMap
 class TwoPhaseCommitMessageListener<T>(
     private val nodeIdentifier: NodeIdentifier,
     private val messageBus: MessageBus<TwoPhaseCommitMessage<T>>,
-    private val stateMachine: StateMachine<T>
+    private val stateMachine: StateMachine<T, Unit>
 ) : MessageListener<TwoPhaseCommitMessage<T>> {
 
 

@@ -4,7 +4,7 @@ import org.slf4j.LoggerFactory
 import ru.splite.replicator.statemachine.StateMachine
 import java.util.concurrent.atomic.AtomicLong
 
-class RegistryStateMachine : StateMachine<RegistryCommand> {
+class RegistryStateMachine : StateMachine<RegistryCommand, Unit> {
 
     private val currentValue = AtomicLong(0)
 
