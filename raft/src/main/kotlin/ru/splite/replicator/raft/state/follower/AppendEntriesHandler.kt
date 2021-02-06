@@ -49,8 +49,8 @@ class AppendEntriesHandler(
             }
         }
 
-
-        if (request.lastCommitIndex >= 0) {
+        val lastCommitIndex = logStore.lastCommitIndex() ?: -1
+        if (request.lastCommitIndex >= 0 && request.lastCommitIndex > lastCommitIndex) {
             logStore.commit(request.lastCommitIndex)
         }
 

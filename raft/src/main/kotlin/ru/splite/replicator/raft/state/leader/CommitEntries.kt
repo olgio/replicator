@@ -24,6 +24,10 @@ class CommitEntries(
         val lastLogIndex: Long = logStore.lastLogIndex() ?: return
         val firstUncommittedIndex: Long = logStore.lastCommitIndex()?.plus(1) ?: 0
 
+        if (firstUncommittedIndex > lastLogIndex) {
+            return
+        }
+
         LOGGER.debug("${localNodeState.nodeIdentifier} :: lastLogIndex = $lastLogIndex, firstUncommittedIndex = $firstUncommittedIndex")
 
         val lastCommittableIndex: Long? = generateSequence(lastLogIndex) {
