@@ -38,7 +38,7 @@ class CoroutineChannelTransport(private val coroutineScope: CoroutineScope) : Tr
             for (message in channel) {
                 try {
                     if (isolatedActors.contains(address)) {
-                        error("Node $address isolated")
+                        throw NodeUnavailableException("Node $address isolated")
                     }
                     val response = actor.receive(message.src, message.payload)
                     message.response.complete(response)
