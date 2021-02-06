@@ -1,6 +1,8 @@
 package ru.splite.replicator.raft
 
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.encodeToByteArray
 import kotlinx.serialization.protobuf.ProtoBuf
@@ -11,14 +13,13 @@ import ru.splite.replicator.raft.message.RaftMessage
 import ru.splite.replicator.raft.message.RaftMessageReceiver
 import ru.splite.replicator.raft.state.NodeType
 import ru.splite.replicator.raft.state.RaftLocalNodeState
+import ru.splite.replicator.raft.state.asMajority
 import ru.splite.replicator.raft.state.follower.AppendEntriesHandler
 import ru.splite.replicator.raft.state.follower.VoteRequestHandler
-import ru.splite.replicator.raft.state.leader.AppendEntriesSender
-import ru.splite.replicator.raft.state.leader.CommandAppender
-import ru.splite.replicator.raft.state.leader.CommitEntries
-import ru.splite.replicator.raft.state.leader.VoteRequestSender
+import ru.splite.replicator.raft.state.leader.*
 import ru.splite.replicator.transport.Actor
 import ru.splite.replicator.transport.Transport
+import java.time.Instant
 
 class RaftProtocolController(
     override val replicatedLogStore: ReplicatedLogStore,
@@ -40,6 +41,12 @@ class RaftProtocolController(
 
     override val isLeader: Boolean
         get() = localNodeState.currentNodeType == NodeType.LEADER
+
+    override val lastCommitIndexFlow: StateFlow<LastCommitEvent>
+        get() = commitEntries.lastCommitIndexFlow
+
+    private val leaderAliveMutableFlow: MutableStateFlow<Instant> = MutableStateFlow(Instant.now())
+    override val leaderAliveFlow: StateFlow<Instant> = leaderAliveMutableFlow
 
     private val appendEntriesSender = AppendEntriesSender(localNodeState, replicatedLogStore)
 
@@ -71,8 +78,8 @@ class RaftProtocolController(
         appendEntriesSender.sendAppendEntriesIfLeader(this@RaftProtocolController, transport)
     }
 
-    override fun applyCommand(command: ByteArray) {
-        commandAppender.addCommand(command)
+    override suspend fun applyCommand(command: ByteArray): Long {
+        return commandAppender.addCommand(command)
     }
 
     override suspend fun handleAppendEntries(request: RaftMessage.AppendEntries): RaftMessage.AppendEntriesResponse {
@@ -80,7 +87,7 @@ class RaftProtocolController(
         val response = appendEntriesHandler.handleAppendEntries(request)
         if (response.entriesAppended) {
             LOGGER.debug("$nodeIdentifier :: entries successfully appended $response")
-//            termIncrementerTimerTask.renew()
+            leaderAliveMutableFlow.tryEmit(Instant.now())
         }
         return response
     }
@@ -90,7 +97,7 @@ class RaftProtocolController(
         val response = voteRequestHandler.handleVoteRequest(request)
         if (response.voteGranted) {
             LOGGER.debug("$nodeIdentifier :: vote granted $response")
-//            termIncrementerTimerTask.renew()
+            leaderAliveMutableFlow.tryEmit(Instant.now())
         }
         return response
     }

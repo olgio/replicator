@@ -27,6 +27,7 @@ class AppendEntriesSender(
 
     suspend fun sendAppendEntriesIfLeader(actor: Actor, transport: Transport) =
         coroutineScope {
+            LOGGER.info("Sending AppendEntries (term ${localNodeState.currentTerm})")
             val clusterNodeIdentifiers = transport.nodes.minus(localNodeState.nodeIdentifier)
 
             clusterNodeIdentifiers.map { dstNodeIdentifier ->
@@ -47,7 +48,7 @@ class AppendEntriesSender(
                             appendEntriesResponse.entriesAppended
                         )
                     }.getOrElse {
-                        LOGGER.error("Exception while sending AppendEntries to $dstNodeIdentifier", it)
+                        LOGGER.trace("Exception while sending AppendEntries to $dstNodeIdentifier", it)
                         AppendEntriesResult(dstNodeIdentifier, matchIndexIfSuccess, false)
                     }
                 }

@@ -11,9 +11,9 @@ import ru.splite.replicator.paxos.message.PaxosMessageReceiver
 import ru.splite.replicator.paxos.state.PaxosLocalNodeState
 import ru.splite.replicator.paxos.state.follower.VoteRequestHandler
 import ru.splite.replicator.paxos.state.leader.VoteRequestSender
-import ru.splite.replicator.raft.asMajority
 import ru.splite.replicator.raft.message.RaftMessage
 import ru.splite.replicator.raft.state.NodeType
+import ru.splite.replicator.raft.state.asMajority
 import ru.splite.replicator.raft.state.follower.AppendEntriesHandler
 import ru.splite.replicator.raft.state.leader.AppendEntriesSender
 import ru.splite.replicator.raft.state.leader.CommandAppender

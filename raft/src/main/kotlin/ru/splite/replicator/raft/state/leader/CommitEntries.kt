@@ -1,5 +1,7 @@
 package ru.splite.replicator.raft.state.leader;
 
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.log.LogEntry
 import ru.splite.replicator.log.ReplicatedLogStore
@@ -13,11 +15,18 @@ class CommitEntries(
     private val logEntryCommittableCondition: (LogEntry, Long) -> Boolean
 ) {
 
+    private val lastCommitIndexMutableFlow: MutableStateFlow<LastCommitEvent> =
+        MutableStateFlow(LastCommitEvent(logStore.lastCommitIndex()))
+
+    val lastCommitIndexFlow: StateFlow<LastCommitEvent> = lastCommitIndexMutableFlow
+
     fun commitLogEntriesIfLeader(transport: Transport, majority: Int) {
         if (localNodeState.currentNodeType != NodeType.LEADER) {
             LOGGER.warn("${localNodeState.nodeIdentifier} :: cannot commit because node is not leader. currentNodeType = ${localNodeState.currentNodeType}")
             return
         }
+
+        LOGGER.info("CommitEntries (term ${localNodeState.currentTerm})")
 
         val clusterNodeIdentifiers = transport.nodes.minus(localNodeState.nodeIdentifier)
 
@@ -60,6 +69,7 @@ class CommitEntries(
 
         if (lastCommittableIndex != null) {
             logStore.commit(lastCommittableIndex)
+            lastCommitIndexMutableFlow.tryEmit(LastCommitEvent(lastCommittableIndex))
         }
     }
 

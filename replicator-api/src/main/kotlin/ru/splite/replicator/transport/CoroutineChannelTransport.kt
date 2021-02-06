@@ -33,11 +33,11 @@ class CoroutineChannelTransport(private val coroutineScope: CoroutineScope) : Tr
     }
 
     override fun subscribe(address: NodeIdentifier, actor: Actor) {
-        val name = address.toString()
-        val channel = coroutineScope.actor<ChannelMessage>(CoroutineName(name) + SupervisorJob(), Int.MAX_VALUE) {
+        val coroutineName = CoroutineName("$address|transport")
+        val channel = coroutineScope.actor<ChannelMessage>(coroutineName + SupervisorJob(), Int.MAX_VALUE) {
             for (message in channel) {
                 try {
-                    if (isolatedActors.contains(address)) {
+                    if (isolatedActors.contains(address) || isolatedActors.contains(message.src)) {
                         throw NodeUnavailableException("Node $address isolated")
                     }
                     val response = actor.receive(message.src, message.payload)

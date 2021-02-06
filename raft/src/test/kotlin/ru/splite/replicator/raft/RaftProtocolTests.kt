@@ -7,6 +7,7 @@ import ru.splite.replicator.Command
 import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.log.InMemoryReplicatedLogStore
 import ru.splite.replicator.raft.state.RaftLocalNodeState
+import ru.splite.replicator.raft.state.asMajority
 import ru.splite.replicator.transport.CoroutineChannelTransport
 import ru.splite.replicator.transport.Transport
 import ru.splite.replicator.transport.isolateNodes

@@ -15,7 +15,12 @@
             <groupId>ru.splite.replicator</groupId>
             <artifactId>replicator-api</artifactId>
             <version>DEV-SNAPSHOT</version>
-            <scope>compile</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>ru.splite.replicator</groupId>
+            <artifactId>timing</artifactId>
+            <version>DEV-SNAPSHOT</version>
         </dependency>
 
         <dependency>
