@@ -10,6 +10,7 @@
         <module>replicator-api</module>
         <module>replicator-tests</module>
         <module>paxos</module>
+        <module>timing</module>
     </modules>
     <groupId>ru.splite.replicator</groupId>
     <version>DEV-SNAPSHOT</version>
@@ -98,6 +99,12 @@
             <groupId>org.jetbrains.kotlinx</groupId>
             <artifactId>kotlinx-coroutines-core</artifactId>
             <version>1.4.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.jetbrains.kotlinx</groupId>
+            <artifactId>kotlinx-coroutines-test</artifactId>
+            <version>1.4.2</version>
+            <scope>test</scope>
         </dependency>
 
         <dependency>

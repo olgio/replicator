@@ -1,9 +1,8 @@
-package ru.splite.replicator.raft
+package ru.splite.replicator.timer
 
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.assertj.core.api.Assertions
-import ru.splite.replicator.raft.timer.RenewableTimerFactory
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.Test
 

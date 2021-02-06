@@ -1,4 +1,4 @@
-package ru.splite.replicator.raft.timer
+package ru.splite.replicator.timer
 
 interface RenewableTimerTask {
 
