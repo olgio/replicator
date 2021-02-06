@@ -28,11 +28,9 @@ class RaftCommandSubmitter(
             timerFactory
                 .sourceMergedExpirationFlow(flow = appendEntriesFlow, period = period)
                 .collect {
-                    println(this.isActive)
                     if (raftProtocol.isLeader) {
                         raftProtocol.sendAppendEntriesIfLeader()
                         raftProtocol.commitLogEntriesIfLeader()
-                        LOGGER.debug("AppendEntries collected")
                     }
                 }
         }

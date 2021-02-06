@@ -19,17 +19,21 @@ class CoroutineChannelTransport(private val coroutineScope: CoroutineScope) : Tr
 
     private val actors: MutableMap<NodeIdentifier, SendChannel<ChannelMessage>> = ConcurrentHashMap()
 
-    private val isolatedActors: MutableSet<NodeIdentifier> = mutableSetOf()
+    private val isolatedNodes: MutableSet<NodeIdentifier> = mutableSetOf()
 
     override val nodes: Collection<NodeIdentifier>
         get() = actors.keys
 
-    fun isolate(nodeIdentifier: NodeIdentifier) {
-        isolatedActors.add(nodeIdentifier)
+    fun isNodeIsolated(nodeIdentifier: NodeIdentifier): Boolean {
+        return isolatedNodes.contains(nodeIdentifier)
     }
 
-    fun open(nodeIdentifier: NodeIdentifier) {
-        isolatedActors.remove(nodeIdentifier)
+    fun setNodeIsolated(nodeIdentifier: NodeIdentifier, isolated: Boolean) {
+        if (isolated) {
+            isolatedNodes.add(nodeIdentifier)
+        } else {
+            isolatedNodes.remove(nodeIdentifier)
+        }
     }
 
     override fun subscribe(address: NodeIdentifier, actor: Actor) {
@@ -37,7 +41,7 @@ class CoroutineChannelTransport(private val coroutineScope: CoroutineScope) : Tr
         val channel = coroutineScope.actor<ChannelMessage>(coroutineName + SupervisorJob(), Int.MAX_VALUE) {
             for (message in channel) {
                 try {
-                    if (isolatedActors.contains(address) || isolatedActors.contains(message.src)) {
+                    if (isolatedNodes.contains(address) || isolatedNodes.contains(message.src)) {
                         throw NodeUnavailableException("Node $address isolated")
                     }
                     val response = actor.receive(message.src, message.payload)

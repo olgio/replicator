@@ -16,11 +16,7 @@ suspend fun CoroutineChannelTransport.isolateNodes(
 ) {
     val openNodes = nodes.map { it.address }
     this.nodes.forEach { receiver ->
-        if (openNodes.contains(receiver)) {
-            this.open(receiver)
-        } else {
-            this.isolate(receiver)
-        }
+        this.setNodeIsolated(receiver, !openNodes.contains(receiver))
     }
     action.invoke()
 }
