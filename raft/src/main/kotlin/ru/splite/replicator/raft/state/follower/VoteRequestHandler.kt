@@ -20,18 +20,22 @@ class VoteRequestHandler(
         }
 
         //проверяем что лог не отстает
-        if (!candidateCanBeLeader(request)) {
-            LOGGER.debug("${localNodeState.nodeIdentifier} :: VoteRequest rejected: detected stale log on candidate. request = $request")
-            return RaftMessage.VoteResponse(term = localNodeState.currentTerm, voteGranted = false)
-        }
+        val candidateCanBeLeader = candidateCanBeLeader(request)
 
         //текущий терм меньше полученного -> голосуем за нового лидера
         if (localNodeState.currentTerm < request.term) {
             localNodeState.currentTerm = request.term
-            localNodeState.lastVotedLeaderIdentifier = request.candidateIdentifier
             localNodeState.currentNodeType = NodeType.FOLLOWER
-            LOGGER.debug("${localNodeState.nodeIdentifier} :: VoteRequest accepted: currentTerm < requestTerm. request = $request")
-            return RaftMessage.VoteResponse(term = localNodeState.currentTerm, voteGranted = true)
+            if (candidateCanBeLeader) {
+                localNodeState.lastVotedLeaderIdentifier = request.candidateIdentifier
+                LOGGER.debug("${localNodeState.nodeIdentifier} :: VoteRequest accepted: currentTerm < requestTerm. request = $request")
+                return RaftMessage.VoteResponse(term = localNodeState.currentTerm, voteGranted = true)
+            }
+        }
+
+        if (!candidateCanBeLeader) {
+            LOGGER.debug("${localNodeState.nodeIdentifier} :: VoteRequest rejected: detected stale log on candidate. request = $request")
+            return RaftMessage.VoteResponse(term = localNodeState.currentTerm, voteGranted = false)
         }
 
         //термы равны -> конфликт
@@ -77,7 +81,6 @@ class VoteRequestHandler(
         }
         return lastLogTerm == request.lastLogTerm && lastLogIndex <= candidateLastLogIndex
     }
-
 
     companion object {
         private val LOGGER = LoggerFactory.getLogger(javaClass.enclosingClass)
