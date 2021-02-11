@@ -1,4 +1,4 @@
-package ru.splite.replicator.raft
+package ru.splite.replicator.keyvalue
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromByteArray
@@ -27,7 +27,11 @@ class KeyValueStateMachine : StateMachine<ByteArray, ByteArray> {
         }
 
         override fun deserializer(byteArray: ByteArray): PutCommand {
-            return ProtoBuf.decodeFromByteArray<PutCommand>(byteArray)
+            return ProtoBuf.decodeFromByteArray(byteArray)
+        }
+
+        fun createSerialized(key: String, value: String): ByteArray {
+            return serialize(PutCommand(key, value))
         }
     }
 }

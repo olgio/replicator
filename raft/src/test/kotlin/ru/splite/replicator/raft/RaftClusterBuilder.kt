@@ -3,6 +3,7 @@ package ru.splite.replicator.raft
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.test.TestCoroutineScope
 import ru.splite.replicator.bus.NodeIdentifier
+import ru.splite.replicator.keyvalue.KeyValueStateMachine
 import ru.splite.replicator.log.InMemoryReplicatedLogStore
 import ru.splite.replicator.raft.state.RaftLocalNodeState
 import ru.splite.replicator.raft.state.asMajority

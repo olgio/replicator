@@ -2,6 +2,7 @@ package ru.splite.replicator.raft
 
 import kotlinx.coroutines.test.runBlockingTest
 import org.assertj.core.api.Assertions.assertThat
+import ru.splite.replicator.keyvalue.KeyValueStateMachine
 import kotlin.test.Test
 
 class RaftClusterTests {
