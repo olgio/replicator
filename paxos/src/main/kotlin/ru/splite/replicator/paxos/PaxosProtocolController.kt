@@ -23,7 +23,7 @@ import ru.splite.replicator.transport.Transport
 
 class PaxosProtocolController(
     override val replicatedLogStore: ReplicatedLogStore,
-    private val transport: Transport,
+    transport: Transport,
     private val localNodeState: PaxosLocalNodeState,
     private val leaderElectionQuorumSize: Int = transport.nodes.size.asMajority(),
     private val logReplicationQuorumSize: Int = transport.nodes.size.asMajority()

@@ -23,7 +23,7 @@ import java.time.Instant
 
 class RaftProtocolController(
     override val replicatedLogStore: ReplicatedLogStore,
-    private val transport: Transport,
+    transport: Transport,
     private val localNodeState: RaftLocalNodeState,
     private val leaderElectionQuorumSize: Int = transport.nodes.size.asMajority(),
     private val logReplicationQuorumSize: Int = transport.nodes.size.asMajority()

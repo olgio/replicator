@@ -6,7 +6,7 @@ interface Transport {
 
     val nodes: Collection<NodeIdentifier>
 
-    fun subscribe(address: NodeIdentifier, actor: Actor)
+    fun subscribe(address: NodeIdentifier, actor: Receiver)
 
-    suspend fun send(actor: Actor, dst: NodeIdentifier, payload: ByteArray): ByteArray
+    suspend fun send(receiver: Receiver, dst: NodeIdentifier, payload: ByteArray): ByteArray
 }

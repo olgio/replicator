@@ -36,7 +36,7 @@ class CoroutineChannelTransport(private val coroutineScope: CoroutineScope) : Tr
         }
     }
 
-    override fun subscribe(address: NodeIdentifier, actor: Actor) {
+    override fun subscribe(address: NodeIdentifier, receiver: Receiver) {
         val coroutineName = CoroutineName("$address|transport")
         val channel = coroutineScope.actor<ChannelMessage>(coroutineName + SupervisorJob(), Int.MAX_VALUE) {
             for (message in channel) {
@@ -44,7 +44,7 @@ class CoroutineChannelTransport(private val coroutineScope: CoroutineScope) : Tr
                     if (isolatedNodes.contains(address) || isolatedNodes.contains(message.src)) {
                         throw NodeUnavailableException("Node $address isolated")
                     }
-                    val response = actor.receive(message.src, message.payload)
+                    val response = receiver.receive(message.src, message.payload)
                     message.response.complete(response)
                 } catch (e: Throwable) {
                     message.response.completeExceptionally(e)
@@ -54,9 +54,9 @@ class CoroutineChannelTransport(private val coroutineScope: CoroutineScope) : Tr
         actors[address] = channel
     }
 
-    override suspend fun send(actor: Actor, dst: NodeIdentifier, payload: ByteArray): ByteArray {
+    override suspend fun send(receiver: Receiver, dst: NodeIdentifier, payload: ByteArray): ByteArray {
         val dstChannel = actors[dst] ?: error("Address ${dst} is not registered")
-        val message = ChannelMessage(actor.address, payload)
+        val message = ChannelMessage(receiver.address, payload)
         dstChannel.send(message)
         return message.response.await()
     }
