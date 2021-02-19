@@ -1,11 +1,7 @@
 package ru.splite.replicator.keyvalue
 
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.decodeFromByteArray
-import kotlinx.serialization.encodeToByteArray
-import kotlinx.serialization.protobuf.ProtoBuf
+import ru.splite.replicator.statemachine.ConflictIndex
 import ru.splite.replicator.statemachine.StateMachine
-import ru.splite.replicator.transport.CommandSerializer
 import java.util.concurrent.ConcurrentHashMap
 
 class KeyValueStateMachine : StateMachine<ByteArray, ByteArray> {
@@ -13,25 +9,20 @@ class KeyValueStateMachine : StateMachine<ByteArray, ByteArray> {
     private val store = ConcurrentHashMap<String, String>()
 
     override fun commit(bytes: ByteArray): ByteArray {
-        val command: PutCommand = deserializer(bytes)
-        store[command.key] = command.value
-        return bytes
+        val reply = when (val command: KeyValueCommand = KeyValueCommand.deserializer(bytes)) {
+            is KeyValueCommand.GetValue -> {
+                KeyValueReply(command.key, store[command.key])
+            }
+            is KeyValueCommand.PutValue -> {
+                store[command.key] = command.value
+                KeyValueReply(command.key, command.value)
+            }
+        }
+
+        return KeyValueReply.serialize(reply)
     }
 
-    @Serializable
-    data class PutCommand(val key: String, val value: String)
-
-    companion object Serializer : CommandSerializer<PutCommand> {
-        override fun serialize(command: PutCommand): ByteArray {
-            return ProtoBuf.encodeToByteArray(command)
-        }
-
-        override fun deserializer(byteArray: ByteArray): PutCommand {
-            return ProtoBuf.decodeFromByteArray(byteArray)
-        }
-
-        fun createSerialized(key: String, value: String): ByteArray {
-            return serialize(PutCommand(key, value))
-        }
+    override fun <K> newConflictIndex(): ConflictIndex<K, ByteArray> {
+        return KeyValueConflictIndex()
     }
 }

@@ -2,7 +2,8 @@ package ru.splite.replicator.raft
 
 import kotlinx.coroutines.test.runBlockingTest
 import org.assertj.core.api.Assertions.assertThat
-import ru.splite.replicator.keyvalue.KeyValueStateMachine
+import ru.splite.replicator.keyvalue.KeyValueCommand
+import ru.splite.replicator.keyvalue.KeyValueReply
 import kotlin.test.Test
 
 class RaftClusterTests {
@@ -13,15 +14,15 @@ class RaftClusterTests {
     fun failedLeaderCommandReplicationTest(): Unit = runBlockingTest {
         raftClusterBuilder.buildNodes(this, 3) { nodes ->
 
-            val cmd = KeyValueStateMachine.serialize(KeyValueStateMachine.PutCommand("1", "v"))
+            val command = KeyValueCommand.newPutCommand("1", "v")
 
             advanceTimeBy(5000L)
 
             val firstLeader =
                 nodes.first { it.raftProtocol.isLeader && !transport.isNodeIsolated(it.raftProtocol.nodeIdentifier) }
 
-            val result = firstLeader.submit(cmd)
-            assertThat(cmd).isEqualTo(result)
+            val commandReply1 = KeyValueReply.deserializer(firstLeader.submit(command))
+            assertThat(commandReply1.value).isEqualTo("v")
 
             advanceTimeBy(5000L)
 
@@ -36,7 +37,8 @@ class RaftClusterTests {
             val secondLeader =
                 nodes.first { it.raftProtocol.isLeader && !transport.isNodeIsolated(it.raftProtocol.nodeIdentifier) }
 
-            assertThat(cmd).isEqualTo(secondLeader.submit(cmd))
+            val commandReply2 = KeyValueReply.deserializer(secondLeader.submit(command))
+            assertThat(commandReply2.value).isEqualTo("v")
 
             advanceTimeBy(5000L)
 

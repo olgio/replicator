@@ -5,7 +5,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runBlockingTest
 import org.assertj.core.api.Assertions.assertThat
 import ru.splite.replicator.bus.NodeIdentifier
-import ru.splite.replicator.keyvalue.KeyValueStateMachine
+import ru.splite.replicator.keyvalue.KeyValueCommand
 import ru.splite.replicator.transport.Actor
 import ru.splite.replicator.transport.CoroutineChannelTransport
 import ru.splite.replicator.transport.KSerializableMessageSender
@@ -38,10 +38,10 @@ class MessageSenderTests {
             payload
         }
 
-        val command = KeyValueStateMachine.PutCommand("testkey", "testvalue")
+        val command = KeyValueCommand.PutValue("testkey", "testvalue")
         val messageSender = KSerializableMessageSender(
             actor = submitActor,
-            kSerializer = KeyValueStateMachine.PutCommand.serializer()
+            kSerializer = KeyValueCommand.serializer()
         )
         val responses = messageSender.sendToQuorum(messageSender.getAllNodes(), 5) {
             command

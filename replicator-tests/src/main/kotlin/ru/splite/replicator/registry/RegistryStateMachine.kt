@@ -1,6 +1,7 @@
 package ru.splite.replicator.registry
 
 import org.slf4j.LoggerFactory
+import ru.splite.replicator.statemachine.ConflictIndex
 import ru.splite.replicator.statemachine.StateMachine
 import java.util.concurrent.atomic.AtomicLong
 
@@ -17,6 +18,10 @@ class RegistryStateMachine : StateMachine<RegistryCommand, Unit> {
             is RegistryCommand.IncValue -> currentValue.addAndGet(command.delta)
         }
         LOGGER.info("Applied command {}. newValue = {}", command, newValue)
+    }
+
+    override fun <K> newConflictIndex(): ConflictIndex<K, RegistryCommand> {
+        TODO("Not yet implemented")
     }
 
     fun getCurrentValue(): Long = currentValue.get()

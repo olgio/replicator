@@ -3,9 +3,11 @@ package ru.splite.replicator.timer
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.assertj.core.api.Assertions
+import org.junit.jupiter.api.Disabled
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.Test
 
+@Disabled
 class RenewableTimerTests {
 
     private val renewableTimerFactory = RenewableTimerFactory()
