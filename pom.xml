@@ -11,6 +11,7 @@
         <module>replicator-tests</module>
         <module>paxos</module>
         <module>timing</module>
+        <module>atlas</module>
     </modules>
     <groupId>ru.splite.replicator</groupId>
     <version>DEV-SNAPSHOT</version>
