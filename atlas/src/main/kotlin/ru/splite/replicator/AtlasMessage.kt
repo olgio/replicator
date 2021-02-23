@@ -2,7 +2,7 @@ package ru.splite.replicator
 
 import kotlinx.serialization.Serializable
 import ru.splite.replicator.bus.NodeIdentifier
-import ru.splite.replicator.dependency.Dependency
+import ru.splite.replicator.graph.Dependency
 import ru.splite.replicator.id.Id
 
 @Serializable
@@ -20,10 +20,16 @@ sealed class AtlasMessage {
         val command: ByteArray,
         val quorum: Set<NodeIdentifier> = emptySet(),
         val remoteDependencies: Set<Dependency> = emptySet()
-    ) : AtlasMessage()
+    ) : AtlasMessage() {
+
+        override fun toString(): String {
+            return "MCollect(commandId=$commandId, quorum=$quorum, remoteDependencies=$remoteDependencies)"
+        }
+    }
 
     @Serializable
     data class MCollectAck(
+        val isAck: Boolean,
         val commandId: Id<NodeIdentifier>,
         val remoteDependencies: Set<Dependency> = emptySet()
     ) : AtlasMessage()
@@ -35,6 +41,12 @@ sealed class AtlasMessage {
     ) : AtlasMessage()
 
     @Serializable
+    data class MCommitAck(
+        val isAck: Boolean,
+        val commandId: Id<NodeIdentifier>
+    ) : AtlasMessage()
+
+    @Serializable
     data class MConsensus(
         val commandId: Id<NodeIdentifier>,
         val ballot: Long,
@@ -43,6 +55,7 @@ sealed class AtlasMessage {
 
     @Serializable
     data class MConsensusAck(
+        val isAck: Boolean,
         val commandId: Id<NodeIdentifier>,
         val ballot: Long
     ) : AtlasMessage()
