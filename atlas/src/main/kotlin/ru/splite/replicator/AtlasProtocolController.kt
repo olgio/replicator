@@ -2,6 +2,8 @@ package ru.splite.replicator
 
 import kotlinx.coroutines.flow.*
 import org.slf4j.LoggerFactory
+import ru.splite.replicator.CommandCoordinator.CollectAckDecision
+import ru.splite.replicator.CommandCoordinator.ConsensusAckDecision
 import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.graph.Dependency
 import ru.splite.replicator.id.Id
@@ -26,11 +28,7 @@ class AtlasProtocolController(
 
     private val bufferedCommits = mutableMapOf<Id<NodeIdentifier>, AtlasMessage.MCommit>()
 
-    enum class CollectAckDecision { COMMIT, CONFLICT, NONE }
-
-    enum class ConsensusAckDecision { COMMIT, NONE }
-
-    inner class CommandCoordinator(val commandId: Id<NodeIdentifier>) {
+    inner class ManagedCommandCoordinator(val commandId: Id<NodeIdentifier>) : CommandCoordinator {
 
         val parent: AtlasProtocolController
             get() = this@AtlasProtocolController
@@ -41,7 +39,9 @@ class AtlasProtocolController(
 
         private val quorumDependencies by lazy { QuorumDependencies() }
 
-        fun buildCollect(command: ByteArray, fastQuorumNodes: Set<NodeIdentifier>): AtlasMessage.MCollect {
+        private val recoveryAcks by lazy { mutableMapOf<NodeIdentifier, AtlasMessage.MRecoveryAck>() }
+
+        override fun buildCollect(command: ByteArray, fastQuorumNodes: Set<NodeIdentifier>): AtlasMessage.MCollect {
             if (fastQuorumNodes.size != config.fastQuorumSize) {
                 error("Fast quorum must be ${config.fastQuorumSize} size but ${fastQuorumNodes.size} received")
             }
@@ -50,17 +50,17 @@ class AtlasProtocolController(
                 error("Command $commandId already submitted")
             }
             val dependency = Dependency(commandId)
-            val deps = conflictIndex.putAndGetConflicts(dependency, command)
+            val dependencies = conflictIndex.putAndGetConflicts(dependency, command)
 
-            val collect = AtlasMessage.MCollect(commandId, command, fastQuorumNodes, deps)
+            val collect = AtlasMessage.MCollect(commandId, command, fastQuorumNodes, dependencies)
             val selfCollectAck = handleCollect(address, collect)
-            assert(selfCollectAck.isAck)
+            check(selfCollectAck.isAck)
             val selfCollectAckDecision = handleCollectAck(address, selfCollectAck)
-            assert(selfCollectAckDecision == CollectAckDecision.NONE)
+            check(selfCollectAckDecision == CollectAckDecision.NONE)
             return collect
         }
 
-        fun buildCommit(): AtlasMessage.MCommit {
+        override fun buildCommit(): AtlasMessage.MCommit {
             val newConsensusValue = commandState.synodState.consensusValue
                 ?: error("No consensus value for commit")
             val commitMessage = AtlasMessage.MCommit(commandId, newConsensusValue)
@@ -68,7 +68,7 @@ class AtlasProtocolController(
             return commitMessage
         }
 
-        fun buildConsensus(): AtlasMessage.MConsensus {
+        override fun buildConsensus(): AtlasMessage.MConsensus {
             check(quorumDependencies.isQuorumCompleted(config.fastQuorumSize)) {
                 "MConsensus message cannot be built because of fast quorum uncompleted"
             }
@@ -82,7 +82,10 @@ class AtlasProtocolController(
             return consensusMessage
         }
 
-        fun handleConsensusAck(from: NodeIdentifier, consensusAck: AtlasMessage.MConsensusAck): ConsensusAckDecision {
+        override fun handleConsensusAck(
+            from: NodeIdentifier,
+            consensusAck: AtlasMessage.MConsensusAck
+        ): ConsensusAckDecision {
             if (!consensusAck.isAck) {
                 return ConsensusAckDecision.NONE
             }
@@ -93,7 +96,7 @@ class AtlasProtocolController(
             return ConsensusAckDecision.NONE
         }
 
-        fun handleCollectAck(from: NodeIdentifier, collectAck: AtlasMessage.MCollectAck): CollectAckDecision {
+        override fun handleCollectAck(from: NodeIdentifier, collectAck: AtlasMessage.MCollectAck): CollectAckDecision {
             if (commandState.status != CommandState.Status.COLLECT || !collectAck.isAck) {
                 return CollectAckDecision.NONE
             }
@@ -111,25 +114,106 @@ class AtlasProtocolController(
             }
             return CollectAckDecision.NONE
         }
+
+        override fun buildRecovery(): AtlasMessage.MRecovery {
+            val command = commandState.command
+                ?: error("Recovery cannot be initiated from node without payload")
+
+            val currentBallot = commandState.synodState.ballot
+            val newBallot = processId + config.n * (currentBallot / config.n + 1)
+
+            val recoveryMessage = AtlasMessage.MRecovery(
+                commandId = commandId,
+                command = command,
+                ballot = newBallot
+            )
+
+            val selfRecoveryAck = handleRecovery(recoveryMessage)
+
+            //error if received MCommit from self
+            check(selfRecoveryAck is AtlasMessage.MRecoveryAck) {
+                "Recovery from state ${commandState.status} doesn't make sense"
+            }
+            check(selfRecoveryAck.isAck)
+            check(selfRecoveryAck.ballot > commandState.synodState.acceptedBallot)
+
+            handleRecoveryAck(address, selfRecoveryAck)
+
+            return recoveryMessage
+        }
+
+        override fun handleRecoveryAck(
+            from: NodeIdentifier,
+            recoveryAck: AtlasMessage.MRecoveryAck
+        ): AtlasMessage.MConsensus? {
+            if (!recoveryAck.isAck || recoveryAck.ballot != commandState.synodState.ballot) {
+                return null
+            }
+
+            recoveryAcks[from] = recoveryAck
+
+            if (recoveryAcks.size != config.recoveryQuorumSize) {
+                return null
+            }
+
+            val consensusMessage = buildConsensusForRecovery()
+
+            val selfConsensusAck = handleConsensus(consensusMessage)
+            check(selfConsensusAck.isAck)
+            check(commandState.synodState.ballot > processId)
+            val selfConsensusAckDecision = handleConsensusAck(address, selfConsensusAck)
+            check(selfConsensusAckDecision == ConsensusAckDecision.NONE)
+
+            return consensusMessage
+        }
+
+        private fun buildConsensusForRecovery(): AtlasMessage.MConsensus {
+            recoveryAcks.values
+                .filter { it.acceptedBallot > 0 }
+                .maxByOrNull { it.acceptedBallot }
+                ?.let { maxAcceptedBallotAck ->
+                    return AtlasMessage.MConsensus(
+                        commandId = commandId,
+                        ballot = commandState.synodState.ballot,
+                        consensusValue = maxAcceptedBallotAck.consensusValue
+                    )
+                }
+
+            val initialNodeIdentifier = commandId.node
+            val recoveryQuorum = recoveryAcks.map { it.key }
+            recoveryAcks.values
+                .firstOrNull { it.quorum.isNotEmpty() }
+                ?.let { notEmptyQuorumAck ->
+                    val notEmptyQuorum = notEmptyQuorumAck.quorum
+                    val dependenciesQuorum = if (recoveryQuorum.contains(initialNodeIdentifier))
+                        recoveryQuorum else recoveryQuorum.intersect(notEmptyQuorum)
+                    val dependencies =
+                        dependenciesQuorum.flatMap { recoveryAcks[it]!!.consensusValue.dependencies }.toSet()
+                    return AtlasMessage.MConsensus(
+                        commandId = commandId,
+                        ballot = commandState.synodState.ballot,
+                        consensusValue = AtlasMessage.ConsensusValue(
+                            isNoop = false,
+                            dependencies = dependencies
+                        )
+                    )
+                }
+
+            return AtlasMessage.MConsensus(
+                commandId = commandId,
+                ballot = commandState.synodState.ballot,
+                consensusValue = AtlasMessage.ConsensusValue(isNoop = true)
+            )
+        }
     }
 
-    inner class CommandRecoveryCoordinator(val commandId: Id<NodeIdentifier>) {
-
-        val parent: AtlasProtocolController
-            get() = this@AtlasProtocolController
-
-        private val commandState = getCommandState(commandId)
-
-        private val accepts = mutableSetOf<NodeIdentifier>()
-
-        private val quorumDependencies by lazy { QuorumDependencies() }
-
-        //TODO
-    }
-
-    fun createCommandCoordinator(): CommandCoordinator {
+    fun createCommandCoordinator(): ManagedCommandCoordinator {
         val commandId = idGenerator.generateNext()
-        return CommandCoordinator(commandId)
+        return ManagedCommandCoordinator(commandId)
+    }
+
+    fun createCommandCoordinator(commandId: Id<NodeIdentifier>): ManagedCommandCoordinator {
+        return ManagedCommandCoordinator(commandId)
     }
 
 //    private fun submitCommand(command: ByteArray): AtlasMessage.MCollect {
@@ -295,12 +379,58 @@ class AtlasProtocolController(
         )
     }
 
+    private fun handleRecovery(message: AtlasMessage.MRecovery): AtlasMessage {
+        val commandState = getCommandState(message.commandId)
+
+        if (commandState.status == CommandState.Status.COMMIT) {
+            val consensusValue = commandState.synodState.consensusValue
+                ?: error("Command status COMMIT but consensusValue absent")
+            return AtlasMessage.MCommit(
+                commandId = message.commandId,
+                value = consensusValue
+            )
+        }
+
+        if (commandState.synodState.ballot >= message.ballot) {
+            return AtlasMessage.MRecoveryAck(
+                isAck = false,
+                commandId = message.commandId,
+                consensusValue = commandState.synodState.consensusValue ?: AtlasMessage.ConsensusValue(false),
+                ballot = commandState.synodState.ballot,
+                acceptedBallot = commandState.synodState.acceptedBallot
+            )
+        }
+
+        if (commandState.synodState.ballot == 0L && commandState.status == CommandState.Status.START) {
+            commandState.command = message.command
+            val dependency = Dependency(message.commandId)
+            val dependencies = conflictIndex.putAndGetConflicts(dependency, message.command)
+            commandState.synodState.consensusValue = AtlasMessage.ConsensusValue(
+                isNoop = false,
+                dependencies = dependencies
+            )
+        }
+
+        commandState.synodState.ballot = message.ballot
+        commandState.status = CommandState.Status.RECOVERY
+
+        return AtlasMessage.MRecoveryAck(
+            isAck = true,
+            commandId = message.commandId,
+            consensusValue = commandState.synodState.consensusValue!!,
+            quorum = commandState.quorum,
+            ballot = commandState.synodState.ballot,
+            acceptedBallot = commandState.synodState.acceptedBallot
+        )
+    }
+
     override suspend fun receive(src: NodeIdentifier, payload: AtlasMessage): AtlasMessage {
         val response = when (payload) {
             is AtlasMessage.MCollect -> handleCollect(src, payload)
             is AtlasMessage.MCommit -> handleCommit(payload)
             is AtlasMessage.MConsensus -> handleConsensus(payload)
-            else -> error("")
+            is AtlasMessage.MRecovery -> handleRecovery(payload)
+            else -> error("Received unknown type of message: $payload")
         }
         LOGGER.debug("Received $src -> ${this.address}: $payload -> $response")
         return response

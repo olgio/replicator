@@ -59,4 +59,21 @@ sealed class AtlasMessage {
         val commandId: Id<NodeIdentifier>,
         val ballot: Long
     ) : AtlasMessage()
+
+    @Serializable
+    data class MRecovery(
+        val commandId: Id<NodeIdentifier>,
+        val command: ByteArray,
+        val ballot: Long
+    ) : AtlasMessage()
+
+    @Serializable
+    data class MRecoveryAck(
+        val isAck: Boolean,
+        val commandId: Id<NodeIdentifier>,
+        val consensusValue: ConsensusValue,
+        val quorum: Set<NodeIdentifier> = emptySet(),
+        val ballot: Long,
+        val acceptedBallot: Long
+    ) : AtlasMessage()
 }

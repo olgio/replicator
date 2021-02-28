@@ -16,5 +16,5 @@ class CommandState(
         SynodState()
     }
 
-    enum class Status { START, COLLECT, PAYLOAD, COMMIT }
+    enum class Status { START, COLLECT, PAYLOAD, COMMIT, RECOVERY }
 }
