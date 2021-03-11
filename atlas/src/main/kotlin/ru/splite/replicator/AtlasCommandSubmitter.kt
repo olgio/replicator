@@ -39,11 +39,11 @@ class AtlasCommandSubmitter(
         } ?: CommandCoordinator.CollectAckDecision.NONE
 
         if (collectAckDecision == CommandCoordinator.CollectAckDecision.COMMIT) {
-            val commitMessage = commandCoordinator.buildCommit()
             messageSender.getAllNodes().forEach {
+                val commitMessage = commandCoordinator.buildCommit(!fastQuorumNodes.contains(it))
                 messageSender.sendOrNull(it, commitMessage)
             }
-            return commitMessage
+            return commandCoordinator.buildCommit(false)
         } else if (collectAckDecision == CommandCoordinator.CollectAckDecision.CONFLICT) {
             val slowQuorumNodes = messageSender.getNearestNodes(atlasProtocol.config.slowQuorumSize)
             val consensusMessage = commandCoordinator.buildConsensus()
@@ -56,11 +56,11 @@ class AtlasCommandSubmitter(
                 it == CommandCoordinator.ConsensusAckDecision.COMMIT
             } ?: error("Slow quorum invariant violated")
 
-            val commitMessage = commandCoordinator.buildCommit()
             messageSender.getAllNodes().forEach {
+                val commitMessage = commandCoordinator.buildCommit(!fastQuorumNodes.contains(it))
                 messageSender.sendOrNull(it, commitMessage)
             }
-            return commitMessage
+            return commandCoordinator.buildCommit(false)
         } else {
             error("Cannot achieve consensus for command ${collectMessage.commandId}: collectAckDecision = $collectAckDecision")
         }

@@ -62,10 +62,14 @@ class AtlasProtocolController(
             return collect
         }
 
-        override fun buildCommit(): AtlasMessage.MCommit {
+        override fun buildCommit(withPayload: Boolean): AtlasMessage.MCommit {
+            check(commandState.status != CommandState.Status.START) {
+                "Commit message cannot be created in START status"
+            }
             val newConsensusValue = commandState.synodState.consensusValue
                 ?: error("No consensus value for commit")
-            val commitMessage = AtlasMessage.MCommit(commandId, newConsensusValue)
+            val command = if (withPayload) commandState.command else null
+            val commitMessage = AtlasMessage.MCommit(commandId, newConsensusValue, command ?: ByteArray(0))
             handleCommit(commitMessage)
             return commitMessage
         }
@@ -358,12 +362,18 @@ class AtlasProtocolController(
 
         //TODO buffered commits
         if (commandState.status == CommandState.Status.START) {
-            bufferedCommits[message.commandId] = message
-            LOGGER.debug("Commit will be buffered until the payload arrives. commandId = ${message.commandId}")
-            return AtlasMessage.MCommitAck(
-                isAck = false,
-                commandId = message.commandId
-            )
+            if (message.command.isEmpty()) {
+                bufferedCommits[message.commandId] = message
+                LOGGER.debug("Commit will be buffered until the payload arrives. commandId = ${message.commandId}")
+                return AtlasMessage.MCommitAck(
+                    isAck = false,
+                    commandId = message.commandId
+                )
+            } else {
+                LOGGER.debug("Payload received with commit message. commandId = ${message.commandId}")
+                commandState.command = message.command
+                commandState.status = CommandState.Status.PAYLOAD
+            }
         }
 
         if (commandState.status == CommandState.Status.COMMIT) {
@@ -398,7 +408,8 @@ class AtlasProtocolController(
                 ?: error("Command status COMMIT but consensusValue absent")
             return AtlasMessage.MCommit(
                 commandId = message.commandId,
-                value = consensusValue
+                value = consensusValue,
+                command = commandState.command ?: ByteArray(0)
             )
         }
 

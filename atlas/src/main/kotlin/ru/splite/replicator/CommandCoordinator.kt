@@ -19,7 +19,7 @@ interface CommandCoordinator {
 
     fun handleConsensusAck(from: NodeIdentifier, consensusAck: AtlasMessage.MConsensusAck): ConsensusAckDecision
 
-    fun buildCommit(): AtlasMessage.MCommit
+    fun buildCommit(withPayload: Boolean = false): AtlasMessage.MCommit
 
     fun buildRecovery(): AtlasMessage.MRecovery
 

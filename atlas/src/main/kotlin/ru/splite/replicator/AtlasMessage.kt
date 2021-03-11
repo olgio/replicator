@@ -37,8 +37,14 @@ sealed class AtlasMessage {
     @Serializable
     data class MCommit(
         val commandId: Id<NodeIdentifier>,
-        val value: ConsensusValue
-    ) : AtlasMessage()
+        val value: ConsensusValue,
+        val command: ByteArray
+    ) : AtlasMessage() {
+
+        override fun toString(): String {
+            return "MCommit(commandId=$commandId, value=$value)"
+        }
+    }
 
     @Serializable
     data class MCommitAck(
