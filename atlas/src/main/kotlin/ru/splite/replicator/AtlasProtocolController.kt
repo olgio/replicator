@@ -5,13 +5,13 @@ import org.slf4j.LoggerFactory
 import ru.splite.replicator.CommandCoordinator.CollectAckDecision
 import ru.splite.replicator.CommandCoordinator.ConsensusAckDecision
 import ru.splite.replicator.bus.NodeIdentifier
+import ru.splite.replicator.executor.CommandExecutor
 import ru.splite.replicator.graph.Dependency
 import ru.splite.replicator.id.Id
 import ru.splite.replicator.id.IdGenerator
 import ru.splite.replicator.statemachine.ConflictIndex
 import ru.splite.replicator.transport.Transport
 import ru.splite.replicator.transport.TypedActor
-import ru.splite.replicator.transport.sender.MessageSender
 
 class AtlasProtocolController(
     address: NodeIdentifier,
@@ -19,16 +19,18 @@ class AtlasProtocolController(
     private val processId: Long,
     private val idGenerator: IdGenerator<NodeIdentifier>,
     private val conflictIndex: ConflictIndex<Dependency, ByteArray>,
-    private val config: AtlasProtocolConfig
-) : TypedActor<AtlasMessage>(address, transport, AtlasMessage.serializer()) {
+    private val commandExecutor: CommandExecutor,
+    val config: AtlasProtocolConfig
+) : AtlasProtocol, TypedActor<AtlasMessage>(address, transport, AtlasMessage.serializer()) {
 
-    private val messageSender = MessageSender(this, 1000L)
+    override val nodeIdentifier: NodeIdentifier
+        get() = address
 
     private val commands = mutableMapOf<Id<NodeIdentifier>, CommandState>()
 
     private val bufferedCommits = mutableMapOf<Id<NodeIdentifier>, AtlasMessage.MCommit>()
 
-    inner class ManagedCommandCoordinator(val commandId: Id<NodeIdentifier>) : CommandCoordinator {
+    inner class ManagedCommandCoordinator(override val commandId: Id<NodeIdentifier>) : CommandCoordinator {
 
         val parent: AtlasProtocolController
             get() = this@AtlasProtocolController
@@ -207,12 +209,12 @@ class AtlasProtocolController(
         }
     }
 
-    fun createCommandCoordinator(): ManagedCommandCoordinator {
+    override fun createCommandCoordinator(): ManagedCommandCoordinator {
         val commandId = idGenerator.generateNext()
         return ManagedCommandCoordinator(commandId)
     }
 
-    fun createCommandCoordinator(commandId: Id<NodeIdentifier>): ManagedCommandCoordinator {
+    override fun createCommandCoordinator(commandId: Id<NodeIdentifier>): ManagedCommandCoordinator {
         return ManagedCommandCoordinator(commandId)
     }
 
@@ -357,6 +359,7 @@ class AtlasProtocolController(
         //TODO buffered commits
         if (commandState.status == CommandState.Status.START) {
             bufferedCommits[message.commandId] = message
+            LOGGER.debug("Commit will be buffered until the payload arrives. commandId = ${message.commandId}")
             return AtlasMessage.MCommitAck(
                 isAck = false,
                 commandId = message.commandId
@@ -364,15 +367,23 @@ class AtlasProtocolController(
         }
 
         if (commandState.status == CommandState.Status.COMMIT) {
+            LOGGER.debug("Commit processed idempotently. commandId = ${message.commandId}")
             return AtlasMessage.MCommitAck(
                 isAck = true,
                 commandId = message.commandId
             )
         }
+        val command = commandState.command
+            ?: error("Command in status ${commandState.status} but payload is null")
 
-        //TODO add to executor
-        LOGGER.info("Commit command ${message.commandId}")
+        commandState.synodState.consensusValue = message.value
+
+        //TODO noop
+        commandExecutor.commit(message.commandId, command, message.value.dependencies)
+
         commandState.status = CommandState.Status.COMMIT
+        LOGGER.info("Commit command ${message.commandId}")
+
         return AtlasMessage.MCommitAck(
             isAck = true,
             commandId = message.commandId

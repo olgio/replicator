@@ -7,7 +7,9 @@ import ru.splite.replicator.AtlasProtocolController.ManagedCommandCoordinator
 import ru.splite.replicator.CommandCoordinator.CollectAckDecision
 import ru.splite.replicator.CommandCoordinator.ConsensusAckDecision
 import ru.splite.replicator.bus.NodeIdentifier
+import ru.splite.replicator.executor.CommandExecutor
 import ru.splite.replicator.graph.Dependency
+import ru.splite.replicator.graph.JGraphTDependencyGraph
 import ru.splite.replicator.id.InMemoryIdGenerator
 import ru.splite.replicator.keyvalue.KeyValueCommand
 import ru.splite.replicator.keyvalue.KeyValueStateMachine
@@ -308,6 +310,8 @@ class AtlasProtocolTests {
     private fun Transport.buildNode(i: Int, n: Int, f: Int): AtlasProtocolController {
         val nodeIdentifier = NodeIdentifier("node-$i")
         val stateMachine = KeyValueStateMachine()
+        val dependencyGraph = JGraphTDependencyGraph<Dependency>()
+        val commandExecutor = CommandExecutor(dependencyGraph, stateMachine)
         val config = AtlasProtocolConfig(n = n, f = f)
         val idGenerator = InMemoryIdGenerator(nodeIdentifier)
         return AtlasProtocolController(
@@ -316,6 +320,7 @@ class AtlasProtocolTests {
             i.toLong(),
             idGenerator,
             stateMachine.newConflictIndex(),
+            commandExecutor,
             config
         )
     }

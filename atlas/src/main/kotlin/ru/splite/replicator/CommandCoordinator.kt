@@ -1,12 +1,15 @@
 package ru.splite.replicator
 
 import ru.splite.replicator.bus.NodeIdentifier
+import ru.splite.replicator.id.Id
 
 interface CommandCoordinator {
 
     enum class CollectAckDecision { COMMIT, CONFLICT, NONE }
 
     enum class ConsensusAckDecision { COMMIT, NONE }
+
+    val commandId: Id<NodeIdentifier>
 
     fun buildCollect(command: ByteArray, fastQuorumNodes: Set<NodeIdentifier>): AtlasMessage.MCollect
 
