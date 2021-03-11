@@ -41,8 +41,10 @@ class CoroutineChannelTransport(private val coroutineScope: CoroutineScope) : Tr
         val channel = coroutineScope.actor<ChannelMessage>(coroutineName + SupervisorJob(), Int.MAX_VALUE) {
             for (message in channel) {
                 try {
-                    if (isolatedNodes.contains(address) || isolatedNodes.contains(message.src)) {
-                        throw NodeUnavailableException("Node $address isolated")
+                    if (isolatedNodes.contains(message.src)) {
+                        throw NodeUnavailableException("Cannot receive message from node ${message.src} because it is isolated")
+                    } else if (isolatedNodes.contains(address)) {
+                        throw NodeUnavailableException("Node $address cannot receive message because it is isolated")
                     }
                     val response = receiver.receive(message.src, message.payload)
                     message.response.complete(response)
