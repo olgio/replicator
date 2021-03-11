@@ -1,13 +1,18 @@
 package ru.splite.replicator
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import org.slf4j.LoggerFactory
+import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.executor.CommandExecutor
 import ru.splite.replicator.statemachine.StateMachineCommandSubmitter
 import ru.splite.replicator.transport.sender.MessageSender
 
 class AtlasCommandSubmitter(
     val atlasProtocol: AtlasProtocolController,
+    private val coroutineScopeToSendCommit: CoroutineScope,
     private val commandExecutor: CommandExecutor
 ) : StateMachineCommandSubmitter<ByteArray, ByteArray> {
 
@@ -15,10 +20,11 @@ class AtlasCommandSubmitter(
 
     override suspend fun submit(command: ByteArray): ByteArray {
         val commandCoordinator = atlasProtocol.createCommandCoordinator()
-        val commitMessage = coordinateCommand(commandCoordinator, command)
-        check(!commitMessage.value.isNoop) //TODO
         return withTimeout(3000L) {
-            commandExecutor.awaitCommandResponse(commandCoordinator.commandId, command)
+            commandExecutor.awaitCommandResponse(commandCoordinator.commandId) {
+                val commitMessage = coordinateCommand(commandCoordinator, command)
+                check(!commitMessage.value.isNoop) //TODO
+            }
         }
     }
 
@@ -39,11 +45,7 @@ class AtlasCommandSubmitter(
         } ?: CommandCoordinator.CollectAckDecision.NONE
 
         if (collectAckDecision == CommandCoordinator.CollectAckDecision.COMMIT) {
-            messageSender.getAllNodes().forEach {
-                val commitMessage = commandCoordinator.buildCommit(!fastQuorumNodes.contains(it))
-                messageSender.sendOrNull(it, commitMessage)
-            }
-            return commandCoordinator.buildCommit(false)
+            return sendCommitToAllExternalContext(commandCoordinator, fastQuorumNodes)
         } else if (collectAckDecision == CommandCoordinator.CollectAckDecision.CONFLICT) {
             val slowQuorumNodes = messageSender.getNearestNodes(atlasProtocol.config.slowQuorumSize)
             val consensusMessage = commandCoordinator.buildConsensus()
@@ -56,14 +58,31 @@ class AtlasCommandSubmitter(
                 it == CommandCoordinator.ConsensusAckDecision.COMMIT
             } ?: error("Slow quorum invariant violated")
 
-            messageSender.getAllNodes().forEach {
-                val commitMessage = commandCoordinator.buildCommit(!fastQuorumNodes.contains(it))
-                messageSender.sendOrNull(it, commitMessage)
-            }
-            return commandCoordinator.buildCommit(false)
+            return sendCommitToAllExternalContext(commandCoordinator, fastQuorumNodes)
         } else {
             error("Cannot achieve consensus for command ${collectMessage.commandId}: collectAckDecision = $collectAckDecision")
         }
+    }
+
+    private fun sendCommitToAllExternalContext(
+        commandCoordinator: CommandCoordinator,
+        fastQuorumNodes: Collection<NodeIdentifier>
+    ): AtlasMessage.MCommit {
+        val commitForFastPath = commandCoordinator.buildCommit(false)
+        val commitWithPayload = commandCoordinator.buildCommit(true)
+
+        coroutineScopeToSendCommit.launch {
+            val successCommitsSize = messageSender.getAllNodes().map {
+                async {
+                    messageSender.sendOrNull(
+                        it,
+                        if (fastQuorumNodes.contains(it)) commitForFastPath else commitWithPayload
+                    )
+                }
+            }.mapNotNull { it.await() }.size
+            LOGGER.debug("Successfully sent $successCommitsSize commits")
+        }
+        return commitForFastPath
     }
 
     companion object {
