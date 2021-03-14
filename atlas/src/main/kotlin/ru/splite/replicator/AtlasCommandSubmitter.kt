@@ -16,11 +16,11 @@ class AtlasCommandSubmitter(
     private val commandExecutor: CommandExecutor
 ) : StateMachineCommandSubmitter<ByteArray, ByteArray> {
 
-    private val messageSender = MessageSender(atlasProtocol, 1000L)
+    private val messageSender = MessageSender(atlasProtocol, atlasProtocol.config.sendMessageTimeout)
 
     override suspend fun submit(command: ByteArray): ByteArray {
         val commandCoordinator = atlasProtocol.createCommandCoordinator()
-        return withTimeout(3000L) {
+        return withTimeout(atlasProtocol.config.commandExecutorTimeout) {
             commandExecutor.awaitCommandResponse(commandCoordinator.commandId) {
                 val commitMessage = coordinateCommand(commandCoordinator, command)
                 check(!commitMessage.value.isNoop) //TODO
@@ -47,6 +47,7 @@ class AtlasCommandSubmitter(
         if (collectAckDecision == CommandCoordinator.CollectAckDecision.COMMIT) {
             return sendCommitToAllExternalContext(commandCoordinator, fastQuorumNodes)
         } else if (collectAckDecision == CommandCoordinator.CollectAckDecision.CONFLICT) {
+            LOGGER.debug("Chosen slow path. commandId=${commandCoordinator.commandId}")
             val slowQuorumNodes = messageSender.getNearestNodes(atlasProtocol.config.slowQuorumSize)
             val consensusMessage = commandCoordinator.buildConsensus()
 
@@ -60,7 +61,7 @@ class AtlasCommandSubmitter(
 
             return sendCommitToAllExternalContext(commandCoordinator, fastQuorumNodes)
         } else {
-            error("Cannot achieve consensus for command ${collectMessage.commandId}: collectAckDecision = $collectAckDecision")
+            error("Cannot achieve consensus for command ${commandCoordinator.commandId}: collectAckDecision = $collectAckDecision")
         }
     }
 
@@ -72,6 +73,7 @@ class AtlasCommandSubmitter(
         val commitWithPayload = commandCoordinator.buildCommit(true)
 
         coroutineScopeToSendCommit.launch {
+            LOGGER.debug("Sending commits async. commandId=${commandCoordinator.commandId}")
             val successCommitsSize = messageSender.getAllNodes().map {
                 async {
                     messageSender.sendOrNull(
@@ -80,7 +82,7 @@ class AtlasCommandSubmitter(
                     )
                 }
             }.mapNotNull { it.await() }.size
-            LOGGER.debug("Successfully sent $successCommitsSize commits")
+            LOGGER.debug("Successfully sent $successCommitsSize commits. commandId=${commandCoordinator.commandId}")
         }
         return commitForFastPath
     }

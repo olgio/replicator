@@ -1,6 +1,11 @@
 package ru.splite.replicator
 
-data class AtlasProtocolConfig(val n: Int, val f: Int) {
+data class AtlasProtocolConfig(
+    val n: Int,
+    val f: Int,
+    val sendMessageTimeout: Long = 1000,
+    val commandExecutorTimeout: Long = 3000
+) {
 
     init {
         assert(n > 2) {

@@ -12,6 +12,7 @@ import ru.splite.replicator.id.IdGenerator
 import ru.splite.replicator.statemachine.ConflictIndex
 import ru.splite.replicator.transport.Transport
 import ru.splite.replicator.transport.TypedActor
+import java.util.concurrent.ConcurrentHashMap
 
 class AtlasProtocolController(
     address: NodeIdentifier,
@@ -26,9 +27,9 @@ class AtlasProtocolController(
     override val nodeIdentifier: NodeIdentifier
         get() = address
 
-    private val commands = mutableMapOf<Id<NodeIdentifier>, CommandState>()
+    private val commands = ConcurrentHashMap<Id<NodeIdentifier>, CommandState>()
 
-    private val bufferedCommits = mutableMapOf<Id<NodeIdentifier>, AtlasMessage.MCommit>()
+    private val bufferedCommits = ConcurrentHashMap<Id<NodeIdentifier>, AtlasMessage.MCommit>()
 
     inner class ManagedCommandCoordinator(override val commandId: Id<NodeIdentifier>) : CommandCoordinator {
 
@@ -221,70 +222,6 @@ class AtlasProtocolController(
     override fun createCommandCoordinator(commandId: Id<NodeIdentifier>): ManagedCommandCoordinator {
         return ManagedCommandCoordinator(commandId)
     }
-
-//    private fun submitCommand(command: ByteArray): AtlasMessage.MCollect {
-//        val commandId = idGenerator.generateNext()
-//        val dependency = Dependency(commandId)
-//        val deps = conflictIndex.putAndGetConflicts(dependency, command)
-//        val fastQuorumNodes = messageSender.getNearestNodes(config.fastQuorumSize)
-//        return AtlasMessage.MCollect(commandId, command, fastQuorumNodes, deps)
-//    }
-//
-//    suspend fun submit(command: ByteArray) {
-//        val collectMessage = submitCommand(command)
-//
-//        val commandState = getCommandState(collectMessage.commandId)
-//
-//        handleCollect(this.address, collectMessage)
-//        messageSender.sendToQuorum(collectMessage.quorum) {
-//            collectMessage
-//        }.mapNotNull {
-//            val collectAck = it.response as AtlasMessage.MCollectAck
-//            if (collectAck.isAck) {
-//                it.dst to collectAck
-//            } else {
-//                null
-//            }
-//        }.collect { (from, collectAck) ->
-////            if (commandState.status != CommandState.Status.COLLECT) {
-////                return
-////            }
-//
-//            commandState.quorumDependencies.addParticipant(from, collectAck.remoteDependencies, this.config.fastQuorumSize)
-//        }
-//
-//        if (commandState.quorumDependencies.isQuorumCompleted(this.config.fastQuorumSize)) {
-//
-//            //TODO merge
-//            val newConsensusValue = AtlasMessage.ConsensusValue(false, commandState.quorumDependencies.dependenciesUnion)
-//
-//            if (commandState.quorumDependencies.checkThresholdUnion(config.f)) {
-//                val commitMessage = AtlasMessage.MCommit(commandId, newConsensusValue)
-//                handleCommit(commitMessage)
-//                messageSender.sendToQuorum(messageSender.getAllNodes()) {
-//                    commitMessage
-//                }
-//            } else {
-//                val slowQuorumNodes = messageSender.getNearestNodes(config.slowQuorumSize)
-//
-//                val consensusMessage = AtlasMessage.MConsensus(commandId, commandState.synodState.ballot, newConsensusValue)
-//                val selfConsensusAck = handleConsensus(consensusMessage)
-//                assert(selfConsensusAck.isAck)
-//
-//                val slowQuorumReceived = messageSender.sendToQuorum(slowQuorumNodes) {
-//                    consensusMessage
-//                }.map { it.response as AtlasMessage.MConsensusAck }.count { it.isAck }
-//
-//                if (slowQuorumReceived == slowQuorumNodes.size) {
-//                    val commitMessage = AtlasMessage.MCommit(commandId, newConsensusValue)
-//                    handleCommit(commitMessage)
-//                    messageSender.sendToQuorum(messageSender.getAllNodes()) {
-//                        commitMessage
-//                    }
-//                }
-//            }
-//        }
-//    }
 
     private fun handleCollect(from: NodeIdentifier, message: AtlasMessage.MCollect): AtlasMessage.MCollectAck {
         val commandState = getCommandState(message.commandId)
