@@ -1,5 +1,6 @@
 package ru.splite.replicator.keyvalue
 
+import org.slf4j.LoggerFactory
 import ru.splite.replicator.statemachine.ConflictIndex
 import ru.splite.replicator.statemachine.StateMachine
 import java.util.concurrent.ConcurrentHashMap
@@ -18,6 +19,7 @@ class KeyValueStateMachine : StateMachine<ByteArray, ByteArray> {
             }
             is KeyValueCommand.PutValue -> {
                 store[command.key] = command.value
+                LOGGER.debug("Set key ${command.key} to value ${command.value}")
                 KeyValueReply(command.key, command.value)
             }
         }
@@ -27,5 +29,9 @@ class KeyValueStateMachine : StateMachine<ByteArray, ByteArray> {
 
     override fun <K> newConflictIndex(): ConflictIndex<K, ByteArray> {
         return KeyValueConflictIndex()
+    }
+
+    companion object {
+        private val LOGGER = LoggerFactory.getLogger(javaClass.enclosingClass)
     }
 }

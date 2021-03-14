@@ -5,25 +5,40 @@ import java.util.concurrent.ConcurrentHashMap
 
 internal class KeyValueConflictIndex<K> : ConflictIndex<K, ByteArray> {
 
-    private val conflictIndex = ConcurrentHashMap<String, MutableSet<K>>()
+    private data class LastReadWrite<K>(val lastRead: K? = null, val lastWrite: K? = null)
 
-    override fun putAndGetConflicts(key: K, bytes: ByteArray): Set<K> {
-        val storeKey = when (val command = KeyValueCommand.deserializer(bytes)) {
-            is KeyValueCommand.GetValue -> command.key
-            is KeyValueCommand.PutValue -> command.key
-        }
+    private val lastReadWrite = ConcurrentHashMap<String, LastReadWrite<K>>()
 
-        val keys = conflictIndex.getOrPut(storeKey) {
-            mutableSetOf()
+    override fun putAndGetConflicts(key: K, command: ByteArray): Set<K> {
+        return when (val deserializedCommand = KeyValueCommand.deserializer(command)) {
+            is KeyValueCommand.GetValue -> {
+                //read depends on last write
+                val newValue = lastReadWrite.compute(deserializedCommand.key) { _, oldValue ->
+                    if (oldValue == null) {
+                        LastReadWrite(lastRead = key)
+                    } else {
+                        LastReadWrite(lastRead = key, lastWrite = oldValue.lastWrite)
+                    }
+                }
+                setOfNotNull(newValue!!.lastWrite)
+            }
+            is KeyValueCommand.PutValue -> {
+                //write depends on last write and last read
+                var prevLastWrite: K? = null
+                val newValue = lastReadWrite.compute(deserializedCommand.key) { _, oldValue ->
+                    if (oldValue == null) {
+                        LastReadWrite(lastWrite = key)
+                    } else {
+                        prevLastWrite = oldValue.lastWrite
+                        LastReadWrite(lastRead = oldValue.lastRead, lastWrite = key)
+                    }
+                }
+                setOfNotNull(prevLastWrite, newValue!!.lastRead)
+            }
         }
-        val keysView = keys.toSet()
-        keys.add(key)
-        return keysView
     }
 
     override fun putAndGetConflicts(key: K, command: ByteArray, dependencies: Set<K>): Set<K> {
         return putAndGetConflicts(key, command).plus(dependencies)
     }
-
-
 }
