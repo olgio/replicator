@@ -1,8 +1,8 @@
 package ru.splite.replicator.cluster
 
 import kotlinx.coroutines.CoroutineName
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.test.TestCoroutineScope
 import ru.splite.replicator.AtlasCommandSubmitter
 import ru.splite.replicator.AtlasProtocolConfig
 import ru.splite.replicator.AtlasProtocolController
@@ -18,16 +18,15 @@ class AtlasClusterBuilder() {
 
     class AtlasClusterScope(
         val transport: CoroutineChannelTransport,
-        private val coroutineScope: TestCoroutineScope,
+        private val coroutineScope: CoroutineScope,
         internal val jobs: MutableList<Job> = mutableListOf()
     ) {
 
-        internal fun buildNode(i: Int, n: Int, f: Int): AtlasClusterNode {
+        internal fun buildNode(i: Int, config: AtlasProtocolConfig): AtlasClusterNode {
             val nodeIdentifier = NodeIdentifier("node-$i")
             val stateMachine = KeyValueStateMachine()
             val dependencyGraph = JGraphTDependencyGraph<Dependency>()
             val commandExecutor = CommandExecutor(dependencyGraph, stateMachine)
-            val config = AtlasProtocolConfig(n = n, f = f)
             val idGenerator = InMemoryIdGenerator(nodeIdentifier)
             val atlasProtocol = AtlasProtocolController(
                 nodeIdentifier,
@@ -38,7 +37,7 @@ class AtlasClusterBuilder() {
                 commandExecutor,
                 config
             )
-            val atlasCommandSubmitter = AtlasCommandSubmitter(atlasProtocol, commandExecutor)
+            val atlasCommandSubmitter = AtlasCommandSubmitter(atlasProtocol, coroutineScope, commandExecutor)
 
             val commandExecutorCoroutineName = CoroutineName("${nodeIdentifier.identifier}|command-executor")
             jobs.add(commandExecutor.launchCommandExecutor(commandExecutorCoroutineName, coroutineScope))
@@ -47,20 +46,29 @@ class AtlasClusterBuilder() {
     }
 
     suspend fun buildNodes(
-        coroutineScope: TestCoroutineScope,
-        n: Int,
-        f: Int,
+        coroutineScope: CoroutineScope,
+        config: AtlasProtocolConfig,
         action: suspend AtlasClusterScope.(List<AtlasClusterNode>) -> Unit
     ) {
         val transport = CoroutineChannelTransport(coroutineScope)
         val scope = AtlasClusterScope(transport, coroutineScope)
-        val nodes = (1..n).map {
-            scope.buildNode(it, n, f)
+        val nodes = (1..config.n).map {
+            scope.buildNode(it, config)
         }
         try {
             action.invoke(scope, nodes)
         } finally {
             scope.jobs.forEach { it.cancel() }
         }
+    }
+
+    suspend fun buildNodes(
+        coroutineScope: CoroutineScope,
+        n: Int,
+        f: Int,
+        action: suspend AtlasClusterScope.(List<AtlasClusterNode>) -> Unit
+    ) {
+        val config = AtlasProtocolConfig(n = n, f = f)
+        return buildNodes(coroutineScope, config, action)
     }
 }
