@@ -8,12 +8,11 @@ import ru.splite.replicator.statemachine.StateMachineCommandSubmitter
 import ru.splite.replicator.transport.sender.MessageSender
 
 class AtlasCommandSubmitter(
-    val atlasProtocol: BaseAtlasProtocol,
+    private val atlasProtocol: AtlasProtocol,
+    private val messageSender: MessageSender<AtlasMessage>,
     private val coroutineScopeToSendCommit: CoroutineScope,
     private val commandExecutor: CommandExecutor
 ) : StateMachineCommandSubmitter<ByteArray, ByteArray> {
-
-    private val messageSender = MessageSender(atlasProtocol, atlasProtocol.config.sendMessageTimeout)
 
     override suspend fun submit(command: ByteArray): ByteArray {
         val commandCoordinator = atlasProtocol.createCommandCoordinator()

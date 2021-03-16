@@ -3,7 +3,6 @@ package ru.splite.replicator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.runBlockingTest
 import org.assertj.core.api.Assertions.assertThat
-import ru.splite.replicator.BaseAtlasProtocol.ManagedCommandCoordinator
 import ru.splite.replicator.CommandCoordinator.CollectAckDecision
 import ru.splite.replicator.CommandCoordinator.ConsensusAckDecision
 import ru.splite.replicator.bus.NodeIdentifier
@@ -26,7 +25,7 @@ class AtlasProtocolTests {
 
         val command = KeyValueCommand.newPutCommand("1", "value1")
 
-        node1.createCommandCoordinator().let { coordinator ->
+        node1.protocol.createCommandCoordinator().let { coordinator ->
             val collectMessage = coordinator.buildCollect(command, setOf(node1.address, node2.address))
 
             assertThat(collectMessage.quorum).containsExactlyInAnyOrder(node1.address, node2.address)
@@ -63,23 +62,23 @@ class AtlasProtocolTests {
         val fastQuorum1 = setOf(node1, node2, node3, node4).map { it.address }.toSet()
         val fastQuorum2 = setOf(node2, node3, node4, node5).map { it.address }.toSet()
 
-        val coordinator1 = node1.createCommandCoordinator()
-        val coordinator5 = node5.createCommandCoordinator()
+        val coordinator1 = node1.protocol.createCommandCoordinator()
+        val coordinator5 = node5.protocol.createCommandCoordinator()
 
         val collectMessage1 = coordinator1.buildCollect(command1, fastQuorum1)
         val collectMessage5 = coordinator5.buildCollect(command5, fastQuorum2)
 
-        coordinator1.sendCollectAndAssert(collectMessage1, setOf(node2, node3), CollectAckDecision.NONE)
+        coordinator1.sendCollectAndAssert(node1, collectMessage1, setOf(node2, node3), CollectAckDecision.NONE)
 
-        coordinator5.sendCollectAndAssert(collectMessage5, setOf(node3, node4), CollectAckDecision.NONE)
-        coordinator5.sendCollectAndAssert(collectMessage5, setOf(node2), CollectAckDecision.COMMIT)
+        coordinator5.sendCollectAndAssert(node5, collectMessage5, setOf(node3, node4), CollectAckDecision.NONE)
+        coordinator5.sendCollectAndAssert(node5, collectMessage5, setOf(node2), CollectAckDecision.COMMIT)
 
-        coordinator1.sendCollectAndAssert(collectMessage1, setOf(node4), CollectAckDecision.CONFLICT)
+        coordinator1.sendCollectAndAssert(node1, collectMessage1, setOf(node4), CollectAckDecision.CONFLICT)
 
         val consensusMessage1 = coordinator1.buildConsensus()
 
-        coordinator1.sendConsensusAndAssert(consensusMessage1, setOf(node2), ConsensusAckDecision.NONE)
-        coordinator1.sendConsensusAndAssert(consensusMessage1, setOf(node3), ConsensusAckDecision.COMMIT)
+        coordinator1.sendConsensusAndAssert(node1, consensusMessage1, setOf(node2), ConsensusAckDecision.NONE)
+        coordinator1.sendConsensusAndAssert(node1, consensusMessage1, setOf(node3), ConsensusAckDecision.COMMIT)
 
 
         val commitMessage5 = coordinator5.buildCommit()
@@ -98,7 +97,7 @@ class AtlasProtocolTests {
 
         val command = KeyValueCommand.newPutCommand("1", "value1")
 
-        node1.createCommandCoordinator().let { coordinator ->
+        node1.protocol.createCommandCoordinator().let { coordinator ->
             val collectMessage = coordinator.buildCollect(command, setOf(node1.address, node2.address))
 
 
@@ -122,25 +121,25 @@ class AtlasProtocolTests {
 
         //Collect from node1
         //fastQuorum = [node1, node2]
-        val commitMessage1 = node1.createCommandCoordinator().let { coordinator ->
+        val commitMessage1 = node1.protocol.createCommandCoordinator().let { coordinator ->
             val collectMessage = coordinator.buildCollect(command1, setOf(node1.address, node2.address))
-            coordinator.sendCollectAndAssert(collectMessage, setOf(node2), CollectAckDecision.COMMIT)
+            coordinator.sendCollectAndAssert(node1, collectMessage, setOf(node2), CollectAckDecision.COMMIT)
             val commitMessage = coordinator.buildCommit()
             assertThat(commitMessage.value.dependencies).isEmpty()
             commitMessage
         }
         //Collect from node2
         //fastQuorum = [node2, node3]
-        val commitMessage2 = node2.createCommandCoordinator().let { coordinator ->
+        val commitMessage2 = node2.protocol.createCommandCoordinator().let { coordinator ->
             val collectMessage = coordinator.buildCollect(command2, setOf(node2.address, node3.address))
-            coordinator.sendCollectAndAssert(collectMessage, setOf(node3), CollectAckDecision.COMMIT)
+            coordinator.sendCollectAndAssert(node2, collectMessage, setOf(node3), CollectAckDecision.COMMIT)
             val commitMessage = coordinator.buildCommit()
             assertThat(commitMessage.value.dependencies).hasSize(1)
             commitMessage
         }
         //Recovery from node3
         //recoveryQuorum = [node1, node3]
-        node3.createCommandCoordinator(commitMessage2.commandId).let { coordinator ->
+        node3.protocol.createCommandCoordinator(commitMessage2.commandId).let { coordinator ->
             val recoveryMessage = coordinator.buildRecovery()
             val recoveryAckMessage = node3.send(node1.address, recoveryMessage) as AtlasMessage.MRecoveryAck
             assertThat(recoveryAckMessage.isAck).isTrue
@@ -148,20 +147,20 @@ class AtlasProtocolTests {
             val consensusMessage = coordinator.handleRecoveryAck(node1.address, recoveryAckMessage)
             assertThat(consensusMessage).isNotNull
             assertThat(consensusMessage!!.consensusValue.dependencies).hasSize(1)
-            coordinator.sendConsensusAndAssert(consensusMessage, setOf(node1), ConsensusAckDecision.COMMIT)
+            coordinator.sendConsensusAndAssert(node3, consensusMessage, setOf(node1), ConsensusAckDecision.COMMIT)
             val commitMessage = coordinator.buildCommit()
             assertThat(commitMessage.value.dependencies).hasSize(1)
         }
         //Recovery from node1
         //recoveryQuorum = [node1, node3]
-        node1.createCommandCoordinator(commitMessage2.commandId).let { coordinator ->
+        node1.protocol.createCommandCoordinator(commitMessage2.commandId).let { coordinator ->
             val recoveryMessage = coordinator.buildRecovery()
             val replayCommitMessage = node1.send(node3.address, recoveryMessage) as AtlasMessage.MCommit
             assertThat(replayCommitMessage.value.dependencies).hasSize(1)
         }
         //Recovery from node1
         //recoveryQuorum = [node1, node2]
-        node1.createCommandCoordinator(commitMessage2.commandId).let { coordinator ->
+        node1.protocol.createCommandCoordinator(commitMessage2.commandId).let { coordinator ->
             val recoveryMessage = coordinator.buildRecovery()
             val replayCommitMessage = node1.send(node2.address, recoveryMessage) as AtlasMessage.MCommit
             assertThat(replayCommitMessage.value.dependencies).hasSize(1)
@@ -176,7 +175,7 @@ class AtlasProtocolTests {
         val command1 = KeyValueCommand.newPutCommand("1", "value1")
         val command2 = KeyValueCommand.newPutCommand("1", "value2")
 
-        val coordinator1 = node1.createCommandCoordinator()
+        val coordinator1 = node1.protocol.createCommandCoordinator()
 
         //Collect from node1
         //fastQuorum = [node1, node2, node3, node4]
@@ -187,19 +186,19 @@ class AtlasProtocolTests {
                 setOf(node1.address, node2.address, node3.address, node4.address)
             )
             assertThat(collectMessage.remoteDependencies).isEmpty()
-            coordinator.sendCollectAndAssert(collectMessage, setOf(node2, node3), CollectAckDecision.NONE)
+            coordinator.sendCollectAndAssert(node1, collectMessage, setOf(node2, node3), CollectAckDecision.NONE)
             collectMessage
         }
         //Collect from node5
         //fastQuorum = [node2, node3, node4, node5]
         //send to [node2, node3, node4, node5]
-        val collectMessage5 = node5.createCommandCoordinator().let { coordinator ->
+        val collectMessage5 = node5.protocol.createCommandCoordinator().let { coordinator ->
             val collectMessage = coordinator.buildCollect(
                 command2,
                 setOf(node2.address, node3.address, node4.address, node5.address)
             )
-            coordinator.sendCollectAndAssert(collectMessage, setOf(node2, node3), CollectAckDecision.NONE)
-            coordinator.sendCollectAndAssert(collectMessage, setOf(node4), CollectAckDecision.COMMIT)
+            coordinator.sendCollectAndAssert(node5, collectMessage, setOf(node2, node3), CollectAckDecision.NONE)
+            coordinator.sendCollectAndAssert(node5, collectMessage, setOf(node4), CollectAckDecision.COMMIT)
             val commitMessage = coordinator.buildCommit()
             assertThat(commitMessage.value.dependencies).containsExactlyInAnyOrder(Dependency(collectMessage1.commandId))
             collectMessage
@@ -209,12 +208,12 @@ class AtlasProtocolTests {
         //fastQuorum = [node1, node2, node3, node4]
         //sent to [node4]
         coordinator1.let { coordinator ->
-            coordinator.sendCollectAndAssert(collectMessage1, setOf(node4), CollectAckDecision.CONFLICT)
+            coordinator.sendCollectAndAssert(node1, collectMessage1, setOf(node4), CollectAckDecision.CONFLICT)
         }
 
         //Recovery from node3
         //recoveryQuorum = [node1, node3, node5]
-        node3.createCommandCoordinator(collectMessage1.commandId).let { coordinator ->
+        node3.protocol.createCommandCoordinator(collectMessage1.commandId).let { coordinator ->
             val recoveryMessage = coordinator.buildRecovery()
 
             val recoveryAckMessage1 = node3.send(node1.address, recoveryMessage) as AtlasMessage.MRecoveryAck
@@ -230,8 +229,8 @@ class AtlasProtocolTests {
             val consensusMessage5 = coordinator.handleRecoveryAck(node5.address, recoveryAckMessage5)
             assertThat(consensusMessage5).isNotNull
             assertThat(consensusMessage5!!.consensusValue.dependencies).hasSize(1)
-            coordinator.sendConsensusAndAssert(consensusMessage5, setOf(node1), ConsensusAckDecision.NONE)
-            coordinator.sendConsensusAndAssert(consensusMessage5, setOf(node5), ConsensusAckDecision.COMMIT)
+            coordinator.sendConsensusAndAssert(node3, consensusMessage5, setOf(node1), ConsensusAckDecision.NONE)
+            coordinator.sendConsensusAndAssert(node3, consensusMessage5, setOf(node5), ConsensusAckDecision.COMMIT)
 
             val commitMessage = coordinator.buildCommit()
             assertThat(commitMessage.value.dependencies).containsExactlyInAnyOrder(Dependency(collectMessage5.commandId))
@@ -246,7 +245,7 @@ class AtlasProtocolTests {
         val command1 = KeyValueCommand.newPutCommand("1", "value1")
         val command2 = KeyValueCommand.newPutCommand("1", "value2")
 
-        val coordinator1 = node1.createCommandCoordinator()
+        val coordinator1 = node1.protocol.createCommandCoordinator()
 
         //Collect from node1
         //fastQuorum = [node1, node2]
@@ -259,9 +258,9 @@ class AtlasProtocolTests {
         //Collect from node3
         //fastQuorum = [node2, node3]
         //send to [node2, node3]
-        val collectMessage3 = node3.createCommandCoordinator().let { coordinator ->
+        val collectMessage3 = node3.protocol.createCommandCoordinator().let { coordinator ->
             val collectMessage = coordinator.buildCollect(command2, setOf(node2.address, node3.address))
-            coordinator.sendCollectAndAssert(collectMessage, setOf(node2), CollectAckDecision.COMMIT)
+            coordinator.sendCollectAndAssert(node3, collectMessage, setOf(node2), CollectAckDecision.COMMIT)
             val commitMessage = coordinator.buildCommit()
             assertThat(commitMessage.value.dependencies).isEmpty()
             collectMessage
@@ -271,15 +270,16 @@ class AtlasProtocolTests {
         //fastQuorum = [node1, node2]
         //sent to [node2]
         coordinator1.let { coordinator ->
-            coordinator.sendCollectAndAssert(collectMessage1, setOf(node2), CollectAckDecision.COMMIT)
+            coordinator.sendCollectAndAssert(node1, collectMessage1, setOf(node2), CollectAckDecision.COMMIT)
             val commitMessage = coordinator.buildCommit()
             assertThat(commitMessage.value.dependencies).containsExactlyInAnyOrder(Dependency(collectMessage3.commandId))
         }
     }
 
-    private suspend fun ManagedCommandCoordinator.sendCollectAndAssert(
+    private suspend fun CommandCoordinator.sendCollectAndAssert(
+        parent: AtlasProtocolController,
         collectMessage: AtlasMessage.MCollect,
-        to: Set<BaseAtlasProtocol>,
+        to: Set<AtlasProtocolController>,
         expectDecision: CollectAckDecision
     ) {
         to.forEach { dstNode ->
@@ -290,9 +290,10 @@ class AtlasProtocolTests {
         }
     }
 
-    private suspend fun ManagedCommandCoordinator.sendConsensusAndAssert(
+    private suspend fun CommandCoordinator.sendConsensusAndAssert(
+        parent: AtlasProtocolController,
         collectMessage: AtlasMessage.MConsensus,
-        to: Set<BaseAtlasProtocol>,
+        to: Set<AtlasProtocolController>,
         expectDecision: ConsensusAckDecision
     ) {
         to.forEach { dstNode ->
@@ -307,25 +308,25 @@ class AtlasProtocolTests {
         return CoroutineChannelTransport(this)
     }
 
-    private fun Transport.buildNode(i: Int, n: Int, f: Int): BaseAtlasProtocol {
+    private fun Transport.buildNode(i: Int, n: Int, f: Int): AtlasProtocolController {
         val nodeIdentifier = NodeIdentifier("node-$i")
         val stateMachine = KeyValueStateMachine()
         val dependencyGraph = JGraphTDependencyGraph<Dependency>()
         val commandExecutor = CommandExecutor(dependencyGraph, stateMachine)
         val config = AtlasProtocolConfig(n = n, f = f)
         val idGenerator = InMemoryIdGenerator(nodeIdentifier)
-        return BaseAtlasProtocol(
+        val atlasProtocol = BaseAtlasProtocol(
             nodeIdentifier,
-            this,
+            config,
             i.toLong(),
             idGenerator,
             stateMachine.newConflictIndex(),
-            commandExecutor,
-            config
+            commandExecutor
         )
+        return AtlasProtocolController(this, atlasProtocol)
     }
 
-    private fun Transport.buildNodes(n: Int, f: Int): List<BaseAtlasProtocol> {
+    private fun Transport.buildNodes(n: Int, f: Int): List<AtlasProtocolController> {
         return (1..n).map {
             buildNode(it, n, f)
         }

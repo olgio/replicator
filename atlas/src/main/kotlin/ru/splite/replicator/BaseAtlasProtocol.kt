@@ -1,6 +1,5 @@
 package ru.splite.replicator
 
-import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.CommandCoordinator.CollectAckDecision
@@ -13,31 +12,22 @@ import ru.splite.replicator.id.IdGenerator
 import ru.splite.replicator.state.CommandState
 import ru.splite.replicator.state.QuorumDependencies
 import ru.splite.replicator.statemachine.ConflictIndex
-import ru.splite.replicator.transport.Transport
-import ru.splite.replicator.transport.TypedActor
 import java.util.concurrent.ConcurrentHashMap
 
 class BaseAtlasProtocol(
-    address: NodeIdentifier,
-    transport: Transport,
+    override val address: NodeIdentifier,
+    override val config: AtlasProtocolConfig,
     private val processId: Long,
     private val idGenerator: IdGenerator<NodeIdentifier>,
     private val conflictIndex: ConflictIndex<Dependency, ByteArray>,
-    private val commandExecutor: CommandExecutor,
-    val config: AtlasProtocolConfig
-) : AtlasProtocol, TypedActor<AtlasMessage>(address, transport, AtlasMessage.serializer()) {
-
-    override val nodeIdentifier: NodeIdentifier
-        get() = address
+    private val commandExecutor: CommandExecutor
+) : AtlasProtocol {
 
     private val commands = ConcurrentHashMap<Id<NodeIdentifier>, CommandState>()
 
     private val bufferedCommits = ConcurrentHashMap<Id<NodeIdentifier>, AtlasMessage.MCommit>()
 
     inner class ManagedCommandCoordinator(override val commandId: Id<NodeIdentifier>) : CommandCoordinator {
-
-        val parent: BaseAtlasProtocol
-            get() = this@BaseAtlasProtocol
 
         private val commandState = getCommandState(commandId)
 
@@ -226,7 +216,7 @@ class BaseAtlasProtocol(
         return ManagedCommandCoordinator(commandId)
     }
 
-    private fun handleCollect(from: NodeIdentifier, message: AtlasMessage.MCollect): AtlasMessage.MCollectAck {
+    override fun handleCollect(from: NodeIdentifier, message: AtlasMessage.MCollect): AtlasMessage.MCollectAck {
         val commandState = getCommandState(message.commandId)
 
         if (commandState.status != CommandState.Status.START) {
@@ -275,7 +265,7 @@ class BaseAtlasProtocol(
         //messageSender.sendOrNull(from, collectAckMessage)
     }
 
-    private fun handleConsensus(message: AtlasMessage.MConsensus): AtlasMessage.MConsensusAck {
+    override fun handleConsensus(message: AtlasMessage.MConsensus): AtlasMessage.MConsensusAck {
         val synodState = getCommandState(message.commandId).synodState
 
         if (synodState.ballot > message.ballot) {
@@ -297,7 +287,7 @@ class BaseAtlasProtocol(
         )
     }
 
-    private fun handleCommit(message: AtlasMessage.MCommit): AtlasMessage.MCommitAck {
+    override fun handleCommit(message: AtlasMessage.MCommit): AtlasMessage.MCommitAck {
         val commandState = getCommandState(message.commandId)
 
         //TODO buffered commits
@@ -342,7 +332,7 @@ class BaseAtlasProtocol(
         )
     }
 
-    private fun handleRecovery(message: AtlasMessage.MRecovery): AtlasMessage {
+    override fun handleRecovery(message: AtlasMessage.MRecovery): AtlasMessage {
         val commandState = getCommandState(message.commandId)
 
         if (commandState.status == CommandState.Status.COMMIT) {
@@ -386,18 +376,6 @@ class BaseAtlasProtocol(
             ballot = commandState.synodState.ballot,
             acceptedBallot = commandState.synodState.acceptedBallot
         )
-    }
-
-    override suspend fun receive(src: NodeIdentifier, payload: AtlasMessage): AtlasMessage {
-        val response = when (payload) {
-            is AtlasMessage.MCollect -> handleCollect(src, payload)
-            is AtlasMessage.MCommit -> handleCommit(payload)
-            is AtlasMessage.MConsensus -> handleConsensus(payload)
-            is AtlasMessage.MRecovery -> handleRecovery(payload)
-            else -> error("Received unknown type of message: $payload")
-        }
-        LOGGER.debug("Received $src -> ${this.address}: $payload -> $response")
-        return response
     }
 
     private fun getCommandState(commandId: Id<NodeIdentifier>): CommandState {

@@ -5,7 +5,17 @@ import ru.splite.replicator.id.Id
 
 interface AtlasProtocol {
 
-    val nodeIdentifier: NodeIdentifier
+    val address: NodeIdentifier
+
+    val config: AtlasProtocolConfig
+
+    fun handleCollect(from: NodeIdentifier, message: AtlasMessage.MCollect): AtlasMessage.MCollectAck
+
+    fun handleConsensus(message: AtlasMessage.MConsensus): AtlasMessage.MConsensusAck
+
+    fun handleCommit(message: AtlasMessage.MCommit): AtlasMessage.MCommitAck
+
+    fun handleRecovery(message: AtlasMessage.MRecovery): AtlasMessage
 
     fun createCommandCoordinator(): CommandCoordinator
 
