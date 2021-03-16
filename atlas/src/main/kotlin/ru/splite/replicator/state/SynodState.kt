@@ -1,4 +1,6 @@
-package ru.splite.replicator
+package ru.splite.replicator.state
+
+import ru.splite.replicator.AtlasMessage
 
 class SynodState(
     var ballot: Long = 0,

@@ -8,7 +8,7 @@ import ru.splite.replicator.statemachine.StateMachineCommandSubmitter
 import ru.splite.replicator.transport.sender.MessageSender
 
 class AtlasCommandSubmitter(
-    val atlasProtocol: AtlasProtocolController,
+    val atlasProtocol: BaseAtlasProtocol,
     private val coroutineScopeToSendCommit: CoroutineScope,
     private val commandExecutor: CommandExecutor
 ) : StateMachineCommandSubmitter<ByteArray, ByteArray> {

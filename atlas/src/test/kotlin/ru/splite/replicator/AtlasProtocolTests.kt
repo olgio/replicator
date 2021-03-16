@@ -3,7 +3,7 @@ package ru.splite.replicator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.runBlockingTest
 import org.assertj.core.api.Assertions.assertThat
-import ru.splite.replicator.AtlasProtocolController.ManagedCommandCoordinator
+import ru.splite.replicator.BaseAtlasProtocol.ManagedCommandCoordinator
 import ru.splite.replicator.CommandCoordinator.CollectAckDecision
 import ru.splite.replicator.CommandCoordinator.ConsensusAckDecision
 import ru.splite.replicator.bus.NodeIdentifier
@@ -279,7 +279,7 @@ class AtlasProtocolTests {
 
     private suspend fun ManagedCommandCoordinator.sendCollectAndAssert(
         collectMessage: AtlasMessage.MCollect,
-        to: Set<AtlasProtocolController>,
+        to: Set<BaseAtlasProtocol>,
         expectDecision: CollectAckDecision
     ) {
         to.forEach { dstNode ->
@@ -292,7 +292,7 @@ class AtlasProtocolTests {
 
     private suspend fun ManagedCommandCoordinator.sendConsensusAndAssert(
         collectMessage: AtlasMessage.MConsensus,
-        to: Set<AtlasProtocolController>,
+        to: Set<BaseAtlasProtocol>,
         expectDecision: ConsensusAckDecision
     ) {
         to.forEach { dstNode ->
@@ -307,14 +307,14 @@ class AtlasProtocolTests {
         return CoroutineChannelTransport(this)
     }
 
-    private fun Transport.buildNode(i: Int, n: Int, f: Int): AtlasProtocolController {
+    private fun Transport.buildNode(i: Int, n: Int, f: Int): BaseAtlasProtocol {
         val nodeIdentifier = NodeIdentifier("node-$i")
         val stateMachine = KeyValueStateMachine()
         val dependencyGraph = JGraphTDependencyGraph<Dependency>()
         val commandExecutor = CommandExecutor(dependencyGraph, stateMachine)
         val config = AtlasProtocolConfig(n = n, f = f)
         val idGenerator = InMemoryIdGenerator(nodeIdentifier)
-        return AtlasProtocolController(
+        return BaseAtlasProtocol(
             nodeIdentifier,
             this,
             i.toLong(),
@@ -325,7 +325,7 @@ class AtlasProtocolTests {
         )
     }
 
-    private fun Transport.buildNodes(n: Int, f: Int): List<AtlasProtocolController> {
+    private fun Transport.buildNodes(n: Int, f: Int): List<BaseAtlasProtocol> {
         return (1..n).map {
             buildNode(it, n, f)
         }

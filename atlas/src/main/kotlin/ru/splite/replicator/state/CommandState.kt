@@ -1,4 +1,4 @@
-package ru.splite.replicator
+package ru.splite.replicator.state
 
 import ru.splite.replicator.bus.NodeIdentifier
 
