@@ -10,7 +10,7 @@ class KeyValueStateMachine : StateMachine<ByteArray, ByteArray> {
     private val store = ConcurrentHashMap<String, String>()
 
     val currentState: Map<String, String>
-        get() = store.toMap()
+        get() = store
 
     override fun commit(bytes: ByteArray): ByteArray {
         val reply = when (val command: KeyValueCommand = KeyValueCommand.deserializer(bytes)) {
