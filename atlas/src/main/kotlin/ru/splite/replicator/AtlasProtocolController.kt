@@ -1,6 +1,7 @@
 package ru.splite.replicator
 
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.CommandCoordinator.CollectAckDecision
 import ru.splite.replicator.CommandCoordinator.ConsensusAckDecision
@@ -326,7 +327,9 @@ class AtlasProtocolController(
         commandState.synodState.consensusValue = message.value
 
         //TODO noop
-        commandExecutor.commit(message.commandId, command, message.value.dependencies)
+        runBlocking {
+            commandExecutor.commit(message.commandId, command, message.value.dependencies)
+        }
 
         commandState.status = CommandState.Status.COMMIT
         LOGGER.info("Commit command ${message.commandId}")
