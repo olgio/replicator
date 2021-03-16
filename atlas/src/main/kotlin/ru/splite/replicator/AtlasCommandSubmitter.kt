@@ -1,9 +1,6 @@
 package ru.splite.replicator
 
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.async
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.*
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.executor.CommandExecutor
@@ -72,7 +69,8 @@ class AtlasCommandSubmitter(
         val commitForFastPath = commandCoordinator.buildCommit(false)
         val commitWithPayload = commandCoordinator.buildCommit(true)
 
-        coroutineScopeToSendCommit.launch {
+        val coroutineName = CoroutineName("commit-${commandCoordinator.commandId}")
+        coroutineScopeToSendCommit.launch(coroutineName) {
             LOGGER.debug("Sending commits async. commandId=${commandCoordinator.commandId}")
             val successCommitsSize = messageSender.getAllNodes().map {
                 async {
