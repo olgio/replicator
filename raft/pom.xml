@@ -19,7 +19,7 @@
 
         <dependency>
             <groupId>ru.splite.replicator</groupId>
-            <artifactId>timing</artifactId>
+            <artifactId>replicator-timers</artifactId>
             <version>DEV-SNAPSHOT</version>
         </dependency>
 
