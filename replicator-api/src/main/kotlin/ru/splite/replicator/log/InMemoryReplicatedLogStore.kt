@@ -1,5 +1,6 @@
 package ru.splite.replicator.log
 
+import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
@@ -75,6 +76,6 @@ class InMemoryReplicatedLogStore : ReplicatedLogStore {
     }
 
     companion object {
-        val LOGGER = LoggerFactory.getLogger(javaClass.enclosingClass)
+        val LOGGER: Logger = LoggerFactory.getLogger(javaClass.enclosingClass)
     }
 }

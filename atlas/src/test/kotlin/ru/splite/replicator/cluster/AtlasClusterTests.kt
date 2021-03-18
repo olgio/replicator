@@ -9,7 +9,7 @@ import kotlin.test.Test
 
 class AtlasClusterTests {
 
-    val atlasClusterBuilder = AtlasClusterBuilder()
+    private val atlasClusterBuilder = AtlasClusterBuilder()
 
     @Test
     fun successReplicationTest(): Unit = runBlockingTest {

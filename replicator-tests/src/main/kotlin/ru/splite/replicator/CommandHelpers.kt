@@ -1,9 +1,6 @@
-package ru.splite.replicator.raft
-
-import ru.splite.replicator.Command
-import ru.splite.replicator.LogStoreAssert
+package ru.splite.replicator
 
 fun LogStoreAssert.hasOnlyCommands(vararg values: Long): LogStoreAssert {
-    this.hasOnlyEntries(*values.map { Command.Serializer.serialize(Command(it)) }.toTypedArray())
+    this.hasOnlyEntries(*values.map { Command.serialize(Command(it)) }.toTypedArray())
     return this
 }

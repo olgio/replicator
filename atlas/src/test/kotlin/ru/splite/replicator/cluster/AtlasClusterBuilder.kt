@@ -14,7 +14,7 @@ import ru.splite.replicator.keyvalue.KeyValueStateMachine
 import ru.splite.replicator.transport.CoroutineChannelTransport
 import ru.splite.replicator.transport.sender.MessageSender
 
-class AtlasClusterBuilder() {
+class AtlasClusterBuilder {
 
     class AtlasClusterScope(
         val transport: CoroutineChannelTransport,

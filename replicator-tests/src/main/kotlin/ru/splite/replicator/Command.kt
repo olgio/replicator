@@ -15,7 +15,7 @@ data class Command(val value: Long) {
         }
 
         override fun deserializer(byteArray: ByteArray): Command {
-            return ProtoBuf.decodeFromByteArray<Command>(byteArray)
+            return ProtoBuf.decodeFromByteArray(byteArray)
         }
     }
 }

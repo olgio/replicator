@@ -1,5 +1,6 @@
 package ru.splite.replicator.registry
 
+import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.statemachine.ConflictIndex
 import ru.splite.replicator.statemachine.StateMachine
@@ -27,6 +28,6 @@ class RegistryStateMachine : StateMachine<RegistryCommand, Unit> {
     fun getCurrentValue(): Long = currentValue.get()
 
     companion object {
-        val LOGGER = LoggerFactory.getLogger(javaClass.enclosingClass)
+        val LOGGER: Logger = LoggerFactory.getLogger(javaClass.enclosingClass)
     }
 }

@@ -11,7 +11,7 @@ import ru.splite.replicator.timer.flow.DelayTimerFactory
 import ru.splite.replicator.timer.flow.TimeTick
 import ru.splite.replicator.transport.CoroutineChannelTransport
 
-class RaftClusterBuilder() {
+class RaftClusterBuilder {
 
     class RaftClusterScope(
         val transport: CoroutineChannelTransport,

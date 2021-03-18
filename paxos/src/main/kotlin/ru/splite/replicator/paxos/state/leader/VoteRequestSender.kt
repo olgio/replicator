@@ -119,7 +119,7 @@ class VoteRequestSender(
             }
         }
         entries.forEachIndexed { index, logEntry ->
-            LOGGER.debug("${localNodeState.nodeIdentifier} :: logEntry with index ${firstUncommittedIndex + index} set to ${logEntry.command} with term ${nextTerm}")
+            LOGGER.debug("${localNodeState.nodeIdentifier} :: logEntry with index ${firstUncommittedIndex + index} set to ${logEntry.command} with term $nextTerm")
             logStore.setLogEntry(firstUncommittedIndex + index, LogEntry(nextTerm, logEntry.command))
         }
     }

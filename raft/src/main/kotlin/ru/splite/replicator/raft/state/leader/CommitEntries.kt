@@ -1,4 +1,4 @@
-package ru.splite.replicator.raft.state.leader;
+package ru.splite.replicator.raft.state.leader
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

@@ -207,9 +207,7 @@ class AtlasProtocolTests {
         //Collect from node1
         //fastQuorum = [node1, node2, node3, node4]
         //sent to [node4]
-        coordinator1.let { coordinator ->
-            coordinator.sendCollectAndAssert(node1, collectMessage1, setOf(node4), CollectAckDecision.CONFLICT)
-        }
+        coordinator1.sendCollectAndAssert(node1, collectMessage1, setOf(node4), CollectAckDecision.CONFLICT)
 
         //Recovery from node3
         //recoveryQuorum = [node1, node3, node5]

@@ -103,8 +103,7 @@ class RaftProtocolController(
     }
 
     override suspend fun receive(src: NodeIdentifier, payload: ByteArray): ByteArray {
-        val request: RaftMessage = ProtoBuf.decodeFromByteArray<RaftMessage>(payload)
-        return when (request) {
+        return when (val request: RaftMessage = ProtoBuf.decodeFromByteArray(payload)) {
             is RaftMessage.VoteRequest -> ProtoBuf.encodeToByteArray<RaftMessage>(handleVoteRequest(request))
             is RaftMessage.AppendEntries -> ProtoBuf.encodeToByteArray<RaftMessage>(handleAppendEntries(request))
             else -> error("Message type ${request.javaClass} is not supported")

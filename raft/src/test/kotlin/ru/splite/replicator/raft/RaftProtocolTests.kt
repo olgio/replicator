@@ -5,6 +5,7 @@ import kotlinx.coroutines.runBlocking
 import org.assertj.core.api.Assertions.assertThat
 import ru.splite.replicator.Command
 import ru.splite.replicator.bus.NodeIdentifier
+import ru.splite.replicator.hasOnlyCommands
 import ru.splite.replicator.log.InMemoryReplicatedLogStore
 import ru.splite.replicator.raft.state.RaftLocalNodeState
 import ru.splite.replicator.raft.state.asMajority
@@ -16,7 +17,7 @@ import kotlin.test.Test
 class RaftProtocolTests {
 
     @Test
-    fun singleTermMultipleLogEntriesCommitTest(): Unit = runBlocking() {
+    fun singleTermMultipleLogEntriesCommitTest(): Unit = runBlocking {
         val clusterTopology = buildTopology()
 
         val (node1, node2, node3) = clusterTopology.buildNodes(3)
@@ -37,7 +38,7 @@ class RaftProtocolTests {
     }
 
     @Test
-    fun singleTermPartitionedLogEntriesCommitTest(): Unit = runBlocking() {
+    fun singleTermPartitionedLogEntriesCommitTest(): Unit = runBlocking {
         val clusterTopology = buildTopology()
 
         val (node1, node2, node3) = clusterTopology.buildNodes(3)
@@ -331,14 +332,13 @@ class RaftProtocolTests {
         val nodeIdentifier = NodeIdentifier(name)
         val logStore = InMemoryReplicatedLogStore()
         val localNodeState = RaftLocalNodeState(nodeIdentifier)
-        val raftProtocol = RaftProtocolController(
+        return RaftProtocolController(
             logStore,
             this,
             localNodeState,
             fullSize.asMajority(),
             fullSize.asMajority()
         )
-        return raftProtocol
     }
 
     private fun Transport.buildNodes(n: Int): List<RaftProtocolController> {

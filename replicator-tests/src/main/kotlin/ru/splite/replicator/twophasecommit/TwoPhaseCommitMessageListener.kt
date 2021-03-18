@@ -1,5 +1,6 @@
 package ru.splite.replicator.twophasecommit
 
+import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.bus.MessageBus
 import ru.splite.replicator.bus.MessageListener
@@ -70,6 +71,6 @@ class TwoPhaseCommitMessageListener<T>(
     }
 
     companion object {
-        val LOGGER = LoggerFactory.getLogger(javaClass.enclosingClass)
+        val LOGGER: Logger = LoggerFactory.getLogger(javaClass.enclosingClass)
     }
 }

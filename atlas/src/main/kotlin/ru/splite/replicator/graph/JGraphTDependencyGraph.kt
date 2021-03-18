@@ -10,8 +10,6 @@ import org.jgrapht.traverse.TopologicalOrderIterator
 
 class JGraphTDependencyGraph<K : Comparable<K>> : DependencyGraph<K> {
 
-    data class Vertex<K, S>(val key: K, val sequenceNumber: S, val dependencies: Set<K>)
-
     override val numVertices: Int
         get() = graph.vertexSet().size
 

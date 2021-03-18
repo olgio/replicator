@@ -40,24 +40,28 @@ class AtlasCommandSubmitter(
             it != CommandCoordinator.CollectAckDecision.NONE
         } ?: CommandCoordinator.CollectAckDecision.NONE
 
-        if (collectAckDecision == CommandCoordinator.CollectAckDecision.COMMIT) {
-            return sendCommitToAllExternalContext(commandCoordinator, fastQuorumNodes)
-        } else if (collectAckDecision == CommandCoordinator.CollectAckDecision.CONFLICT) {
-            LOGGER.debug("Chosen slow path. commandId=${commandCoordinator.commandId}")
-            val slowQuorumNodes = messageSender.getNearestNodes(atlasProtocol.config.slowQuorumSize)
-            val consensusMessage = commandCoordinator.buildConsensus()
+        when (collectAckDecision) {
+            CommandCoordinator.CollectAckDecision.COMMIT -> {
+                return sendCommitToAllExternalContext(commandCoordinator, fastQuorumNodes)
+            }
+            CommandCoordinator.CollectAckDecision.CONFLICT -> {
+                LOGGER.debug("Chosen slow path. commandId=${commandCoordinator.commandId}")
+                val slowQuorumNodes = messageSender.getNearestNodes(atlasProtocol.config.slowQuorumSize)
+                val consensusMessage = commandCoordinator.buildConsensus()
 
-            messageSender.sendToAllOrThrow(slowQuorumNodes) {
-                consensusMessage
-            }.map {
-                commandCoordinator.handleConsensusAck(it.dst, it.response as AtlasMessage.MConsensusAck)
-            }.firstOrNull {
-                it == CommandCoordinator.ConsensusAckDecision.COMMIT
-            } ?: error("Slow quorum invariant violated")
+                messageSender.sendToAllOrThrow(slowQuorumNodes) {
+                    consensusMessage
+                }.map {
+                    commandCoordinator.handleConsensusAck(it.dst, it.response as AtlasMessage.MConsensusAck)
+                }.firstOrNull {
+                    it == CommandCoordinator.ConsensusAckDecision.COMMIT
+                } ?: error("Slow quorum invariant violated")
 
-            return sendCommitToAllExternalContext(commandCoordinator, fastQuorumNodes)
-        } else {
-            error("Cannot achieve consensus for command ${commandCoordinator.commandId}: collectAckDecision = $collectAckDecision")
+                return sendCommitToAllExternalContext(commandCoordinator, fastQuorumNodes)
+            }
+            else -> {
+                error("Cannot achieve consensus for command ${commandCoordinator.commandId}: collectAckDecision = $collectAckDecision")
+            }
         }
     }
 

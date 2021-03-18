@@ -5,9 +5,9 @@ import kotlinx.coroutines.runBlocking
 import org.assertj.core.api.Assertions.assertThat
 import ru.splite.replicator.Command
 import ru.splite.replicator.bus.NodeIdentifier
+import ru.splite.replicator.hasOnlyCommands
 import ru.splite.replicator.log.InMemoryReplicatedLogStore
 import ru.splite.replicator.paxos.state.PaxosLocalNodeState
-import ru.splite.replicator.raft.hasOnlyCommands
 import ru.splite.replicator.raft.state.asMajority
 import ru.splite.replicator.transport.CoroutineChannelTransport
 import ru.splite.replicator.transport.Transport
@@ -17,7 +17,7 @@ import kotlin.test.Test
 class PaxosProtocolTests {
 
     @Test
-    fun singleTermMultipleLogEntriesCommitTest(): Unit = runBlocking() {
+    fun singleTermMultipleLogEntriesCommitTest(): Unit = runBlocking {
         val clusterTopology = buildTopology()
 
         val (node1, node2, node3) = clusterTopology.buildNodes(3)
@@ -38,7 +38,7 @@ class PaxosProtocolTests {
     }
 
     @Test
-    fun singleTermPartitionedLogEntriesCommitTest(): Unit = runBlocking() {
+    fun singleTermPartitionedLogEntriesCommitTest(): Unit = runBlocking {
         val clusterTopology = buildTopology()
 
         val (node1, node2, node3) = clusterTopology.buildNodes(3)
@@ -348,14 +348,13 @@ class PaxosProtocolTests {
         val nodeIdentifier = NodeIdentifier(name)
         val logStore = InMemoryReplicatedLogStore()
         val localNodeState = PaxosLocalNodeState(nodeIdentifier, n.toLong())
-        val node = PaxosProtocolController(
+        return PaxosProtocolController(
             logStore,
             this,
             localNodeState,
             fullSize.asMajority(),
             fullSize.asMajority()
         )
-        return node
     }
 
     private fun Transport.buildNodes(n: Int): List<PaxosProtocolController> {
