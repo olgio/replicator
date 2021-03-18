@@ -1,11 +1,10 @@
 package ru.splite.replicator.cluster
 
-import kotlinx.coroutines.CoroutineName
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.*
 import ru.splite.replicator.AtlasCommandSubmitter
 import ru.splite.replicator.AtlasProtocolConfig
 import ru.splite.replicator.AtlasProtocolController
+import ru.splite.replicator.BaseAtlasProtocol
 import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.executor.CommandExecutor
 import ru.splite.replicator.graph.Dependency
@@ -13,13 +12,14 @@ import ru.splite.replicator.graph.JGraphTDependencyGraph
 import ru.splite.replicator.id.InMemoryIdGenerator
 import ru.splite.replicator.keyvalue.KeyValueStateMachine
 import ru.splite.replicator.transport.CoroutineChannelTransport
+import ru.splite.replicator.transport.sender.MessageSender
 
 class AtlasClusterBuilder() {
 
     class AtlasClusterScope(
         val transport: CoroutineChannelTransport,
         private val coroutineScope: CoroutineScope,
-        internal val jobs: MutableList<Job> = mutableListOf()
+        private val jobs: MutableList<Job> = mutableListOf()
     ) {
 
         internal fun buildNode(i: Int, config: AtlasProtocolConfig): AtlasClusterNode {
@@ -28,20 +28,31 @@ class AtlasClusterBuilder() {
             val dependencyGraph = JGraphTDependencyGraph<Dependency>()
             val commandExecutor = CommandExecutor(dependencyGraph, stateMachine)
             val idGenerator = InMemoryIdGenerator(nodeIdentifier)
-            val atlasProtocol = AtlasProtocolController(
+            val atlasProtocol = BaseAtlasProtocol(
                 nodeIdentifier,
-                transport,
+                config,
                 i.toLong(),
                 idGenerator,
                 stateMachine.newConflictIndex(),
-                commandExecutor,
-                config
+                commandExecutor
             )
-            val atlasCommandSubmitter = AtlasCommandSubmitter(atlasProtocol, coroutineScope, commandExecutor)
+            val atlasProtocolController = AtlasProtocolController(transport, atlasProtocol)
+            val messageSender = MessageSender(atlasProtocolController, atlasProtocol.config.sendMessageTimeout)
+            val atlasCommandSubmitter =
+                AtlasCommandSubmitter(atlasProtocol, messageSender, coroutineScope, commandExecutor)
 
-            val commandExecutorCoroutineName = CoroutineName("${nodeIdentifier.identifier}|command-executor")
+            val commandExecutorCoroutineName = SupervisorJob()
+                .plus(CoroutineName("${nodeIdentifier.identifier}|ce"))
             jobs.add(commandExecutor.launchCommandExecutor(commandExecutorCoroutineName, coroutineScope))
             return AtlasClusterNode(nodeIdentifier, atlasCommandSubmitter, stateMachine)
+        }
+
+        suspend fun awaitTermination() {
+            val childrenJobs = coroutineScope.coroutineContext.job.children
+            childrenJobs.minus(jobs).filter { it is CompletableJob }.forEach {
+                it.join()
+            }
+            jobs.forEach { it.cancel() }
         }
     }
 
@@ -58,7 +69,7 @@ class AtlasClusterBuilder() {
         try {
             action.invoke(scope, nodes)
         } finally {
-            scope.jobs.forEach { it.cancel() }
+            scope.awaitTermination()
         }
     }
 

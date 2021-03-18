@@ -22,6 +22,7 @@ class AtlasClusterTests {
                 val commandReply = KeyValueReply.deserializer(nodes[0].commandSubmitter.submit(command))
                 assertThat(commandReply.value).isEqualTo("k")
             }
+            awaitTermination()
             nodes.forEach {
                 assertThat(it.stateMachine.currentState["1"]).isEqualTo("k")
             }
@@ -39,6 +40,7 @@ class AtlasClusterTests {
                 val commandReply = KeyValueReply.deserializer(nodes[2].commandSubmitter.submit(command))
                 assertThat(commandReply.value).isEqualTo("k")
             }
+            awaitTermination()
             nodes.forEach {
                 assertThat(it.stateMachine.currentState["1"]).isEqualTo("k")
             }
