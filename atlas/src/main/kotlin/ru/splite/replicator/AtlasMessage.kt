@@ -8,6 +8,10 @@ import ru.splite.replicator.id.Id
 @Serializable
 sealed class AtlasMessage {
 
+    interface PerCommandMessage {
+        val commandId: Id<NodeIdentifier>
+    }
+
     @Serializable
     data class ConsensusValue(
         val isNoop: Boolean,
@@ -16,11 +20,11 @@ sealed class AtlasMessage {
 
     @Serializable
     data class MCollect(
-        val commandId: Id<NodeIdentifier>,
+        override val commandId: Id<NodeIdentifier>,
         val command: ByteArray,
         val quorum: Set<NodeIdentifier> = emptySet(),
         val remoteDependencies: Set<Dependency> = emptySet()
-    ) : AtlasMessage() {
+    ) : AtlasMessage(), PerCommandMessage {
 
         override fun toString(): String {
             return "MCollect(commandId=$commandId, quorum=$quorum, remoteDependencies=$remoteDependencies)"
@@ -50,16 +54,16 @@ sealed class AtlasMessage {
     @Serializable
     data class MCollectAck(
         val isAck: Boolean,
-        val commandId: Id<NodeIdentifier>,
+        override val commandId: Id<NodeIdentifier>,
         val remoteDependencies: Set<Dependency> = emptySet()
-    ) : AtlasMessage()
+    ) : AtlasMessage(), PerCommandMessage
 
     @Serializable
     data class MCommit(
-        val commandId: Id<NodeIdentifier>,
+        override val commandId: Id<NodeIdentifier>,
         val value: ConsensusValue,
         val command: ByteArray
-    ) : AtlasMessage() {
+    ) : AtlasMessage(), PerCommandMessage {
 
         override fun toString(): String {
             return "MCommit(commandId=$commandId, value=$value)"
@@ -87,29 +91,29 @@ sealed class AtlasMessage {
     @Serializable
     data class MCommitAck(
         val isAck: Boolean,
-        val commandId: Id<NodeIdentifier>
-    ) : AtlasMessage()
+        override val commandId: Id<NodeIdentifier>
+    ) : AtlasMessage(), PerCommandMessage
 
     @Serializable
     data class MConsensus(
-        val commandId: Id<NodeIdentifier>,
+        override val commandId: Id<NodeIdentifier>,
         val ballot: Long,
         val consensusValue: ConsensusValue
-    ) : AtlasMessage()
+    ) : AtlasMessage(), PerCommandMessage
 
     @Serializable
     data class MConsensusAck(
         val isAck: Boolean,
-        val commandId: Id<NodeIdentifier>,
+        override val commandId: Id<NodeIdentifier>,
         val ballot: Long
-    ) : AtlasMessage()
+    ) : AtlasMessage(), PerCommandMessage
 
     @Serializable
     data class MRecovery(
-        val commandId: Id<NodeIdentifier>,
+        override val commandId: Id<NodeIdentifier>,
         val command: ByteArray,
         val ballot: Long
-    ) : AtlasMessage() {
+    ) : AtlasMessage(), PerCommandMessage {
 
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
@@ -133,10 +137,10 @@ sealed class AtlasMessage {
     @Serializable
     data class MRecoveryAck(
         val isAck: Boolean,
-        val commandId: Id<NodeIdentifier>,
+        override val commandId: Id<NodeIdentifier>,
         val consensusValue: ConsensusValue,
         val quorum: Set<NodeIdentifier> = emptySet(),
         val ballot: Long,
         val acceptedBallot: Long
-    ) : AtlasMessage()
+    ) : AtlasMessage(), PerCommandMessage
 }
