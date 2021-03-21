@@ -3,9 +3,6 @@ package ru.splite.replicator.raft
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.serialization.decodeFromByteArray
-import kotlinx.serialization.encodeToByteArray
-import kotlinx.serialization.protobuf.ProtoBuf
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.log.ReplicatedLogStore
@@ -13,28 +10,23 @@ import ru.splite.replicator.raft.message.RaftMessage
 import ru.splite.replicator.raft.message.RaftMessageReceiver
 import ru.splite.replicator.raft.state.NodeType
 import ru.splite.replicator.raft.state.RaftLocalNodeState
-import ru.splite.replicator.raft.state.asMajority
 import ru.splite.replicator.raft.state.follower.AppendEntriesHandler
 import ru.splite.replicator.raft.state.follower.VoteRequestHandler
 import ru.splite.replicator.raft.state.leader.*
-import ru.splite.replicator.transport.Actor
 import ru.splite.replicator.transport.Transport
+import ru.splite.replicator.transport.TypedActor
+import ru.splite.replicator.transport.sender.MessageSender
 import java.time.Instant
 
 class RaftProtocolController(
     override val replicatedLogStore: ReplicatedLogStore,
     transport: Transport,
-    private val localNodeState: RaftLocalNodeState,
-    private val leaderElectionQuorumSize: Int = transport.nodes.size.asMajority(),
-    private val logReplicationQuorumSize: Int = transport.nodes.size.asMajority()
-) : RaftMessageReceiver, RaftProtocol, Actor(localNodeState.nodeIdentifier, transport) {
+    private val config: RaftProtocolConfig,
+    private val localNodeState: RaftLocalNodeState
+) : RaftMessageReceiver, RaftProtocol,
+    TypedActor<RaftMessage>(localNodeState.nodeIdentifier, transport, RaftMessage.serializer()) {
 
-    init {
-        val fullClusterSize = transport.nodes.size
-        if (leaderElectionQuorumSize + logReplicationQuorumSize <= fullClusterSize) {
-            error("Quorum requirement violation: $leaderElectionQuorumSize + $logReplicationQuorumSize >= $fullClusterSize")
-        }
-    }
+    private val messageSender = MessageSender(this, config.sendMessageTimeout)
 
     override val nodeIdentifier: NodeIdentifier
         get() = localNodeState.nodeIdentifier
@@ -64,18 +56,17 @@ class RaftProtocolController(
 
     override suspend fun sendVoteRequestsAsCandidate(): Boolean {
         return voteRequestSender.sendVoteRequestsAsCandidate(
-            this@RaftProtocolController,
-            transport,
-            leaderElectionQuorumSize
+            messageSender,
+            config.leaderElectionQuorumSize
         )
     }
 
     override suspend fun commitLogEntriesIfLeader() = coroutineScope {
-        commitEntries.commitLogEntriesIfLeader(transport, logReplicationQuorumSize)
+        commitEntries.commitLogEntriesIfLeader(transport, config.logReplicationQuorumSize)
     }
 
     override suspend fun sendAppendEntriesIfLeader() = coroutineScope {
-        appendEntriesSender.sendAppendEntriesIfLeader(this@RaftProtocolController, transport)
+        appendEntriesSender.sendAppendEntriesIfLeader(messageSender)
     }
 
     override suspend fun applyCommand(command: ByteArray): Long {
@@ -102,11 +93,11 @@ class RaftProtocolController(
         return response
     }
 
-    override suspend fun receive(src: NodeIdentifier, payload: ByteArray): ByteArray {
-        return when (val request: RaftMessage = ProtoBuf.decodeFromByteArray(payload)) {
-            is RaftMessage.VoteRequest -> ProtoBuf.encodeToByteArray<RaftMessage>(handleVoteRequest(request))
-            is RaftMessage.AppendEntries -> ProtoBuf.encodeToByteArray<RaftMessage>(handleAppendEntries(request))
-            else -> error("Message type ${request.javaClass} is not supported")
+    override suspend fun receive(src: NodeIdentifier, payload: RaftMessage): RaftMessage {
+        return when (payload) {
+            is RaftMessage.VoteRequest -> handleVoteRequest(payload)
+            is RaftMessage.AppendEntries -> handleAppendEntries(payload)
+            else -> error("Message type ${payload.javaClass} is not supported")
         }
     }
 

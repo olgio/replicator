@@ -8,7 +8,7 @@ import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.hasOnlyCommands
 import ru.splite.replicator.log.InMemoryReplicatedLogStore
 import ru.splite.replicator.paxos.state.PaxosLocalNodeState
-import ru.splite.replicator.raft.state.asMajority
+import ru.splite.replicator.raft.RaftProtocolConfig
 import ru.splite.replicator.transport.CoroutineChannelTransport
 import ru.splite.replicator.transport.Transport
 import ru.splite.replicator.transport.isolateNodes
@@ -348,12 +348,12 @@ class PaxosProtocolTests {
         val nodeIdentifier = NodeIdentifier(name)
         val logStore = InMemoryReplicatedLogStore()
         val localNodeState = PaxosLocalNodeState(nodeIdentifier, n.toLong())
+        val config = RaftProtocolConfig(n = fullSize)
         return PaxosProtocolController(
             logStore,
             this,
-            localNodeState,
-            fullSize.asMajority(),
-            fullSize.asMajority()
+            config,
+            localNodeState
         )
     }
 

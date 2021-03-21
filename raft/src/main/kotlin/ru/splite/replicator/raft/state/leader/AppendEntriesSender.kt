@@ -3,16 +3,13 @@ package ru.splite.replicator.raft.state.leader
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.withTimeout
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.log.ReplicatedLogStore
 import ru.splite.replicator.raft.message.RaftMessage
 import ru.splite.replicator.raft.state.NodeType
 import ru.splite.replicator.raft.state.RaftLocalNodeState
-import ru.splite.replicator.transport.Actor
-import ru.splite.replicator.transport.Transport
-import ru.splite.replicator.transport.sendProto
+import ru.splite.replicator.transport.sender.MessageSender
 
 class AppendEntriesSender(
     private val localNodeState: RaftLocalNodeState,
@@ -25,10 +22,10 @@ class AppendEntriesSender(
         val isSuccess: Boolean
     )
 
-    suspend fun sendAppendEntriesIfLeader(actor: Actor, transport: Transport) =
+    suspend fun sendAppendEntriesIfLeader(messageSender: MessageSender<RaftMessage>) =
         coroutineScope {
             LOGGER.info("Sending AppendEntries (term ${localNodeState.currentTerm})")
-            val clusterNodeIdentifiers = transport.nodes.minus(localNodeState.nodeIdentifier)
+            val clusterNodeIdentifiers = messageSender.getAllNodes().minus(localNodeState.nodeIdentifier)
 
             clusterNodeIdentifiers.map { dstNodeIdentifier ->
                 val nextIndexPerNode: Long = localNodeState.externalNodeStates[dstNodeIdentifier]!!.nextIndex
@@ -37,11 +34,8 @@ class AppendEntriesSender(
                 val matchIndexIfSuccess = nextIndexPerNode + appendEntriesRequest.entries.size - 1
                 val deferredAppendEntriesResult: Deferred<AppendEntriesResult> = async {
                     kotlin.runCatching {
-                        val appendEntriesResponse = withTimeout(1000) {
-                            actor.sendProto<RaftMessage, RaftMessage>(
-                                dstNodeIdentifier, appendEntriesRequest
-                            ) as RaftMessage.AppendEntriesResponse
-                        }
+                        val appendEntriesResponse = messageSender.sendOrThrow(dstNodeIdentifier, appendEntriesRequest)
+                                as RaftMessage.AppendEntriesResponse
                         AppendEntriesResult(
                             dstNodeIdentifier,
                             matchIndexIfSuccess,

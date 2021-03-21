@@ -6,7 +6,6 @@ import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.keyvalue.KeyValueStateMachine
 import ru.splite.replicator.log.InMemoryReplicatedLogStore
 import ru.splite.replicator.raft.state.RaftLocalNodeState
-import ru.splite.replicator.raft.state.asMajority
 import ru.splite.replicator.timer.flow.DelayTimerFactory
 import ru.splite.replicator.timer.flow.TimeTick
 import ru.splite.replicator.transport.CoroutineChannelTransport
@@ -26,13 +25,13 @@ class RaftClusterBuilder {
             val logStore = InMemoryReplicatedLogStore()
             val localNodeState = RaftLocalNodeState(nodeIdentifier)
             val stateMachine = KeyValueStateMachine()
+            val config = RaftProtocolConfig(n = fullSize)
 
             val raftProtocol = RaftProtocolController(
                 logStore,
                 transport,
-                localNodeState,
-                fullSize.asMajority(),
-                fullSize.asMajority()
+                config,
+                localNodeState
             )
 
             val termClockScheduler = TermClockScheduler(raftProtocol, timerFactory)

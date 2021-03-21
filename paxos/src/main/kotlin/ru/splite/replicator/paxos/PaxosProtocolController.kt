@@ -11,30 +11,26 @@ import ru.splite.replicator.paxos.message.PaxosMessageReceiver
 import ru.splite.replicator.paxos.state.PaxosLocalNodeState
 import ru.splite.replicator.paxos.state.follower.VoteRequestHandler
 import ru.splite.replicator.paxos.state.leader.VoteRequestSender
+import ru.splite.replicator.raft.RaftProtocolConfig
 import ru.splite.replicator.raft.message.RaftMessage
 import ru.splite.replicator.raft.state.NodeType
-import ru.splite.replicator.raft.state.asMajority
 import ru.splite.replicator.raft.state.follower.AppendEntriesHandler
 import ru.splite.replicator.raft.state.leader.AppendEntriesSender
 import ru.splite.replicator.raft.state.leader.CommandAppender
 import ru.splite.replicator.raft.state.leader.CommitEntries
-import ru.splite.replicator.transport.Actor
 import ru.splite.replicator.transport.Transport
+import ru.splite.replicator.transport.TypedActor
+import ru.splite.replicator.transport.sender.MessageSender
 
 class PaxosProtocolController(
     override val replicatedLogStore: ReplicatedLogStore,
     transport: Transport,
-    private val localNodeState: PaxosLocalNodeState,
-    private val leaderElectionQuorumSize: Int = transport.nodes.size.asMajority(),
-    private val logReplicationQuorumSize: Int = transport.nodes.size.asMajority()
-) : PaxosMessageReceiver, PaxosProtocol, Actor(localNodeState.nodeIdentifier, transport) {
+    private val config: RaftProtocolConfig,
+    private val localNodeState: PaxosLocalNodeState
+) : PaxosMessageReceiver, PaxosProtocol,
+    TypedActor<RaftMessage>(localNodeState.nodeIdentifier, transport, RaftMessage.serializer()) {
 
-    init {
-        val fullClusterSize = transport.nodes.size
-        if (leaderElectionQuorumSize + logReplicationQuorumSize <= fullClusterSize) {
-            error("Quorum requirement violation: $leaderElectionQuorumSize + $logReplicationQuorumSize >= $fullClusterSize")
-        }
-    }
+    private val messageSender = MessageSender(this, config.sendMessageTimeout)
 
     override val nodeIdentifier: NodeIdentifier
         get() = localNodeState.nodeIdentifier
@@ -58,18 +54,17 @@ class PaxosProtocolController(
 
     override suspend fun sendVoteRequestsAsCandidate(): Boolean {
         return voteRequestSender.sendVoteRequestsAsCandidate(
-            this@PaxosProtocolController,
-            transport,
-            leaderElectionQuorumSize
+            messageSender,
+            config.leaderElectionQuorumSize
         )
     }
 
     override suspend fun commitLogEntriesIfLeader() = coroutineScope {
-        commitEntries.commitLogEntriesIfLeader(transport, logReplicationQuorumSize)
+        commitEntries.commitLogEntriesIfLeader(transport, config.logReplicationQuorumSize)
     }
 
     override suspend fun sendAppendEntriesIfLeader() = coroutineScope {
-        appendEntriesSender.sendAppendEntriesIfLeader(this@PaxosProtocolController, transport)
+        appendEntriesSender.sendAppendEntriesIfLeader(messageSender)
     }
 
     override fun applyCommand(command: ByteArray) {
@@ -102,6 +97,14 @@ class PaxosProtocolController(
             is RaftMessage.PaxosVoteRequest -> ProtoBuf.encodeToByteArray<RaftMessage>(handleVoteRequest(request))
             is RaftMessage.AppendEntries -> ProtoBuf.encodeToByteArray<RaftMessage>(handleAppendEntries(request))
             else -> error("Message type ${request.javaClass} is not supported")
+        }
+    }
+
+    override suspend fun receive(src: NodeIdentifier, payload: RaftMessage): RaftMessage {
+        return when (payload) {
+            is RaftMessage.PaxosVoteRequest -> handleVoteRequest(payload)
+            is RaftMessage.AppendEntries -> handleAppendEntries(payload)
+            else -> error("Message type ${payload.javaClass} is not supported")
         }
     }
 
