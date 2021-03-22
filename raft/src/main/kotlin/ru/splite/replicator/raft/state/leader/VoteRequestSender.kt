@@ -2,7 +2,6 @@ package ru.splite.replicator.raft.state.leader
 
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.withTimeout
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.log.ReplicatedLogStore
@@ -10,9 +9,7 @@ import ru.splite.replicator.raft.message.RaftMessage
 import ru.splite.replicator.raft.state.ExternalNodeState
 import ru.splite.replicator.raft.state.NodeType
 import ru.splite.replicator.raft.state.RaftLocalNodeState
-import ru.splite.replicator.transport.Actor
-import ru.splite.replicator.transport.Transport
-import ru.splite.replicator.transport.sendProto
+import ru.splite.replicator.transport.sender.MessageSender
 
 class VoteRequestSender(
     private val localNodeState: RaftLocalNodeState,
@@ -20,43 +17,38 @@ class VoteRequestSender(
 ) {
 
     suspend fun sendVoteRequestsAsCandidate(
-        actor: Actor,
-        transport: Transport,
-        majority: Int
+        messageSender: MessageSender<RaftMessage>,
+        quorumSize: Int
     ): Boolean = coroutineScope {
-        val clusterNodeIdentifiers = transport.nodes.minus(localNodeState.nodeIdentifier)
+        val clusterNodeIdentifiers = messageSender.getAllNodes().minus(localNodeState.nodeIdentifier)
 
-        if (clusterNodeIdentifiers.isEmpty()) {
-            error("Cluster cannot be empty")
+        check(clusterNodeIdentifiers.isNotEmpty()) {
+            "Cluster cannot be empty"
         }
 
         val voteRequest: RaftMessage.VoteRequest = becomeCandidate()
-        val voteGrantedCount = clusterNodeIdentifiers.map { dstNodeIdentifier ->
-            async {
-                val result = kotlin.runCatching {
-                    val voteResponse: RaftMessage.VoteResponse = withTimeout(1000) {
-                        actor.sendProto<RaftMessage, RaftMessage>(
-                            dstNodeIdentifier,
-                            voteRequest
-                        ) as RaftMessage.VoteResponse
-                    }
-                    voteResponse
-                }
-                if (result.isFailure) {
-                    LOGGER.error("Exception while sending VoteRequest to $dstNodeIdentifier", result.exceptionOrNull())
-                }
-                result.getOrNull()
-            }
-        }.mapNotNull {
-            it.await()
-        }.filter {
-            it.voteGranted
-        }.size + 1
 
-        LOGGER.info("${localNodeState.nodeIdentifier} :: VoteResult for term ${localNodeState.currentTerm}: ${voteGrantedCount}/${transport.nodes.size} (majority = ${majority})")
-        if (voteGrantedCount >= majority) {
+        val voteGrantedCount = clusterNodeIdentifiers
+            .map {
+                async {
+                    val result = kotlin.runCatching {
+                        messageSender.sendOrThrow(it, voteRequest) as RaftMessage.VoteResponse
+                    }
+                    if (result.isFailure) {
+                        LOGGER.error("Exception while sending VoteRequest to $it", result.exceptionOrNull())
+                    }
+                    result.getOrNull()
+                }
+            }.mapNotNull {
+                it.await()
+            }.filter {
+                it.voteGranted
+            }.count() + 1
+
+        LOGGER.info("${localNodeState.nodeIdentifier} :: VoteResult for term ${localNodeState.currentTerm}: ${voteGrantedCount}/${messageSender.getAllNodes().size} (quorum = ${quorumSize})")
+        if (voteGrantedCount >= quorumSize) {
             becomeLeader()
-            reinitializeExternalNodeStates(transport.nodes)
+            reinitializeExternalNodeStates(messageSender.getAllNodes())
             true
         } else {
             false

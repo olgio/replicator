@@ -2,7 +2,6 @@ package ru.splite.replicator.paxos.state.leader
 
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.withTimeout
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.log.LogEntry
@@ -11,9 +10,7 @@ import ru.splite.replicator.paxos.state.PaxosLocalNodeState
 import ru.splite.replicator.raft.message.RaftMessage
 import ru.splite.replicator.raft.state.ExternalNodeState
 import ru.splite.replicator.raft.state.NodeType
-import ru.splite.replicator.transport.Actor
-import ru.splite.replicator.transport.Transport
-import ru.splite.replicator.transport.sendProto
+import ru.splite.replicator.transport.sender.MessageSender
 
 class VoteRequestSender(
     private val localNodeState: PaxosLocalNodeState,
@@ -21,16 +18,15 @@ class VoteRequestSender(
 ) {
 
     suspend fun sendVoteRequestsAsCandidate(
-        actor: Actor,
-        transport: Transport,
-        majority: Int
+        messageSender: MessageSender<RaftMessage>,
+        quorumSize: Int
     ): Boolean = coroutineScope {
-        val clusterNodeIdentifiers = transport.nodes.minus(localNodeState.nodeIdentifier)
+        val clusterNodeIdentifiers = messageSender.getAllNodes().minus(localNodeState.nodeIdentifier)
 
         if (clusterNodeIdentifiers.isEmpty()) {
             error("Cluster cannot be empty")
         }
-        val nextTerm: Long = calculateNextTerm(transport.nodes.size.toLong())
+        val nextTerm: Long = calculateNextTerm(messageSender.getAllNodes().size.toLong())
 
         val lastCommitIndex: Long? = logStore.lastCommitIndex()
         val voteRequest: RaftMessage.PaxosVoteRequest = becomeCandidate(nextTerm, lastCommitIndex)
@@ -38,13 +34,7 @@ class VoteRequestSender(
         val voteResponses: List<RaftMessage.PaxosVoteResponse> = clusterNodeIdentifiers.map { dstNodeIdentifier ->
             async {
                 val result = kotlin.runCatching {
-                    val voteResponse: RaftMessage.PaxosVoteResponse = withTimeout(1000) {
-                        actor.sendProto<RaftMessage, RaftMessage>(
-                            dstNodeIdentifier,
-                            voteRequest
-                        ) as RaftMessage.PaxosVoteResponse
-                    }
-                    voteResponse
+                    messageSender.sendOrThrow(dstNodeIdentifier, voteRequest) as RaftMessage.PaxosVoteResponse
                 }
                 if (result.isFailure) {
                     LOGGER.error("Exception while sending VoteRequest to $dstNodeIdentifier", result.exceptionOrNull())
@@ -59,11 +49,11 @@ class VoteRequestSender(
 
         val voteGrantedCount: Int = voteResponses.size + 1
 
-        LOGGER.info("${localNodeState.nodeIdentifier} :: VoteResult for term ${localNodeState.currentTerm}: ${voteGrantedCount}/${transport.nodes.size} (majority = ${majority})")
-        if (voteGrantedCount >= majority) {
+        LOGGER.info("${localNodeState.nodeIdentifier} :: VoteResult for term ${localNodeState.currentTerm}: ${voteGrantedCount}/${messageSender.getAllNodes().size} (quorum = ${quorumSize})")
+        if (voteGrantedCount >= quorumSize) {
             handleVoteResponsesIfMajority(nextTerm, voteResponses)
             becomeLeader()
-            reinitializeExternalNodeStates(transport.nodes)
+            reinitializeExternalNodeStates(messageSender.getAllNodes())
             true
         } else {
             false

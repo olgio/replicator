@@ -8,7 +8,6 @@ import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.hasOnlyCommands
 import ru.splite.replicator.log.InMemoryReplicatedLogStore
 import ru.splite.replicator.raft.state.RaftLocalNodeState
-import ru.splite.replicator.raft.state.asMajority
 import ru.splite.replicator.transport.CoroutineChannelTransport
 import ru.splite.replicator.transport.Transport
 import ru.splite.replicator.transport.isolateNodes
@@ -332,12 +331,12 @@ class RaftProtocolTests {
         val nodeIdentifier = NodeIdentifier(name)
         val logStore = InMemoryReplicatedLogStore()
         val localNodeState = RaftLocalNodeState(nodeIdentifier)
+        val config = RaftProtocolConfig(n = fullSize)
         return RaftProtocolController(
             logStore,
             this,
-            localNodeState,
-            fullSize.asMajority(),
-            fullSize.asMajority()
+            config,
+            localNodeState
         )
     }
 
