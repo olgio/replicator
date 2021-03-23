@@ -26,7 +26,7 @@ sealed class KeyValueCommand {
             return serialize(PutValue(key, value))
         }
 
-        fun newGetCommand(key: String, value: String): ByteArray {
+        fun newGetCommand(key: String): ByteArray {
             return serialize(GetValue(key))
         }
     }
