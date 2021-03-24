@@ -5,6 +5,7 @@ import io.grpc.ManagedChannel
 import io.grpc.ManagedChannelBuilder
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.message.proto.BinaryMessageRequest
 import ru.splite.replicator.message.proto.BinaryRpcGrpcKt
 import ru.splite.replicator.transport.grpc.GrpcAddress
@@ -19,8 +20,12 @@ internal class GrpcLazyClientStub(override val address: GrpcAddress) : ClientStu
         BinaryRpcGrpcKt.BinaryRpcCoroutineStub(channel)
     }
 
-    override suspend fun send(bytes: ByteArray): ByteArray {
-        val request = BinaryMessageRequest.newBuilder().setMessage(ByteString.copyFrom(bytes)).build()
+    override suspend fun send(from: NodeIdentifier, bytes: ByteArray): ByteArray {
+        LOGGER.debug("Sending message to $address")
+        val request = BinaryMessageRequest.newBuilder()
+            .setFrom(from.identifier)
+            .setMessage(ByteString.copyFrom(bytes))
+            .build()
         return stub.call(request).message.toByteArray()
     }
 

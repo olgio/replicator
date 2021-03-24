@@ -32,11 +32,18 @@ class GrpcTransport(addresses: Map<NodeIdentifier, GrpcAddress>) : Transport, Cl
             put(address, serverStub)
         }
         serverStub.start()
+        LOGGER.debug("Subscribed $address to listen $grpcAddress")
     }
 
     override suspend fun send(receiver: Receiver, dst: NodeIdentifier, payload: ByteArray): ByteArray {
         val stub = stubs[dst] ?: error("Cannot find address for $dst")
-        return stub.send(payload)
+        return stub.send(receiver.address, payload)
+    }
+
+    fun awaitTermination() {
+        stubs.values.filterIsInstance<GrpcServer>().forEach {
+            it.awaitTermination()
+        }
     }
 
     override fun close() {
@@ -57,13 +64,14 @@ class GrpcTransport(addresses: Map<NodeIdentifier, GrpcAddress>) : Transport, Cl
             .addService(BinaryRpcService(receiver))
             .build()
 
-        override suspend fun send(bytes: ByteArray): ByteArray {
-            return receiver.receive(receiver.address, bytes)
+        override suspend fun send(from: NodeIdentifier, bytes: ByteArray): ByteArray {
+            LOGGER.debug("Received local message for $address")
+            return receiver.receive(from, bytes)
         }
 
         fun start() {
             server.start()
-            LOGGER.info("Server started, listening on $address")
+            LOGGER.info("Server started listening on $address")
             Runtime.getRuntime().addShutdownHook(
                 Thread {
                     LOGGER.info("*** shutting down gRPC server since JVM is shutting down")
@@ -86,15 +94,21 @@ class GrpcTransport(addresses: Map<NodeIdentifier, GrpcAddress>) : Transport, Cl
     private inner class BinaryRpcService(private val receiver: Receiver) :
         BinaryRpcGrpcKt.BinaryRpcCoroutineImplBase() {
         override suspend fun call(request: BinaryMessageRequest): BinaryMessageResponse {
-            val src = NodeIdentifier(request.from)
-            check(stubs.containsKey(src)) {
-                "Cannot receive message from $src because stub not found"
+            try {
+                val src = NodeIdentifier(request.from)
+                check(stubs.containsKey(src)) {
+                    "Cannot receive message from $src because stub not found"
+                }
+                LOGGER.debug("Received message from $src")
+                val responseBytes = receiver.receive(src, request.message.toByteArray())
+                return BinaryMessageResponse
+                    .newBuilder()
+                    .setMessage(ByteString.copyFrom(responseBytes))
+                    .build()
+            } catch (e: Exception) {
+                LOGGER.error("Error while handling message", e)
+                throw e
             }
-            val responseBytes = receiver.receive(src, request.message.toByteArray())
-            return BinaryMessageResponse
-                .newBuilder()
-                .setMessage(ByteString.copyFrom(responseBytes))
-                .build()
         }
     }
 

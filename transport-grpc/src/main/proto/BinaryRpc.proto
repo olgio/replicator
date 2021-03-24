@@ -6,12 +6,12 @@ option java_package = "ru.splite.replicator.message.proto";
 package ru.splite.replicator.message.proto;
 
 message BinaryMessageRequest {
-    string from    = 1;
-    bytes  message = 2;
+    required string from    = 1;
+    required bytes  message = 2;
 }
 
 message BinaryMessageResponse {
-    bytes  message = 1;
+    required bytes  message = 1;
 }
 
 service BinaryRpc {

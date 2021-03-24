@@ -34,6 +34,11 @@
             <artifactId>grpc-kotlin-stub</artifactId>
             <version>${grpc.version}</version>
         </dependency>
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-netty-shaded</artifactId>
+            <version>1.29.0</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -58,7 +63,7 @@
                 <configuration>
                     <protocArtifact>com.google.protobuf:protoc:3.14.0:exe:${os.detected.classifier}</protocArtifact>
                     <pluginId>grpc-java</pluginId>
-                    <pluginArtifact>io.grpc:protoc-gen-grpc-java:1.35.0:exe:${os.detected.classifier}</pluginArtifact>
+                    <pluginArtifact>io.grpc:protoc-gen-grpc-java:1.29.0:exe:${os.detected.classifier}</pluginArtifact>
                     <protocPlugins>
                         <protocPlugin>
                             <id>grpc-kotlin</id>
