@@ -253,16 +253,11 @@ class BaseAtlasProtocol(
             dependencies = dependencies
         )
 
-        // create and set consensus value
-//        let value = ConsensusValue::with(deps.clone());
-//        assert!(info.synod.set_if_not_accepted(|| value));
-
         return AtlasMessage.MCollectAck(
             isAck = true,
             commandId = message.commandId,
             remoteDependencies = dependencies
         )
-        //messageSender.sendOrNull(from, collectAckMessage)
     }
 
     override fun handleConsensus(message: AtlasMessage.MConsensus): AtlasMessage.MConsensusAck {

@@ -8,6 +8,9 @@ import ru.splite.replicator.id.Id
 @Serializable
 sealed class AtlasMessage {
 
+    /**
+     * Вспомогательный интерфейс для сообщений специфичных конкретной команде
+     */
     interface PerCommandMessage {
         val commandId: Id<NodeIdentifier>
     }
