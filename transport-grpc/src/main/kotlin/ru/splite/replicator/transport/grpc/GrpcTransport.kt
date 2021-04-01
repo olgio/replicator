@@ -12,17 +12,17 @@ import ru.splite.replicator.message.proto.BinaryRpcGrpcKt
 import ru.splite.replicator.transport.Receiver
 import ru.splite.replicator.transport.Transport
 import ru.splite.replicator.transport.grpc.stub.ClientStub
-import ru.splite.replicator.transport.grpc.stub.GrpcLazyClientStub
+import ru.splite.replicator.transport.grpc.stub.GrpcClientStub
 import java.io.Closeable
 
 class GrpcTransport(addresses: Map<NodeIdentifier, GrpcAddress>) : Transport, Closeable {
 
     private var stubs: Map<NodeIdentifier, ClientStub> = addresses.map { (nodeIdentifier, address) ->
-        nodeIdentifier to GrpcLazyClientStub(address)
+        nodeIdentifier to GrpcClientStub(address)
     }.toMap()
 
     override val nodes: Collection<NodeIdentifier>
-        get() = stubs.keys
+        get() = stubs.entries.sortedBy { it.value.unavailabilityRank }.map { it.key }
 
     override fun subscribe(address: NodeIdentifier, actor: Receiver) {
         val grpcAddress = stubs[address]?.address
@@ -64,8 +64,11 @@ class GrpcTransport(addresses: Map<NodeIdentifier, GrpcAddress>) : Transport, Cl
             .addService(BinaryRpcService(receiver))
             .build()
 
+        override val unavailabilityRank: Int
+            get() = Int.MIN_VALUE
+
         override suspend fun send(from: NodeIdentifier, bytes: ByteArray): ByteArray {
-            LOGGER.debug("Received local message for $address")
+            LOGGER.trace("Received local message for $address")
             return receiver.receive(from, bytes)
         }
 
@@ -99,7 +102,6 @@ class GrpcTransport(addresses: Map<NodeIdentifier, GrpcAddress>) : Transport, Cl
                 check(stubs.containsKey(src)) {
                     "Cannot receive message from $src because stub not found"
                 }
-                LOGGER.debug("Received message from $src")
                 val responseBytes = receiver.receive(src, request.message.toByteArray())
                 return BinaryMessageResponse
                     .newBuilder()
