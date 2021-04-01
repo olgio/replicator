@@ -1,6 +1,10 @@
 package ru.splite.replicator
 
+import ru.splite.replicator.bus.NodeIdentifier
+
 data class AtlasProtocolConfig(
+    val address: NodeIdentifier,
+    val processId: Long,
     val n: Int,
     val f: Int,
     val sendMessageTimeout: Long = 1000,

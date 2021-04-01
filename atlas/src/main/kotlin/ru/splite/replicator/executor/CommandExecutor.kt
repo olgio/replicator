@@ -47,7 +47,7 @@ class CommandExecutor(
             dependencyGraph.commit(Dependency(commandId), dependencies)
         }
         committedChannel.offer(NewCommitEvent)
-        LOGGER.debug("Queued commandId=${commandId}")
+        LOGGER.debug("Added to graph commandId=$commandId, dependencies=${dependencies.map { it.dot }}")
     }
 
     fun launchCommandExecutor(coroutineContext: CoroutineContext, coroutineScope: CoroutineScope): Job {
@@ -75,20 +75,20 @@ class CommandExecutor(
     }
 
     private fun executeCommand(commandId: Id<NodeIdentifier>) {
-        LOGGER.debug("Committing commandId=$commandId")
+        LOGGER.debug("Executing on state machine commandId=$commandId")
         val response = kotlin.runCatching {
             stateMachine.commit(
                 commandBuffer.remove(commandId)
                     ?: error("Cannot extract command from buffer. commandId = $commandId")
             )
         }
-        LOGGER.debug("Committed commandId=$commandId")
+        LOGGER.debug("Executed on state machine commandId=$commandId")
 
         completableDeferredResponses[commandId]?.let { deferredResponse ->
             deferredResponse.completeWith(response)
             if (response.isFailure) {
                 LOGGER.error(
-                    "Cannot commit commandId=$commandId because of nested exception",
+                    "Cannot execute commandId=$commandId because of nested exception",
                     response.exceptionOrNull()
                 )
                 response.getOrThrow()

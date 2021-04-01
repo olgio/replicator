@@ -311,12 +311,15 @@ class AtlasProtocolTests {
         val stateMachine = KeyValueStateMachine()
         val dependencyGraph = JGraphTDependencyGraph<Dependency>()
         val commandExecutor = CommandExecutor(dependencyGraph, stateMachine)
-        val config = AtlasProtocolConfig(n = n, f = f)
+        val config = AtlasProtocolConfig(
+            address = nodeIdentifier,
+            processId = i.toLong(),
+            n = n,
+            f = f
+        )
         val idGenerator = InMemoryIdGenerator(nodeIdentifier)
         val atlasProtocol = BaseAtlasProtocol(
-            nodeIdentifier,
             config,
-            i.toLong(),
             idGenerator,
             stateMachine.newConflictIndex(),
             commandExecutor

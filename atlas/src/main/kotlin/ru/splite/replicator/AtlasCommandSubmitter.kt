@@ -16,11 +16,14 @@ class AtlasCommandSubmitter(
 
     override suspend fun submit(command: ByteArray): ByteArray {
         val commandCoordinator = atlasProtocol.createCommandCoordinator()
+        LOGGER.debug("Started coordinating commandId=${commandCoordinator.commandId}")
         return withTimeout(atlasProtocol.config.commandExecutorTimeout) {
-            commandExecutor.awaitCommandResponse(commandCoordinator.commandId) {
+            val response = commandExecutor.awaitCommandResponse(commandCoordinator.commandId) {
                 val commitMessage = coordinateCommand(commandCoordinator, command)
                 check(!commitMessage.value.isNoop) //TODO
             }
+            LOGGER.debug("Successfully completed commandId=${commandCoordinator.commandId}")
+            response
         }
     }
 
@@ -29,6 +32,7 @@ class AtlasCommandSubmitter(
         command: ByteArray
     ): AtlasMessage.MCommit {
         val fastQuorumNodes = messageSender.getNearestNodes(atlasProtocol.config.fastQuorumSize)
+        LOGGER.debug("fastQuorumNodes=${fastQuorumNodes.map { it.identifier }}. commandId=${commandCoordinator.commandId}")
 
         val collectMessage = commandCoordinator.buildCollect(command, fastQuorumNodes)
 

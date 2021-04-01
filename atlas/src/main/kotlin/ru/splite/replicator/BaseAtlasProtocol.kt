@@ -15,13 +15,13 @@ import ru.splite.replicator.statemachine.ConflictIndex
 import java.util.concurrent.ConcurrentHashMap
 
 class BaseAtlasProtocol(
-    override val address: NodeIdentifier,
     override val config: AtlasProtocolConfig,
-    private val processId: Long,
     private val idGenerator: IdGenerator<NodeIdentifier>,
     private val conflictIndex: ConflictIndex<Dependency, ByteArray>,
     private val commandExecutor: CommandExecutor
 ) : AtlasProtocol {
+
+    override val address: NodeIdentifier = config.address
 
     private val commands = ConcurrentHashMap<Id<NodeIdentifier>, CommandState>()
 
@@ -73,7 +73,7 @@ class BaseAtlasProtocol(
                 "MConsensus message cannot be built because of fast quorum uncompleted"
             }
             val newConsensusValue = AtlasMessage.ConsensusValue(false, quorumDependencies.dependenciesUnion)
-            val consensusMessage = AtlasMessage.MConsensus(commandId, processId, newConsensusValue)
+            val consensusMessage = AtlasMessage.MConsensus(commandId, config.processId, newConsensusValue)
             val selfConsensusAck = handleConsensus(consensusMessage)
             check(selfConsensusAck.isAck)
             check(commandState.synodState.ballot > 0)
@@ -120,7 +120,7 @@ class BaseAtlasProtocol(
                 ?: error("Recovery cannot be initiated from node without payload")
 
             val currentBallot = commandState.synodState.ballot
-            val newBallot = processId + config.n * (currentBallot / config.n + 1)
+            val newBallot = config.processId + config.n * (currentBallot / config.n + 1)
 
             val recoveryMessage = AtlasMessage.MRecovery(
                 commandId = commandId,
@@ -160,7 +160,7 @@ class BaseAtlasProtocol(
 
             val selfConsensusAck = handleConsensus(consensusMessage)
             check(selfConsensusAck.isAck)
-            check(commandState.synodState.ballot > processId)
+            check(commandState.synodState.ballot > config.processId)
             val selfConsensusAckDecision = handleConsensusAck(address, selfConsensusAck)
             check(selfConsensusAckDecision == ConsensusAckDecision.NONE)
 
@@ -324,7 +324,7 @@ class BaseAtlasProtocol(
         }
 
         commandState.status = CommandState.Status.COMMIT
-        LOGGER.info("Commit command ${message.commandId}")
+        LOGGER.debug("Successfully committed commandId=${message.commandId}")
 
         return AtlasMessage.MCommitAck(
             isAck = true,
