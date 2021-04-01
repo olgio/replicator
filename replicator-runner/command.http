@@ -1,0 +1,29 @@
+### GET store localhost
+GET http://localhost:8001/kv/mykey
+Accept: text/plain
+
+### PUT store localhost
+POST http://localhost:8002/kv/mykey
+Content-Type: text/plain
+
+myvalue3
+
+### GET store vps728062.ovh.net
+GET http://vps728062.ovh.net/kv/sddsds
+Accept: text/plain
+
+### PUT store vps728062.ovh.net
+POST http://vps728062.ovh.net/kv/sddsd
+Content-Type: text/plain
+
+value115
+
+### GET store vps728062.ovh.net
+GET http://34.118.75.230:63452/kv/sddsds
+Accept: text/plain
+
+### PUT store vps728062.ovh.net
+POST http://34.118.75.230:63452/kv/sddsdd
+Content-Type: text/plain
+
+value115

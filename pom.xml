@@ -13,6 +13,7 @@
         <module>paxos</module>
         <module>atlas</module>
         <module>transport-grpc</module>
+        <module>replicator-runner</module>
     </modules>
     <groupId>ru.splite.replicator</groupId>
     <version>DEV-SNAPSHOT</version>

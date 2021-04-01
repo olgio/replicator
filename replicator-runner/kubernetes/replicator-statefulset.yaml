@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: replicator
+  labels:
+    app: replicator
+spec:
+  replicas: 0
+  serviceName: "replicator-grpc-service"
+  selector:
+    matchLabels:
+      app: replicator
+  template:
+    metadata:
+      labels:
+        app: replicator
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                      - replicator
+              topologyKey: topology.kubernetes.io/zone
+      #          preferredDuringSchedulingIgnoredDuringExecution:
+      #            - podAffinityTerm:
+      #                labelSelector:
+      #                  matchExpressions:
+      #                    - key: app
+      #                      operator: In
+      #                      values:
+      #                        - replicator
+      #                topologyKey: topology.kubernetes.io/zone
+      #              weight: 100
+      containers:
+        - name: replicator
+          image: olgnet/replicator:latest
+          imagePullPolicy: Always
+          command: [ "java" ]
+          args: [ "-Xmx512M", "-jar", "/app.jar", "--nodes", "replicator-0.replicator-grpc-service.default.svc.cluster.local:6545,replicator-1.replicator-grpc-service.default.svc.cluster.local:6545,replicator-2.replicator-grpc-service.default.svc.cluster.local:6545" ]
+          ports:
+            - containerPort: 8000
+            - containerPort: 6545
+          resources:
+            limits:
+              cpu: 300m
+              memory: "768Mi"
+            requests:
+              cpu: 100m
+              memory: "256Mi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 5

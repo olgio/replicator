@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns="http://maven.apache.org/POM/4.0.0"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <artifactId>replicator</artifactId>
+        <groupId>ru.splite.replicator</groupId>
+        <version>DEV-SNAPSHOT</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>replicator-runner</artifactId>
+
+    <properties>
+        <maven.compiler.source>15</maven.compiler.source>
+        <maven.compiler.target>15</maven.compiler.target>
+        <main.class>ru.splite.replicator.RunnerKt</main.class>
+        <kodein.version>7.4.0</kodein.version>
+        <ktor.version>1.5.2</ktor.version>
+    </properties>
+
+    <repositories>
+        <repository>
+            <id>kotlinx</id>
+            <name>kotlinx</name>
+            <url>https://kotlin.bintray.com/kotlinx/</url>
+        </repository>
+    </repositories>
+
+    <dependencies>
+        <dependency>
+            <groupId>ru.splite.replicator</groupId>
+            <artifactId>atlas</artifactId>
+            <version>DEV-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>ru.splite.replicator</groupId>
+            <artifactId>raft</artifactId>
+            <version>DEV-SNAPSHOT</version>
+        </dependency>
+
+        <dependency>
+            <groupId>ru.splite.replicator</groupId>
+            <artifactId>transport-grpc</artifactId>
+            <version>DEV-SNAPSHOT</version>
+        </dependency>
+
+        <dependency>
+            <groupId>ru.splite.replicator</groupId>
+            <artifactId>replicator-tests</artifactId>
+            <version>DEV-SNAPSHOT</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.kodein.di</groupId>
+            <artifactId>kodein-di-jvm</artifactId>
+            <version>${kodein.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.ktor</groupId>
+            <artifactId>ktor-server-netty</artifactId>
+            <version>${ktor.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jetbrains.kotlinx</groupId>
+            <artifactId>kotlinx-cli-jvm</artifactId>
+            <version>0.3.1</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jetbrains.kotlinx</groupId>
+            <artifactId>kotlinx-serialization-json</artifactId>
+            <version>1.1.0</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <version>2.6</version>
+                <executions>
+                    <execution>
+                        <id>make-assembly</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                        <configuration>
+                            <archive>
+                                <manifest>
+                                    <mainClass>${main.class}</mainClass>
+                                </manifest>
+                            </archive>
+                            <descriptorRefs>
+                                <descriptorRef>jar-with-dependencies</descriptorRef>
+                            </descriptorRefs>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
