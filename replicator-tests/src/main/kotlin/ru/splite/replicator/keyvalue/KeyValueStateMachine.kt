@@ -15,12 +15,13 @@ class KeyValueStateMachine : StateMachine<ByteArray, ByteArray> {
     override fun commit(bytes: ByteArray): ByteArray {
         val reply = when (val command: KeyValueCommand = KeyValueCommand.deserializer(bytes)) {
             is KeyValueCommand.GetValue -> {
-                KeyValueReply(command.key, store[command.key])
+                val value = store[command.key]
+                KeyValueReply(command.key, value ?: "", value == null)
             }
             is KeyValueCommand.PutValue -> {
                 store[command.key] = command.value
                 LOGGER.debug("Set key ${command.key} to value ${command.value}")
-                KeyValueReply(command.key, command.value)
+                KeyValueReply(command.key, command.value, false)
             }
         }
 

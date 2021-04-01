@@ -5,7 +5,7 @@ import kotlinx.serialization.protobuf.ProtoBuf
 import ru.splite.replicator.transport.CommandSerializer
 
 @Serializable
-data class KeyValueReply(val key: String, val value: String?) {
+data class KeyValueReply(val key: String, val value: String, val isEmpty: Boolean) {
 
     companion object Serializer : CommandSerializer<KeyValueReply> {
         override fun serialize(command: KeyValueReply): ByteArray {
