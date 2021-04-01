@@ -1,14 +1,18 @@
 package ru.splite.replicator.raft
 
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.statemachine.StateMachine
 import ru.splite.replicator.statemachine.StateMachineCommandSubmitter
 import ru.splite.replicator.timer.flow.TimerFactory
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.coroutines.CoroutineContext
 
 class RaftCommandSubmitter(
     val raftProtocol: RaftProtocol,
@@ -22,9 +26,12 @@ class RaftCommandSubmitter(
 
     private val commandResults = ConcurrentHashMap<Long, ByteArray>()
 
-    fun launchAppendEntriesSender(coroutineScope: CoroutineScope, period: LongRange): Job {
-        val coroutineName = CoroutineName("${raftProtocol.nodeIdentifier}|append-entries-sender")
-        return coroutineScope.launch(coroutineName) {
+    fun launchAppendEntriesSender(
+        coroutineContext: CoroutineContext,
+        coroutineScope: CoroutineScope,
+        period: LongRange
+    ): Job {
+        return coroutineScope.launch(coroutineContext) {
             timerFactory
                 .sourceMergedExpirationFlow(flow = appendEntriesFlow, period = period)
                 .collect {
@@ -36,9 +43,8 @@ class RaftCommandSubmitter(
         }
     }
 
-    fun launchCommandApplier(coroutineScope: CoroutineScope): Job {
-        val coroutineName = CoroutineName("${raftProtocol.nodeIdentifier}|command-applier")
-        return coroutineScope.launch(coroutineName) {
+    fun launchCommandApplier(coroutineContext: CoroutineContext, coroutineScope: CoroutineScope): Job {
+        return coroutineScope.launch(coroutineContext) {
             raftProtocol.lastCommitIndexFlow.collect { lastCommitEvent ->
                 var nextIndexToApply: Long = lastAppliedStateFlow.value + 1
                 if (lastCommitEvent.lastCommitIndex != null) {
