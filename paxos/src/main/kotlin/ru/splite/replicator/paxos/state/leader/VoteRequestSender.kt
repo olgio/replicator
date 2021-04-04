@@ -3,13 +3,13 @@ package ru.splite.replicator.paxos.state.leader
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import org.slf4j.LoggerFactory
-import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.log.LogEntry
 import ru.splite.replicator.log.ReplicatedLogStore
 import ru.splite.replicator.paxos.state.PaxosLocalNodeState
 import ru.splite.replicator.raft.message.RaftMessage
 import ru.splite.replicator.raft.state.ExternalNodeState
 import ru.splite.replicator.raft.state.NodeType
+import ru.splite.replicator.transport.NodeIdentifier
 import ru.splite.replicator.transport.sender.MessageSender
 
 class VoteRequestSender(

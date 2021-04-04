@@ -4,7 +4,6 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.slf4j.LoggerFactory
-import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.log.ReplicatedLogStore
 import ru.splite.replicator.raft.message.RaftMessage
 import ru.splite.replicator.raft.message.RaftMessageReceiver
@@ -13,6 +12,7 @@ import ru.splite.replicator.raft.state.RaftLocalNodeState
 import ru.splite.replicator.raft.state.follower.AppendEntriesHandler
 import ru.splite.replicator.raft.state.follower.VoteRequestHandler
 import ru.splite.replicator.raft.state.leader.*
+import ru.splite.replicator.transport.NodeIdentifier
 import ru.splite.replicator.transport.Transport
 import ru.splite.replicator.transport.TypedActor
 import ru.splite.replicator.transport.sender.MessageSender

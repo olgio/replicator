@@ -1,7 +1,7 @@
 package ru.splite.replicator
 
-import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.id.Id
+import ru.splite.replicator.transport.NodeIdentifier
 
 interface AtlasProtocol {
 

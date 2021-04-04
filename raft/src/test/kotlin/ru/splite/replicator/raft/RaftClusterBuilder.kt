@@ -3,13 +3,13 @@ package ru.splite.replicator.raft
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.test.TestCoroutineScope
-import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.keyvalue.KeyValueStateMachine
 import ru.splite.replicator.log.InMemoryReplicatedLogStore
 import ru.splite.replicator.raft.state.RaftLocalNodeState
 import ru.splite.replicator.timer.flow.DelayTimerFactory
 import ru.splite.replicator.timer.flow.TimeTick
 import ru.splite.replicator.transport.CoroutineChannelTransport
+import ru.splite.replicator.transport.NodeIdentifier
 
 class RaftClusterBuilder {
 

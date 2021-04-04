@@ -1,7 +1,7 @@
 package ru.splite.replicator
 
 import org.slf4j.LoggerFactory
-import ru.splite.replicator.bus.NodeIdentifier
+import ru.splite.replicator.transport.NodeIdentifier
 import ru.splite.replicator.transport.Transport
 import ru.splite.replicator.transport.TypedActor
 

@@ -1,7 +1,7 @@
 package ru.splite.replicator.state
 
-import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.graph.Dependency
+import ru.splite.replicator.transport.NodeIdentifier
 
 class QuorumDependencies {
 

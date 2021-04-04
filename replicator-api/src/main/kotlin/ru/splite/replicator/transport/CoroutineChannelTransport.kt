@@ -6,7 +6,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.actor
-import ru.splite.replicator.bus.NodeIdentifier
 import java.util.concurrent.ConcurrentHashMap
 
 class CoroutineChannelTransport(private val coroutineScope: CoroutineScope) : Transport {

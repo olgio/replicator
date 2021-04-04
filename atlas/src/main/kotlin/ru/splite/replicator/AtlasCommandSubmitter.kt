@@ -2,9 +2,9 @@ package ru.splite.replicator
 
 import kotlinx.coroutines.*
 import org.slf4j.LoggerFactory
-import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.executor.CommandExecutor
 import ru.splite.replicator.statemachine.StateMachineCommandSubmitter
+import ru.splite.replicator.transport.NodeIdentifier
 import ru.splite.replicator.transport.sender.MessageSender
 
 class AtlasCommandSubmitter(

@@ -1,7 +1,7 @@
 package ru.splite.replicator.paxos
 
-import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.log.ReplicatedLogStore
+import ru.splite.replicator.transport.NodeIdentifier
 
 interface PaxosProtocol {
 

@@ -1,6 +1,6 @@
 package ru.splite.replicator.raft.state
 
-import ru.splite.replicator.bus.NodeIdentifier
+import ru.splite.replicator.transport.NodeIdentifier
 import java.util.concurrent.ConcurrentHashMap
 
 open class RaftLocalNodeState(

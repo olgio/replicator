@@ -1,8 +1,8 @@
 package ru.splite.replicator.graph
 
 import kotlinx.serialization.Serializable
-import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.id.Id
+import ru.splite.replicator.transport.NodeIdentifier
 
 @Serializable
 data class Dependency(val dot: Id<NodeIdentifier>) : Comparable<Dependency> {

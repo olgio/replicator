@@ -1,6 +1,6 @@
 package ru.splite.replicator.state
 
-import ru.splite.replicator.bus.NodeIdentifier
+import ru.splite.replicator.transport.NodeIdentifier
 
 class CommandState(
     var status: Status = Status.START,

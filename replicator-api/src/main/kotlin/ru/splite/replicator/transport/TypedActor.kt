@@ -5,7 +5,6 @@ import kotlinx.serialization.KSerializer
 import kotlinx.serialization.protobuf.ProtoBuf
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import ru.splite.replicator.bus.NodeIdentifier
 
 abstract class TypedActor<T>(
     override val address: NodeIdentifier,

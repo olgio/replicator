@@ -1,10 +1,10 @@
 package ru.splite.replicator.dependency
 
 import org.assertj.core.api.Assertions.assertThat
-import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.graph.Dependency
 import ru.splite.replicator.graph.JGraphTDependencyGraph
 import ru.splite.replicator.id.Id
+import ru.splite.replicator.transport.NodeIdentifier
 import kotlin.test.Test
 
 class JGraphTDependencyGraphTests {

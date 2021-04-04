@@ -6,9 +6,9 @@ import io.grpc.ManagedChannel
 import io.grpc.ManagedChannelBuilder
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.message.proto.BinaryMessageRequest
 import ru.splite.replicator.message.proto.BinaryRpcGrpcKt
+import ru.splite.replicator.transport.NodeIdentifier
 import ru.splite.replicator.transport.grpc.GrpcAddress
 import ru.splite.replicator.transport.grpc.ShutdownSupportable
 import java.util.concurrent.TimeUnit

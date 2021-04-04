@@ -1,9 +1,9 @@
 package ru.splite.replicator.raft
 
 import kotlinx.coroutines.flow.StateFlow
-import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.log.ReplicatedLogStore
 import ru.splite.replicator.raft.state.leader.LastCommitEvent
+import ru.splite.replicator.transport.NodeIdentifier
 import java.time.Instant
 
 interface RaftProtocol {
