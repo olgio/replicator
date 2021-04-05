@@ -51,7 +51,7 @@ class RaftCommandSubmitter(
                     while (lastCommitEvent.lastCommitIndex >= nextIndexToApply) {
                         val logEntry = raftProtocol.replicatedLogStore.getLogEntryByIndex(nextIndexToApply)
                             ?: error("Index $nextIndexToApply committed but logEntry is null")
-                        val result: ByteArray = stateMachine.commit(logEntry.command)
+                        val result: ByteArray = stateMachine.apply(logEntry.command)
                         commandResults[nextIndexToApply] = result
                         lastAppliedStateFlow.tryEmit(nextIndexToApply)
                         nextIndexToApply++

@@ -77,7 +77,7 @@ class CommandExecutor(
     private fun executeCommand(commandId: Id<NodeIdentifier>) {
         LOGGER.debug("Executing on state machine commandId=$commandId")
         val response = kotlin.runCatching {
-            stateMachine.commit(
+            stateMachine.apply(
                 commandBuffer.remove(commandId)
                     ?: error("Cannot extract command from buffer. commandId = $commandId")
             )

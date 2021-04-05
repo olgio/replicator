@@ -12,7 +12,7 @@ class KeyValueStateMachine : ConflictOrderedStateMachine<ByteArray, ByteArray> {
     val currentState: Map<String, String>
         get() = store
 
-    override fun commit(bytes: ByteArray): ByteArray {
+    override fun apply(bytes: ByteArray): ByteArray {
         val reply = when (val command: KeyValueCommand = KeyValueCommand.deserializer(bytes)) {
             is KeyValueCommand.GetValue -> {
                 val value = store[command.key]

@@ -9,7 +9,7 @@ class RegistryStateMachine : StateMachine<RegistryCommand, Unit> {
 
     private val currentValue = AtomicLong(0)
 
-    override fun commit(command: RegistryCommand) {
+    override fun apply(command: RegistryCommand) {
         val newValue = when (command) {
             is RegistryCommand.PutValue -> {
                 currentValue.set(command.value)
