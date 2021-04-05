@@ -5,7 +5,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import org.slf4j.LoggerFactory
-import ru.splite.replicator.bus.NodeIdentifier
+import ru.splite.replicator.transport.NodeIdentifier
 import ru.splite.replicator.transport.TypedActor
 
 class MessageSender<T>(

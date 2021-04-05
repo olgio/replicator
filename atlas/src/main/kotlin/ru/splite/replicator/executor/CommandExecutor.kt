@@ -5,11 +5,11 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.slf4j.LoggerFactory
-import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.graph.Dependency
 import ru.splite.replicator.graph.DependencyGraph
 import ru.splite.replicator.id.Id
 import ru.splite.replicator.statemachine.StateMachine
+import ru.splite.replicator.transport.NodeIdentifier
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.CoroutineContext
 
@@ -77,7 +77,7 @@ class CommandExecutor(
     private fun executeCommand(commandId: Id<NodeIdentifier>) {
         LOGGER.debug("Executing on state machine commandId=$commandId")
         val response = kotlin.runCatching {
-            stateMachine.commit(
+            stateMachine.apply(
                 commandBuffer.remove(commandId)
                     ?: error("Cannot extract command from buffer. commandId = $commandId")
             )

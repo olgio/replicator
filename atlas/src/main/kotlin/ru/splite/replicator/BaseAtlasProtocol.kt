@@ -4,7 +4,6 @@ import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.CommandCoordinator.CollectAckDecision
 import ru.splite.replicator.CommandCoordinator.ConsensusAckDecision
-import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.executor.CommandExecutor
 import ru.splite.replicator.graph.Dependency
 import ru.splite.replicator.id.Id
@@ -12,6 +11,7 @@ import ru.splite.replicator.id.IdGenerator
 import ru.splite.replicator.state.CommandState
 import ru.splite.replicator.state.QuorumDependencies
 import ru.splite.replicator.statemachine.ConflictIndex
+import ru.splite.replicator.transport.NodeIdentifier
 import java.util.concurrent.ConcurrentHashMap
 
 class BaseAtlasProtocol(
@@ -253,16 +253,11 @@ class BaseAtlasProtocol(
             dependencies = dependencies
         )
 
-        // create and set consensus value
-//        let value = ConsensusValue::with(deps.clone());
-//        assert!(info.synod.set_if_not_accepted(|| value));
-
         return AtlasMessage.MCollectAck(
             isAck = true,
             commandId = message.commandId,
             remoteDependencies = dependencies
         )
-        //messageSender.sendOrNull(from, collectAckMessage)
     }
 
     override fun handleConsensus(message: AtlasMessage.MConsensus): AtlasMessage.MConsensusAck {

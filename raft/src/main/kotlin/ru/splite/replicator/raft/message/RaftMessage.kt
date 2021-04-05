@@ -1,8 +1,8 @@
 package ru.splite.replicator.raft.message
 
 import kotlinx.serialization.Serializable
-import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.log.LogEntry
+import ru.splite.replicator.transport.NodeIdentifier
 
 @Serializable
 sealed class RaftMessage {

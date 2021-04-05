@@ -2,9 +2,9 @@ package ru.splite.replicator
 
 import kotlinx.coroutines.*
 import org.slf4j.LoggerFactory
-import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.executor.CommandExecutor
 import ru.splite.replicator.statemachine.StateMachineCommandSubmitter
+import ru.splite.replicator.transport.NodeIdentifier
 import ru.splite.replicator.transport.sender.MessageSender
 
 class AtlasCommandSubmitter(
@@ -73,8 +73,11 @@ class AtlasCommandSubmitter(
         commandCoordinator: CommandCoordinator,
         fastQuorumNodes: Collection<NodeIdentifier>
     ): AtlasMessage.MCommit {
-        val commitForFastPath = commandCoordinator.buildCommit(false)
-        val commitWithPayload = commandCoordinator.buildCommit(true)
+        val commitForFastPath = commandCoordinator.buildCommit(withPayload = false)
+
+        val commitWithPayload by lazy {
+            commandCoordinator.buildCommit(withPayload = true)
+        }
 
         val coroutineName = CoroutineName("commit-${commandCoordinator.commandId}")
         coroutineScopeToSendCommit.launch(coroutineName) {

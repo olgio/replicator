@@ -1,6 +1,6 @@
 package ru.splite.replicator
 
-import ru.splite.replicator.bus.NodeIdentifier
+import ru.splite.replicator.transport.NodeIdentifier
 
 data class AtlasProtocolConfig(
     val address: NodeIdentifier,

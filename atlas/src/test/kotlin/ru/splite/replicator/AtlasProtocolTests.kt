@@ -5,7 +5,6 @@ import kotlinx.coroutines.test.runBlockingTest
 import org.assertj.core.api.Assertions.assertThat
 import ru.splite.replicator.CommandCoordinator.CollectAckDecision
 import ru.splite.replicator.CommandCoordinator.ConsensusAckDecision
-import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.executor.CommandExecutor
 import ru.splite.replicator.graph.Dependency
 import ru.splite.replicator.graph.JGraphTDependencyGraph
@@ -13,6 +12,7 @@ import ru.splite.replicator.id.InMemoryIdGenerator
 import ru.splite.replicator.keyvalue.KeyValueCommand
 import ru.splite.replicator.keyvalue.KeyValueStateMachine
 import ru.splite.replicator.transport.CoroutineChannelTransport
+import ru.splite.replicator.transport.NodeIdentifier
 import ru.splite.replicator.transport.Transport
 import kotlin.test.Test
 

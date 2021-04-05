@@ -5,7 +5,6 @@ import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.encodeToByteArray
 import kotlinx.serialization.protobuf.ProtoBuf
 import org.slf4j.LoggerFactory
-import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.log.ReplicatedLogStore
 import ru.splite.replicator.paxos.message.PaxosMessageReceiver
 import ru.splite.replicator.paxos.state.PaxosLocalNodeState
@@ -18,6 +17,7 @@ import ru.splite.replicator.raft.state.follower.AppendEntriesHandler
 import ru.splite.replicator.raft.state.leader.AppendEntriesSender
 import ru.splite.replicator.raft.state.leader.CommandAppender
 import ru.splite.replicator.raft.state.leader.CommitEntries
+import ru.splite.replicator.transport.NodeIdentifier
 import ru.splite.replicator.transport.Transport
 import ru.splite.replicator.transport.TypedActor
 import ru.splite.replicator.transport.sender.MessageSender

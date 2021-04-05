@@ -1,13 +1,16 @@
 package ru.splite.replicator
 
 import kotlinx.serialization.Serializable
-import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.graph.Dependency
 import ru.splite.replicator.id.Id
+import ru.splite.replicator.transport.NodeIdentifier
 
 @Serializable
 sealed class AtlasMessage {
 
+    /**
+     * Вспомогательный интерфейс для сообщений специфичных конкретной команде
+     */
     interface PerCommandMessage {
         val commandId: Id<NodeIdentifier>
     }

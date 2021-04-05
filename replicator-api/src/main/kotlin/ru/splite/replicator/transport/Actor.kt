@@ -1,7 +1,5 @@
 package ru.splite.replicator.transport
 
-import ru.splite.replicator.bus.NodeIdentifier
-
 abstract class Actor(
     override val address: NodeIdentifier,
     val transport: Transport

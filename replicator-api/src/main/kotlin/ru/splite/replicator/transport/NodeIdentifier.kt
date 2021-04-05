@@ -1,4 +1,4 @@
-package ru.splite.replicator.bus
+package ru.splite.replicator.transport
 
 import kotlinx.serialization.Serializable
 

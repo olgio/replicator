@@ -5,10 +5,10 @@ import io.grpc.Server
 import io.grpc.ServerBuilder
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import ru.splite.replicator.bus.NodeIdentifier
 import ru.splite.replicator.message.proto.BinaryMessageRequest
 import ru.splite.replicator.message.proto.BinaryMessageResponse
 import ru.splite.replicator.message.proto.BinaryRpcGrpcKt
+import ru.splite.replicator.transport.NodeIdentifier
 import ru.splite.replicator.transport.Receiver
 import ru.splite.replicator.transport.Transport
 import ru.splite.replicator.transport.grpc.stub.ClientStub
