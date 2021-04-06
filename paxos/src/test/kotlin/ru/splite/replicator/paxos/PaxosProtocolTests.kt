@@ -347,8 +347,8 @@ class PaxosProtocolTests {
     ): PaxosProtocolController {
         val nodeIdentifier = NodeIdentifier(name)
         val logStore = InMemoryReplicatedLogStore()
-        val localNodeState = PaxosLocalNodeState(nodeIdentifier, n.toLong())
-        val config = RaftProtocolConfig(n = fullSize)
+        val localNodeState = PaxosLocalNodeState(n.toLong())
+        val config = RaftProtocolConfig(address = nodeIdentifier, n = fullSize)
         return PaxosProtocolController(
             logStore,
             this,

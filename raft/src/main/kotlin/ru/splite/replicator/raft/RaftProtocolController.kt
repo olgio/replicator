@@ -24,12 +24,9 @@ class RaftProtocolController(
     private val config: RaftProtocolConfig,
     private val localNodeState: RaftLocalNodeState
 ) : RaftMessageReceiver, RaftProtocol,
-    TypedActor<RaftMessage>(localNodeState.nodeIdentifier, transport, RaftMessage.serializer()) {
+    TypedActor<RaftMessage>(config.address, transport, RaftMessage.serializer()) {
 
     private val messageSender = MessageSender(this, config.sendMessageTimeout)
-
-    override val nodeIdentifier: NodeIdentifier
-        get() = localNodeState.nodeIdentifier
 
     override val isLeader: Boolean
         get() = localNodeState.currentNodeType == NodeType.LEADER
@@ -40,17 +37,18 @@ class RaftProtocolController(
     private val leaderAliveMutableFlow: MutableStateFlow<Instant> = MutableStateFlow(Instant.now())
     override val leaderAliveFlow: StateFlow<Instant> = leaderAliveMutableFlow
 
-    private val appendEntriesSender = AppendEntriesSender(localNodeState, replicatedLogStore)
+    private val appendEntriesSender = AppendEntriesSender(config.address, localNodeState, replicatedLogStore)
 
     private val appendEntriesHandler = AppendEntriesHandler(localNodeState, replicatedLogStore)
 
-    private val voteRequestSender = VoteRequestSender(localNodeState, replicatedLogStore)
+    private val voteRequestSender = VoteRequestSender(config.address, localNodeState, replicatedLogStore)
 
     private val voteRequestHandler = VoteRequestHandler(localNodeState, replicatedLogStore)
 
-    private val commitEntries = CommitEntries(localNodeState, replicatedLogStore) { logEntry, currentTerm ->
-        logEntry.term == currentTerm
-    }
+    private val commitEntries =
+        CommitEntries(config.address, localNodeState, replicatedLogStore) { logEntry, currentTerm ->
+            logEntry.term == currentTerm
+        }
 
     private val commandAppender = CommandAppender(localNodeState, replicatedLogStore)
 
@@ -74,20 +72,20 @@ class RaftProtocolController(
     }
 
     override suspend fun handleAppendEntries(request: RaftMessage.AppendEntries): RaftMessage.AppendEntriesResponse {
-        LOGGER.debug("$nodeIdentifier :: received $request")
+        LOGGER.debug("$address :: received $request")
         val response = appendEntriesHandler.handleAppendEntries(request)
         if (response.entriesAppended) {
-            LOGGER.debug("$nodeIdentifier :: entries successfully appended $response")
+            LOGGER.debug("$address :: entries successfully appended $response")
             leaderAliveMutableFlow.tryEmit(Instant.now())
         }
         return response
     }
 
     override suspend fun handleVoteRequest(request: RaftMessage.VoteRequest): RaftMessage.VoteResponse {
-        LOGGER.debug("$nodeIdentifier :: received $request")
+        LOGGER.debug("$address :: received $request")
         val response = voteRequestHandler.handleVoteRequest(request)
         if (response.voteGranted) {
-            LOGGER.debug("$nodeIdentifier :: vote granted $response")
+            LOGGER.debug("$address :: vote granted $response")
             leaderAliveMutableFlow.tryEmit(Instant.now())
         }
         return response

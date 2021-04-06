@@ -5,7 +5,7 @@ import ru.splite.replicator.transport.NodeIdentifier
 
 interface PaxosProtocol {
 
-    val nodeIdentifier: NodeIdentifier
+    val address: NodeIdentifier
 
     val replicatedLogStore: ReplicatedLogStore
 

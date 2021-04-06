@@ -14,7 +14,7 @@ class VoteRequestHandler(
 
         //текущий терм больше полученного -> получили устаревший запрос -> отклоняем
         if (localNodeState.currentTerm > request.term) {
-            LOGGER.debug("${localNodeState.nodeIdentifier} :: VoteRequest rejected: currentTerm ${localNodeState.currentTerm} > requestTerm ${request.term}. request = $request")
+            LOGGER.debug("VoteRequest rejected: currentTerm ${localNodeState.currentTerm} > requestTerm ${request.term}. request = $request")
             return RaftMessage.PaxosVoteResponse(
                 term = localNodeState.currentTerm,
                 voteGranted = false,

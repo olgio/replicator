@@ -12,6 +12,7 @@ import ru.splite.replicator.transport.NodeIdentifier
 import ru.splite.replicator.transport.sender.MessageSender
 
 class VoteRequestSender(
+    private val nodeIdentifier: NodeIdentifier,
     private val localNodeState: RaftLocalNodeState,
     private val logStore: ReplicatedLogStore
 ) {
@@ -20,7 +21,7 @@ class VoteRequestSender(
         messageSender: MessageSender<RaftMessage>,
         quorumSize: Int
     ): Boolean = coroutineScope {
-        val clusterNodeIdentifiers = messageSender.getAllNodes().minus(localNodeState.nodeIdentifier)
+        val clusterNodeIdentifiers = messageSender.getAllNodes().minus(nodeIdentifier)
 
         check(clusterNodeIdentifiers.isNotEmpty()) {
             "Cluster cannot be empty"
@@ -45,7 +46,7 @@ class VoteRequestSender(
                 it.voteGranted
             }.count() + 1
 
-        LOGGER.info("${localNodeState.nodeIdentifier} :: VoteResult for term ${localNodeState.currentTerm}: ${voteGrantedCount}/${messageSender.getAllNodes().size} (quorum = ${quorumSize})")
+        LOGGER.info("VoteResult for term ${localNodeState.currentTerm}: ${voteGrantedCount}/${messageSender.getAllNodes().size} (quorum = ${quorumSize})")
         if (voteGrantedCount >= quorumSize) {
             becomeLeader()
             reinitializeExternalNodeStates(messageSender.getAllNodes())
@@ -56,24 +57,24 @@ class VoteRequestSender(
     }
 
     private fun becomeCandidate(): RaftMessage.VoteRequest {
-        LOGGER.debug("${localNodeState.nodeIdentifier} :: state transition ${localNodeState.currentNodeType} (term ${localNodeState.currentTerm}) -> CANDIDATE")
+        LOGGER.debug("State transition ${localNodeState.currentNodeType} (term ${localNodeState.currentTerm}) -> CANDIDATE")
         localNodeState.currentTerm = localNodeState.currentTerm + 1
-        localNodeState.lastVotedLeaderIdentifier = localNodeState.nodeIdentifier
+        localNodeState.lastVotedLeaderIdentifier = nodeIdentifier
         localNodeState.currentNodeType = NodeType.CANDIDATE
 
         val lastLogIndex: Long? = logStore.lastLogIndex()
         val lastLogTerm: Long? = lastLogIndex?.let { logStore.getLogEntryByIndex(it)!!.term }
 
         return RaftMessage.VoteRequest(
-            term = localNodeState.currentTerm, candidateIdentifier = localNodeState.nodeIdentifier,
+            term = localNodeState.currentTerm, candidateIdentifier = nodeIdentifier,
             lastLogIndex = lastLogIndex ?: -1, lastLogTerm = lastLogTerm ?: -1
         )
     }
 
     private fun becomeLeader() {
-        LOGGER.debug("${localNodeState.nodeIdentifier} :: state transition ${localNodeState.currentNodeType} -> LEADER (term ${localNodeState.currentTerm})")
+        LOGGER.debug("State transition ${localNodeState.currentNodeType} -> LEADER (term ${localNodeState.currentTerm})")
         localNodeState.lastVotedLeaderIdentifier = null
-        localNodeState.leaderIdentifier = localNodeState.nodeIdentifier
+        localNodeState.leaderIdentifier = nodeIdentifier
         localNodeState.currentNodeType = NodeType.LEADER
     }
 

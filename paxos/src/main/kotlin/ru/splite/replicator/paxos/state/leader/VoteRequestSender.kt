@@ -13,6 +13,7 @@ import ru.splite.replicator.transport.NodeIdentifier
 import ru.splite.replicator.transport.sender.MessageSender
 
 class VoteRequestSender(
+    private val nodeIdentifier: NodeIdentifier,
     private val localNodeState: PaxosLocalNodeState,
     private val logStore: ReplicatedLogStore
 ) {
@@ -21,7 +22,7 @@ class VoteRequestSender(
         messageSender: MessageSender<RaftMessage>,
         quorumSize: Int
     ): Boolean = coroutineScope {
-        val clusterNodeIdentifiers = messageSender.getAllNodes().minus(localNodeState.nodeIdentifier)
+        val clusterNodeIdentifiers = messageSender.getAllNodes().minus(nodeIdentifier)
 
         if (clusterNodeIdentifiers.isEmpty()) {
             error("Cluster cannot be empty")
@@ -49,7 +50,7 @@ class VoteRequestSender(
 
         val voteGrantedCount: Int = voteResponses.size + 1
 
-        LOGGER.info("${localNodeState.nodeIdentifier} :: VoteResult for term ${localNodeState.currentTerm}: ${voteGrantedCount}/${messageSender.getAllNodes().size} (quorum = ${quorumSize})")
+        LOGGER.info("VoteResult for term ${localNodeState.currentTerm}: ${voteGrantedCount}/${messageSender.getAllNodes().size} (quorum = ${quorumSize})")
         if (voteGrantedCount >= quorumSize) {
             handleVoteResponsesIfMajority(nextTerm, voteResponses)
             becomeLeader()
@@ -61,7 +62,7 @@ class VoteRequestSender(
     }
 
     private fun becomeCandidate(nextTerm: Long, lastCommitIndex: Long?): RaftMessage.PaxosVoteRequest {
-        LOGGER.debug("${localNodeState.nodeIdentifier} :: state transition ${localNodeState.currentNodeType} (term ${localNodeState.currentTerm}) -> CANDIDATE")
+        LOGGER.debug("State transition ${localNodeState.currentNodeType} (term ${localNodeState.currentTerm}) -> CANDIDATE")
         localNodeState.currentTerm = nextTerm
         localNodeState.currentNodeType = NodeType.CANDIDATE
 
@@ -72,8 +73,8 @@ class VoteRequestSender(
     }
 
     private fun becomeLeader() {
-        LOGGER.debug("${localNodeState.nodeIdentifier} :: state transition ${localNodeState.currentNodeType} -> LEADER (term ${localNodeState.currentTerm})")
-        localNodeState.leaderIdentifier = localNodeState.nodeIdentifier
+        LOGGER.debug("State transition ${localNodeState.currentNodeType} -> LEADER (term ${localNodeState.currentTerm})")
+        localNodeState.leaderIdentifier = nodeIdentifier
         localNodeState.currentNodeType = NodeType.LEADER
     }
 
@@ -109,7 +110,7 @@ class VoteRequestSender(
             }
         }
         entries.forEachIndexed { index, logEntry ->
-            LOGGER.debug("${localNodeState.nodeIdentifier} :: logEntry with index ${firstUncommittedIndex + index} set to ${logEntry.command} with term $nextTerm")
+            LOGGER.debug("logEntry with index ${firstUncommittedIndex + index} set to ${logEntry.command} with term $nextTerm")
             logStore.setLogEntry(firstUncommittedIndex + index, LogEntry(nextTerm, logEntry.command))
         }
     }

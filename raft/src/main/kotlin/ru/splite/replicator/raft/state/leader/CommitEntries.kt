@@ -7,9 +7,11 @@ import ru.splite.replicator.log.LogEntry
 import ru.splite.replicator.log.ReplicatedLogStore
 import ru.splite.replicator.raft.state.NodeType
 import ru.splite.replicator.raft.state.RaftLocalNodeState
+import ru.splite.replicator.transport.NodeIdentifier
 import ru.splite.replicator.transport.Transport
 
 class CommitEntries(
+    private val nodeIdentifier: NodeIdentifier,
     private val localNodeState: RaftLocalNodeState,
     private val logStore: ReplicatedLogStore,
     private val logEntryCommittableCondition: (LogEntry, Long) -> Boolean
@@ -22,13 +24,13 @@ class CommitEntries(
 
     fun commitLogEntriesIfLeader(transport: Transport, majority: Int) {
         if (localNodeState.currentNodeType != NodeType.LEADER) {
-            LOGGER.warn("${localNodeState.nodeIdentifier} :: cannot commit because node is not leader. currentNodeType = ${localNodeState.currentNodeType}")
+            LOGGER.warn("cannot commit because node is not leader. currentNodeType = ${localNodeState.currentNodeType}")
             return
         }
 
         LOGGER.info("CommitEntries (term ${localNodeState.currentTerm})")
 
-        val clusterNodeIdentifiers = transport.nodes.minus(localNodeState.nodeIdentifier)
+        val clusterNodeIdentifiers = transport.nodes.minus(nodeIdentifier)
 
         val lastLogIndex: Long = logStore.lastLogIndex() ?: return
         val firstUncommittedIndex: Long = logStore.lastCommitIndex()?.plus(1) ?: 0
@@ -37,7 +39,7 @@ class CommitEntries(
             return
         }
 
-        LOGGER.debug("${localNodeState.nodeIdentifier} :: lastLogIndex = $lastLogIndex, firstUncommittedIndex = $firstUncommittedIndex")
+        LOGGER.debug("lastLogIndex = $lastLogIndex, firstUncommittedIndex = $firstUncommittedIndex")
 
         val lastCommittableIndex: Long? = generateSequence(lastLogIndex) {
             it - 1
@@ -47,11 +49,11 @@ class CommitEntries(
             }
             val logEntry = logStore.getLogEntryByIndex(uncommittedIndex)
             if (logEntry == null) {
-                LOGGER.error("${localNodeState.nodeIdentifier} :: uncommitted logEntry with index $uncommittedIndex skipped because doesn't exists in store")
+                LOGGER.error("uncommitted logEntry with index $uncommittedIndex skipped because doesn't exists in store")
                 return@takeWhile false
             }
             if (!logEntryCommittableCondition.invoke(logEntry, localNodeState.currentTerm)) {
-                LOGGER.warn("${localNodeState.nodeIdentifier} :: uncommitted logEntry with index $uncommittedIndex skipped because committable condition is not met")
+                LOGGER.warn("uncommitted logEntry with index $uncommittedIndex skipped because committable condition is not met")
                 return@takeWhile false
             }
             val matchedNodesCount = clusterNodeIdentifiers.count {
@@ -65,7 +67,7 @@ class CommitEntries(
             return@takeWhile true
         }.firstOrNull()
 
-        LOGGER.debug("${localNodeState.nodeIdentifier} :: lastCommittableIndex = $lastCommittableIndex")
+        LOGGER.debug("lastCommittableIndex = $lastCommittableIndex")
 
         if (lastCommittableIndex != null) {
             logStore.commit(lastCommittableIndex)

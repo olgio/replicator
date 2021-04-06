@@ -4,7 +4,6 @@ import ru.splite.replicator.transport.NodeIdentifier
 import java.util.concurrent.ConcurrentHashMap
 
 open class RaftLocalNodeState(
-    val nodeIdentifier: NodeIdentifier,
     var currentTerm: Long = 0L
 ) {
 
