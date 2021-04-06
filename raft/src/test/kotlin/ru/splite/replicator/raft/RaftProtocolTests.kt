@@ -330,8 +330,8 @@ class RaftProtocolTests {
     private fun Transport.buildNode(name: String, fullSize: Int): RaftProtocolController {
         val nodeIdentifier = NodeIdentifier(name)
         val logStore = InMemoryReplicatedLogStore()
-        val localNodeState = RaftLocalNodeState(nodeIdentifier)
-        val config = RaftProtocolConfig(n = fullSize)
+        val localNodeState = RaftLocalNodeState()
+        val config = RaftProtocolConfig(address = nodeIdentifier, n = fullSize)
         return RaftProtocolController(
             logStore,
             this,

@@ -24,9 +24,9 @@ class RaftClusterBuilder {
 
             val nodeIdentifier = NodeIdentifier(name)
             val logStore = InMemoryReplicatedLogStore()
-            val localNodeState = RaftLocalNodeState(nodeIdentifier)
+            val localNodeState = RaftLocalNodeState()
             val stateMachine = KeyValueStateMachine()
-            val config = RaftProtocolConfig(n = fullSize)
+            val config = RaftProtocolConfig(address = nodeIdentifier, n = fullSize)
 
             val raftProtocol = RaftProtocolController(
                 logStore,

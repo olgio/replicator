@@ -28,27 +28,25 @@ class PaxosProtocolController(
     private val config: RaftProtocolConfig,
     private val localNodeState: PaxosLocalNodeState
 ) : PaxosMessageReceiver, PaxosProtocol,
-    TypedActor<RaftMessage>(localNodeState.nodeIdentifier, transport, RaftMessage.serializer()) {
+    TypedActor<RaftMessage>(config.address, transport, RaftMessage.serializer()) {
 
     private val messageSender = MessageSender(this, config.sendMessageTimeout)
-
-    override val nodeIdentifier: NodeIdentifier
-        get() = localNodeState.nodeIdentifier
 
     override val isLeader: Boolean
         get() = localNodeState.currentNodeType == NodeType.LEADER
 
-    private val appendEntriesSender = AppendEntriesSender(localNodeState, replicatedLogStore)
+    private val appendEntriesSender = AppendEntriesSender(config.address, localNodeState, replicatedLogStore)
 
     private val appendEntriesHandler = AppendEntriesHandler(localNodeState, replicatedLogStore)
 
-    private val voteRequestSender = VoteRequestSender(localNodeState, replicatedLogStore)
+    private val voteRequestSender = VoteRequestSender(config.address, localNodeState, replicatedLogStore)
 
     private val voteRequestHandler = VoteRequestHandler(localNodeState, replicatedLogStore)
 
-    private val commitEntries = CommitEntries(localNodeState, replicatedLogStore) { logEntry, currentTerm ->
-        true
-    }
+    private val commitEntries =
+        CommitEntries(config.address, localNodeState, replicatedLogStore) { logEntry, currentTerm ->
+            true
+        }
 
     private val commandAppender = CommandAppender(localNodeState, replicatedLogStore)
 
@@ -72,20 +70,20 @@ class PaxosProtocolController(
     }
 
     override suspend fun handleAppendEntries(request: RaftMessage.AppendEntries): RaftMessage.AppendEntriesResponse {
-        LOGGER.debug("$nodeIdentifier :: received $request")
+        LOGGER.debug("$address :: received $request")
         val response = appendEntriesHandler.handleAppendEntries(request)
         if (response.entriesAppended) {
-            LOGGER.debug("$nodeIdentifier :: entries successfully appended $response")
+            LOGGER.debug("$address :: entries successfully appended $response")
 //            termIncrementerTimerTask.renew()
         }
         return response
     }
 
     override suspend fun handleVoteRequest(request: RaftMessage.PaxosVoteRequest): RaftMessage.PaxosVoteResponse {
-        LOGGER.debug("$nodeIdentifier :: received $request")
+        LOGGER.debug("$address :: received $request")
         val response = voteRequestHandler.handleVoteRequest(request)
         if (response.voteGranted) {
-            LOGGER.debug("$nodeIdentifier :: vote granted $response")
+            LOGGER.debug("$address :: vote granted $response")
 //            termIncrementerTimerTask.renew()
         }
         return response

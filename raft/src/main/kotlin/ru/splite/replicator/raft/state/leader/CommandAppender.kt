@@ -12,7 +12,7 @@ class CommandAppender(
 
     fun addCommand(command: ByteArray): Long {
         if (localNodeState.currentNodeType != NodeType.LEADER) {
-            error("Only leader can add command")
+            error("Only leader can add command. currentTerm = ${localNodeState.currentTerm}, currentLeader = ${localNodeState.leaderIdentifier}")
         }
         return logStore.appendLogEntry(LogEntry(term = localNodeState.currentTerm, command = command))
     }

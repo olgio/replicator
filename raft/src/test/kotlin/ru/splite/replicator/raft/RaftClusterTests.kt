@@ -19,7 +19,7 @@ class RaftClusterTests {
             advanceTimeBy(5000L)
 
             val firstLeader =
-                nodes.first { it.raftProtocol.isLeader && !transport.isNodeIsolated(it.raftProtocol.nodeIdentifier) }
+                nodes.first { it.raftProtocol.isLeader && !transport.isNodeIsolated(it.raftProtocol.address) }
 
             val commandReply1 = KeyValueReply.deserializer(firstLeader.submit(command))
             assertThat(commandReply1.value).isEqualTo("v")
@@ -30,24 +30,24 @@ class RaftClusterTests {
                 .isCommittedEntriesInSync()
                 .hasCommittedEntriesSize(1L)
 
-            transport.setNodeIsolated(firstLeader.raftProtocol.nodeIdentifier, true)
+            transport.setNodeIsolated(firstLeader.raftProtocol.address, true)
 
             advanceTimeBy(5000L)
 
             val secondLeader =
-                nodes.first { it.raftProtocol.isLeader && !transport.isNodeIsolated(it.raftProtocol.nodeIdentifier) }
+                nodes.first { it.raftProtocol.isLeader && !transport.isNodeIsolated(it.raftProtocol.address) }
 
             val commandReply2 = KeyValueReply.deserializer(secondLeader.submit(command))
             assertThat(commandReply2.value).isEqualTo("v")
 
             advanceTimeBy(5000L)
 
-            assertThatLogs(*nodes.filter { !transport.isNodeIsolated(it.raftProtocol.nodeIdentifier) }
+            assertThatLogs(*nodes.filter { !transport.isNodeIsolated(it.raftProtocol.address) }
                 .map { it.raftProtocol }.toTypedArray())
                 .isCommittedEntriesInSync()
                 .hasCommittedEntriesSize(2L)
 
-            transport.setNodeIsolated(firstLeader.raftProtocol.nodeIdentifier, false)
+            transport.setNodeIsolated(firstLeader.raftProtocol.address, false)
 
             advanceTimeBy(5000L)
 

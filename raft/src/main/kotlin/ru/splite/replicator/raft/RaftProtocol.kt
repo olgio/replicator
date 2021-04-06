@@ -8,7 +8,7 @@ import java.time.Instant
 
 interface RaftProtocol {
 
-    val nodeIdentifier: NodeIdentifier
+    val address: NodeIdentifier
 
     val replicatedLogStore: ReplicatedLogStore
 

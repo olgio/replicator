@@ -12,6 +12,7 @@ import ru.splite.replicator.transport.NodeIdentifier
 import ru.splite.replicator.transport.sender.MessageSender
 
 class AppendEntriesSender(
+    private val nodeIdentifier: NodeIdentifier,
     private val localNodeState: RaftLocalNodeState,
     private val logStore: ReplicatedLogStore
 ) {
@@ -25,7 +26,7 @@ class AppendEntriesSender(
     suspend fun sendAppendEntriesIfLeader(messageSender: MessageSender<RaftMessage>) =
         coroutineScope {
             LOGGER.info("Sending AppendEntries (term ${localNodeState.currentTerm})")
-            val clusterNodeIdentifiers = messageSender.getAllNodes().minus(localNodeState.nodeIdentifier)
+            val clusterNodeIdentifiers = messageSender.getAllNodes().minus(nodeIdentifier)
 
             clusterNodeIdentifiers.map { dstNodeIdentifier ->
                 val nextIndexPerNode: Long = localNodeState.externalNodeStates[dstNodeIdentifier]!!.nextIndex
@@ -71,7 +72,7 @@ class AppendEntriesSender(
         }
 
         if (localNodeState.currentNodeType != NodeType.LEADER) {
-            LOGGER.warn("${localNodeState.nodeIdentifier} :: cannot send appendEntries because node is not leader. currentNodeType = ${localNodeState.currentNodeType}")
+            LOGGER.warn("Cannot send appendEntries because node is not leader. currentNodeType = ${localNodeState.currentNodeType}")
             error("Cannot send appendEntries because node is not leader")
         }
 
@@ -89,7 +90,7 @@ class AppendEntriesSender(
 
             return RaftMessage.AppendEntries(
                 term = localNodeState.currentTerm,
-                leaderIdentifier = localNodeState.nodeIdentifier,
+                leaderIdentifier = nodeIdentifier,
                 prevLogIndex = prevLogIndex ?: -1,
                 prevLogTerm = prevLogTerm ?: -1,
                 lastCommitIndex = lastCommitIndex ?: -1,
@@ -101,7 +102,7 @@ class AppendEntriesSender(
 
         return RaftMessage.AppendEntries(
             term = localNodeState.currentTerm,
-            leaderIdentifier = localNodeState.nodeIdentifier,
+            leaderIdentifier = nodeIdentifier,
             prevLogIndex = lastLogIndex ?: -1,
             prevLogTerm = lastLogTerm ?: -1,
             lastCommitIndex = lastCommitIndex ?: -1,

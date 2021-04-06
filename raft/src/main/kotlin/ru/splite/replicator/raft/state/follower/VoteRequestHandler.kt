@@ -15,7 +15,7 @@ class VoteRequestHandler(
 
         //текущий терм больше полученного -> получили устаревший запрос -> отклоняем
         if (localNodeState.currentTerm > request.term) {
-            LOGGER.debug("${localNodeState.nodeIdentifier} :: VoteRequest rejected: currentTerm ${localNodeState.currentTerm} > requestTerm ${request.term}. request = $request")
+            LOGGER.debug("VoteRequest rejected: currentTerm ${localNodeState.currentTerm} > requestTerm ${request.term}. request = $request")
             return RaftMessage.VoteResponse(term = localNodeState.currentTerm, voteGranted = false)
         }
 
@@ -28,13 +28,13 @@ class VoteRequestHandler(
             localNodeState.currentNodeType = NodeType.FOLLOWER
             if (candidateCanBeLeader) {
                 localNodeState.lastVotedLeaderIdentifier = request.candidateIdentifier
-                LOGGER.debug("${localNodeState.nodeIdentifier} :: VoteRequest accepted: currentTerm < requestTerm. request = $request")
+                LOGGER.debug("VoteRequest accepted: currentTerm < requestTerm. request = $request")
                 return RaftMessage.VoteResponse(term = localNodeState.currentTerm, voteGranted = true)
             }
         }
 
         if (!candidateCanBeLeader) {
-            LOGGER.debug("${localNodeState.nodeIdentifier} :: VoteRequest rejected: detected stale log on candidate. request = $request")
+            LOGGER.debug("VoteRequest rejected: detected stale log on candidate. request = $request")
             return RaftMessage.VoteResponse(term = localNodeState.currentTerm, voteGranted = false)
         }
 
@@ -45,9 +45,9 @@ class VoteRequestHandler(
             }
             val voteGranted: Boolean = localNodeState.lastVotedLeaderIdentifier == request.candidateIdentifier
             if (voteGranted) {
-                LOGGER.debug("${localNodeState.nodeIdentifier} :: VoteRequest accepted. request = $request")
+                LOGGER.debug("VoteRequest accepted. request = $request")
             } else {
-                LOGGER.debug("${localNodeState.nodeIdentifier} :: VoteRequest rejected: detected another candidate ${localNodeState.lastVotedLeaderIdentifier} in this term. request = $request")
+                LOGGER.debug("VoteRequest rejected: detected another candidate ${localNodeState.lastVotedLeaderIdentifier} in this term. request = $request")
             }
             return RaftMessage.VoteResponse(
                 term = localNodeState.currentTerm,
@@ -67,8 +67,7 @@ class VoteRequestHandler(
         val candidateLastLogTerm = request.lastLogTerm
 
         LOGGER.debug(
-            "{} voting for {}. lastLogTerm = [current = {}, candidate = {}], lastLogIndex = [current = {}, candidate = {}]",
-            localNodeState.nodeIdentifier,
+            "Voting for {}. lastLogTerm = [current = {}, candidate = {}], lastLogIndex = [current = {}, candidate = {}]",
             request.candidateIdentifier,
             lastLogTerm,
             candidateLastLogTerm,

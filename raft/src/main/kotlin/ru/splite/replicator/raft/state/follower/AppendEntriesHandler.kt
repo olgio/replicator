@@ -15,12 +15,12 @@ class AppendEntriesHandler(
 
         //игнорируем запрос из терма меньше текущего
         if (localNodeState.currentTerm > request.term) {
-            LOGGER.debug("${localNodeState.nodeIdentifier} :: request skipped $request because of currentTerm ${localNodeState.currentTerm} < requestTerm ${request.term}")
+            LOGGER.debug("request skipped $request because of currentTerm ${localNodeState.currentTerm} < requestTerm ${request.term}")
             return RaftMessage.AppendEntriesResponse(term = localNodeState.currentTerm, entriesAppended = false)
         }
 
         if (localNodeState.currentTerm != request.term) {
-            LOGGER.debug("${localNodeState.nodeIdentifier} :: detected new LEADER ${request.leaderIdentifier}")
+            LOGGER.debug("detected new LEADER ${request.leaderIdentifier}")
         }
         localNodeState.currentTerm = request.term
         localNodeState.lastVotedLeaderIdentifier = null
