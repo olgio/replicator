@@ -45,6 +45,15 @@ class CommitEntries(
             if (uncommittedIndex < firstUncommittedIndex) {
                 return@takeWhile false
             }
+
+            val matchedNodesCount = clusterNodeIdentifiers.count {
+                localNodeState.externalNodeStates[it]!!.matchIndex >= uncommittedIndex
+            } + 1
+
+            if (matchedNodesCount < majority) {
+                return@takeWhile false
+            }
+
             val logEntry = logStore.getLogEntryByIndex(uncommittedIndex)
             if (logEntry == null) {
                 LOGGER.error("${localNodeState.nodeIdentifier} :: uncommitted logEntry with index $uncommittedIndex skipped because doesn't exists in store")
@@ -52,13 +61,6 @@ class CommitEntries(
             }
             if (!logEntryCommittableCondition.invoke(logEntry, localNodeState.currentTerm)) {
                 LOGGER.warn("${localNodeState.nodeIdentifier} :: uncommitted logEntry with index $uncommittedIndex skipped because committable condition is not met")
-                return@takeWhile false
-            }
-            val matchedNodesCount = clusterNodeIdentifiers.count {
-                localNodeState.externalNodeStates[it]!!.matchIndex >= uncommittedIndex
-            } + 1
-
-            if (matchedNodesCount < majority) {
                 return@takeWhile false
             }
 
