@@ -14,7 +14,7 @@
     <properties>
         <maven.compiler.source>15</maven.compiler.source>
         <maven.compiler.target>15</maven.compiler.target>
-        <main.class>ru.splite.replicator.RunnerKt</main.class>
+        <main.class>ru.splite.replicator.KeyValueStoreRunnerKt</main.class>
         <kodein.version>7.4.0</kodein.version>
         <ktor.version>1.5.2</ktor.version>
     </properties>
@@ -28,6 +28,11 @@
     </repositories>
 
     <dependencies>
+        <dependency>
+            <groupId>ru.splite.replicator</groupId>
+            <artifactId>raft</artifactId>
+            <version>DEV-SNAPSHOT</version>
+        </dependency>
         <dependency>
             <groupId>ru.splite.replicator</groupId>
             <artifactId>atlas</artifactId>

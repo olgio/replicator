@@ -1,12 +1,12 @@
 ### GET store localhost
-GET http://localhost:8001/kv/mykey
+GET http://localhost:8002/kv/mykey
 Accept: text/plain
 
 ### PUT store localhost
-POST http://localhost:8002/kv/mykey
+POST http://localhost:8001/kv/mykey
 Content-Type: text/plain
 
-myvalue3
+myvalue5
 
 ### GET store vps728062.ovh.net
 GET http://vps728062.ovh.net/kv/sddsds

@@ -15,10 +15,11 @@ import org.slf4j.LoggerFactory
 import ru.splite.replicator.keyvalue.KeyValueCommand
 import ru.splite.replicator.keyvalue.KeyValueReply
 import ru.splite.replicator.statemachine.StateMachineCommandSubmitter
+import ru.splite.replicator.transport.NodeIdentifier
 
-class KeyValueCommandSubmitController(
+class KeyValueStoreController(
     private val port: Int,
-    private val config: AtlasProtocolConfig,
+    private val nodeIdentifier: NodeIdentifier,
     private val stateMachineCommandSubmitter: StateMachineCommandSubmitter<ByteArray, ByteArray>
 ) {
 
@@ -33,7 +34,7 @@ class KeyValueCommandSubmitController(
             }
 
             install(DefaultHeaders) {
-                header("Node-Identifier", config.address.identifier)
+                header("Node-Identifier", nodeIdentifier.identifier)
             }
 
             routing {
