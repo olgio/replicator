@@ -28,35 +28,31 @@ class RaftClusterBuilder {
             val stateMachine = KeyValueStateMachine()
             val config = RaftProtocolConfig(address = nodeIdentifier, n = fullSize)
 
-            val raftProtocol = RaftProtocolController(
-                logStore,
-                transport,
-                config,
-                localNodeState
-            )
+            val raftProtocol = BaseRaftProtocol(logStore, config, localNodeState)
 
-            val termClockScheduler = TermClockScheduler(raftProtocol, timerFactory)
+            val raftProtocolController = RaftProtocolController(transport, config, raftProtocol)
+
+            val jobLauncher = JobLauncher(raftProtocolController, timerFactory)
             jobs.add(
-                termClockScheduler.launchTermClock(
+                jobLauncher.launchTermClock(
                     coroutineContext = CoroutineName("$nodeIdentifier|term-clock"),
                     coroutineScope = coroutineScope,
                     period = 3000L..4000L
                 )
             )
+            jobs.add(
+                jobLauncher.launchAppendEntriesSender(
+                    coroutineContext = CoroutineName("${nodeIdentifier}|append-entries-sender"),
+                    coroutineScope = coroutineScope,
+                    period = 1000L..1000L
+                )
+            )
 
-            val raftCommandSubmitter = RaftCommandSubmitter(raftProtocol, stateMachine, timerFactory)
+            val raftCommandSubmitter = RaftCommandSubmitter(raftProtocol, stateMachine)
             jobs.add(
                 raftCommandSubmitter.launchCommandApplier(
                     coroutineContext = CoroutineName("${nodeIdentifier}|command-applier"),
                     coroutineScope = coroutineScope
-                )
-            )
-
-            jobs.add(
-                raftCommandSubmitter.launchAppendEntriesSender(
-                    coroutineContext = CoroutineName("${nodeIdentifier}|append-entries-sender"),
-                    coroutineScope = coroutineScope,
-                    period = 1000L..1000L
                 )
             )
 

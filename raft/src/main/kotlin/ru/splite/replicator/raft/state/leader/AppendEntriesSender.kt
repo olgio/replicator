@@ -23,12 +23,14 @@ class AppendEntriesSender(
         val isSuccess: Boolean
     )
 
-    suspend fun sendAppendEntriesIfLeader(messageSender: MessageSender<RaftMessage>) =
+    suspend fun sendAppendEntriesIfLeader(
+        nodeIdentifiers: Collection<NodeIdentifier>,
+        messageSender: MessageSender<RaftMessage>
+    ) =
         coroutineScope {
             LOGGER.info("Sending AppendEntries (term ${localNodeState.currentTerm})")
-            val clusterNodeIdentifiers = messageSender.getAllNodes().minus(nodeIdentifier)
 
-            clusterNodeIdentifiers.map { dstNodeIdentifier ->
+            nodeIdentifiers.map { dstNodeIdentifier ->
                 val nextIndexPerNode: Long = localNodeState.externalNodeStates[dstNodeIdentifier]!!.nextIndex
                 val appendEntriesRequest: RaftMessage.AppendEntries =
                     buildAppendEntries(fromIndex = nextIndexPerNode)

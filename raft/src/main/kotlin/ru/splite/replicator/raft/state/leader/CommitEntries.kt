@@ -5,32 +5,32 @@ import kotlinx.coroutines.flow.StateFlow
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.log.LogEntry
 import ru.splite.replicator.log.ReplicatedLogStore
+import ru.splite.replicator.raft.event.CommitEvent
 import ru.splite.replicator.raft.state.NodeType
 import ru.splite.replicator.raft.state.RaftLocalNodeState
 import ru.splite.replicator.transport.NodeIdentifier
-import ru.splite.replicator.transport.Transport
 
 class CommitEntries(
-    private val nodeIdentifier: NodeIdentifier,
     private val localNodeState: RaftLocalNodeState,
     private val logStore: ReplicatedLogStore,
     private val logEntryCommittableCondition: (LogEntry, Long) -> Boolean
 ) {
 
-    private val lastCommitIndexMutableFlow: MutableStateFlow<LastCommitEvent> =
-        MutableStateFlow(LastCommitEvent(logStore.lastCommitIndex()))
+    private val commitEventMutableFlow: MutableStateFlow<CommitEvent> =
+        MutableStateFlow(CommitEvent(logStore.lastCommitIndex()))
 
-    val lastCommitIndexFlow: StateFlow<LastCommitEvent> = lastCommitIndexMutableFlow
+    val commitEventFlow: StateFlow<CommitEvent> = commitEventMutableFlow
 
-    fun commitLogEntriesIfLeader(transport: Transport, majority: Int) {
+    fun commitLogEntriesIfLeader(
+        nodeIdentifiers: Collection<NodeIdentifier>,
+        quorumSize: Int
+    ) {
         if (localNodeState.currentNodeType != NodeType.LEADER) {
             LOGGER.warn("cannot commit because node is not leader. currentNodeType = ${localNodeState.currentNodeType}")
             return
         }
 
         LOGGER.info("CommitEntries (term ${localNodeState.currentTerm})")
-
-        val clusterNodeIdentifiers = transport.nodes.minus(nodeIdentifier)
 
         val lastLogIndex: Long = logStore.lastLogIndex() ?: return
         val firstUncommittedIndex: Long = logStore.lastCommitIndex()?.plus(1) ?: 0
@@ -48,11 +48,11 @@ class CommitEntries(
                 return@takeWhile false
             }
 
-            val matchedNodesCount = clusterNodeIdentifiers.count {
+            val matchedNodesCount = nodeIdentifiers.count {
                 localNodeState.externalNodeStates[it]!!.matchIndex >= uncommittedIndex
             } + 1
 
-            if (matchedNodesCount < majority) {
+            if (matchedNodesCount < quorumSize) {
                 return@takeWhile false
             }
 
@@ -73,7 +73,7 @@ class CommitEntries(
 
         if (lastCommittableIndex != null) {
             logStore.commit(lastCommittableIndex)
-            lastCommitIndexMutableFlow.tryEmit(LastCommitEvent(lastCommittableIndex))
+            commitEventMutableFlow.tryEmit(CommitEvent(lastCommittableIndex))
         }
     }
 

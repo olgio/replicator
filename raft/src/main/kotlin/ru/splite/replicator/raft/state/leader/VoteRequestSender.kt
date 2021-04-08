@@ -19,17 +19,12 @@ class VoteRequestSender(
 
     suspend fun sendVoteRequestsAsCandidate(
         messageSender: MessageSender<RaftMessage>,
+        nodeIdentifiers: Collection<NodeIdentifier>,
         quorumSize: Int
     ): Boolean = coroutineScope {
-        val clusterNodeIdentifiers = messageSender.getAllNodes().minus(nodeIdentifier)
-
-        check(clusterNodeIdentifiers.isNotEmpty()) {
-            "Cluster cannot be empty"
-        }
-
         val voteRequest: RaftMessage.VoteRequest = becomeCandidate()
 
-        val voteGrantedCount = clusterNodeIdentifiers
+        val voteGrantedCount = nodeIdentifiers
             .map {
                 async {
                     val result = kotlin.runCatching {

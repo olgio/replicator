@@ -2,11 +2,15 @@ package ru.splite.replicator.raft
 
 import kotlinx.coroutines.flow.StateFlow
 import ru.splite.replicator.log.ReplicatedLogStore
-import ru.splite.replicator.raft.state.leader.LastCommitEvent
+import ru.splite.replicator.raft.event.AppendEntryEvent
+import ru.splite.replicator.raft.event.CommitEvent
+import ru.splite.replicator.raft.message.RaftMessage
+import ru.splite.replicator.raft.message.RaftMessageReceiver
 import ru.splite.replicator.transport.NodeIdentifier
+import ru.splite.replicator.transport.sender.MessageSender
 import java.time.Instant
 
-interface RaftProtocol {
+interface RaftProtocol : RaftMessageReceiver {
 
     val address: NodeIdentifier
 
@@ -14,15 +18,17 @@ interface RaftProtocol {
 
     val isLeader: Boolean
 
-    val lastCommitIndexFlow: StateFlow<LastCommitEvent>
+    val commitEventFlow: StateFlow<CommitEvent>
 
-    val leaderAliveFlow: StateFlow<Instant>
+    val appendEntryEventFlow: StateFlow<AppendEntryEvent>
 
-    suspend fun sendVoteRequestsAsCandidate(): Boolean
+    val leaderAliveEventFlow: StateFlow<Instant>
 
-    suspend fun commitLogEntriesIfLeader()
+    suspend fun sendVoteRequestsAsCandidate(messageSender: MessageSender<RaftMessage>): Boolean
 
-    suspend fun sendAppendEntriesIfLeader()
+    suspend fun commitLogEntriesIfLeader(messageSender: MessageSender<RaftMessage>)
+
+    suspend fun sendAppendEntriesIfLeader(messageSender: MessageSender<RaftMessage>)
 
     suspend fun applyCommand(command: ByteArray): Long
 }
