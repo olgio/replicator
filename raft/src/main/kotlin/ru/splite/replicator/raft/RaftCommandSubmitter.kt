@@ -4,8 +4,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.raft.event.IndexWithTerm
 import ru.splite.replicator.statemachine.StateMachine
@@ -21,21 +23,22 @@ class RaftCommandSubmitter(
     val protocol: RaftProtocol
         get() = controller.protocol
 
-    private val lastAppliedStateFlow = MutableStateFlow(-1L)
+    private val lastAppliedStateFlow = MutableStateFlow<IndexWithTerm?>(null)
 
-    private val commandResults = ConcurrentHashMap<Long, ByteArray>()
+    private val commandResults = ConcurrentHashMap<IndexWithTerm, ByteArray>()
 
     fun launchCommandApplier(coroutineContext: CoroutineContext, coroutineScope: CoroutineScope): Job {
         return coroutineScope.launch(coroutineContext) {
             protocol.commitEventFlow.collect { lastCommitEvent ->
-                var nextIndexToApply: Long = lastAppliedStateFlow.value + 1
+                var nextIndexToApply: Long = lastAppliedStateFlow.value?.index?.plus(1) ?: 0
                 if (lastCommitEvent.index != null) {
                     while (lastCommitEvent.index >= nextIndexToApply) {
                         val logEntry = protocol.replicatedLogStore.getLogEntryByIndex(nextIndexToApply)
                             ?: error("Index $nextIndexToApply committed but logEntry is null")
                         val result: ByteArray = stateMachine.apply(logEntry.command)
-                        commandResults[nextIndexToApply] = result
-                        lastAppliedStateFlow.tryEmit(nextIndexToApply)
+                        val indexWithTerm = IndexWithTerm(index = nextIndexToApply, term = logEntry.term)
+                        commandResults[indexWithTerm] = result
+                        lastAppliedStateFlow.tryEmit(indexWithTerm)
                         nextIndexToApply++
                     }
                 }
@@ -46,14 +49,16 @@ class RaftCommandSubmitter(
     override suspend fun submit(command: ByteArray): ByteArray {
         val indexWithTerm = if (protocol.isLeader)
             protocol.appendCommand(command) else controller.redirectAndAppendCommand(command)
-        return awaitCommandResult(indexWithTerm)
+        return withTimeout(controller.config.commandExecutorTimeout) {
+            awaitCommandResult(indexWithTerm)
+        }
     }
 
     private suspend fun awaitCommandResult(indexWithTerm: IndexWithTerm): ByteArray {
-        lastAppliedStateFlow.first {
-            it >= indexWithTerm.index
+        lastAppliedStateFlow.filterNotNull().first {
+            it.index >= indexWithTerm.index
         }
-        return commandResults.remove(indexWithTerm.index)
+        return commandResults.remove(indexWithTerm)
             ?: error("Cannot extract command result for $indexWithTerm")
     }
 

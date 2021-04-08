@@ -9,7 +9,7 @@ import ru.splite.replicator.transport.sender.MessageSender
 
 class RaftProtocolController(
     transport: Transport,
-    config: RaftProtocolConfig,
+    val config: RaftProtocolConfig,
     val protocol: RaftProtocol
 ) : TypedActor<RaftMessage>(config.address, transport, RaftMessage.serializer()) {
 
