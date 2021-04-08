@@ -20,11 +20,11 @@ class VoteRequestSender(
 
     suspend fun sendVoteRequestsAsCandidate(
         messageSender: MessageSender<RaftMessage>,
+        nodeIdentifiers: Collection<NodeIdentifier>,
         quorumSize: Int
     ): Boolean = coroutineScope {
-        val clusterNodeIdentifiers = messageSender.getAllNodes().minus(nodeIdentifier)
 
-        if (clusterNodeIdentifiers.isEmpty()) {
+        if (nodeIdentifiers.isEmpty()) {
             error("Cluster cannot be empty")
         }
         val nextTerm: Long = calculateNextTerm(messageSender.getAllNodes().size.toLong())
@@ -32,7 +32,7 @@ class VoteRequestSender(
         val lastCommitIndex: Long? = logStore.lastCommitIndex()
         val voteRequest: RaftMessage.PaxosVoteRequest = becomeCandidate(nextTerm, lastCommitIndex)
 
-        val voteResponses: List<RaftMessage.PaxosVoteResponse> = clusterNodeIdentifiers.map { dstNodeIdentifier ->
+        val voteResponses: List<RaftMessage.PaxosVoteResponse> = nodeIdentifiers.map { dstNodeIdentifier ->
             async {
                 val result = kotlin.runCatching {
                     messageSender.sendOrThrow(dstNodeIdentifier, voteRequest) as RaftMessage.PaxosVoteResponse

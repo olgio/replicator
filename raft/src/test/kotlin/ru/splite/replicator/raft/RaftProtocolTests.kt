@@ -332,12 +332,8 @@ class RaftProtocolTests {
         val logStore = InMemoryReplicatedLogStore()
         val localNodeState = RaftLocalNodeState()
         val config = RaftProtocolConfig(address = nodeIdentifier, n = fullSize)
-        return RaftProtocolController(
-            logStore,
-            this,
-            config,
-            localNodeState
-        )
+        val protocol = BaseRaftProtocol(logStore, config, localNodeState)
+        return RaftProtocolController(this, config, protocol)
     }
 
     private fun Transport.buildNodes(n: Int): List<RaftProtocolController> {

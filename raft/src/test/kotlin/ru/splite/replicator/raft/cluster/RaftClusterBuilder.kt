@@ -1,15 +1,17 @@
-package ru.splite.replicator.raft
+package ru.splite.replicator.raft.cluster
 
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.test.TestCoroutineScope
 import ru.splite.replicator.keyvalue.KeyValueStateMachine
 import ru.splite.replicator.log.InMemoryReplicatedLogStore
+import ru.splite.replicator.raft.*
 import ru.splite.replicator.raft.state.RaftLocalNodeState
 import ru.splite.replicator.timer.flow.DelayTimerFactory
 import ru.splite.replicator.timer.flow.TimeTick
 import ru.splite.replicator.transport.CoroutineChannelTransport
 import ru.splite.replicator.transport.NodeIdentifier
+import kotlin.random.Random
 
 class RaftClusterBuilder {
 
@@ -19,8 +21,10 @@ class RaftClusterBuilder {
         internal val jobs: MutableList<Job> = mutableListOf()
     ) {
 
-        internal fun buildNode(name: String, fullSize: Int): RaftCommandSubmitter {
-            val timerFactory = DelayTimerFactory(currentTimeTick = { TimeTick(coroutineScope.currentTime) })
+        internal fun buildNode(name: String, fullSize: Int): RaftClusterNode {
+            val timerFactory = DelayTimerFactory(
+                random = Random(0L),
+                currentTimeTick = { TimeTick(coroutineScope.currentTime) })
 
             val nodeIdentifier = NodeIdentifier(name)
             val logStore = InMemoryReplicatedLogStore()
@@ -28,23 +32,27 @@ class RaftClusterBuilder {
             val stateMachine = KeyValueStateMachine()
             val config = RaftProtocolConfig(address = nodeIdentifier, n = fullSize)
 
-            val raftProtocol = RaftProtocolController(
-                logStore,
-                transport,
-                config,
-                localNodeState
-            )
+            val raftProtocol = BaseRaftProtocol(logStore, config, localNodeState)
 
-            val termClockScheduler = TermClockScheduler(raftProtocol, timerFactory)
+            val raftProtocolController = RaftProtocolController(transport, config, raftProtocol)
+
+            val jobLauncher = JobLauncher(raftProtocolController, timerFactory)
             jobs.add(
-                termClockScheduler.launchTermClock(
+                jobLauncher.launchTermClock(
                     coroutineContext = CoroutineName("$nodeIdentifier|term-clock"),
                     coroutineScope = coroutineScope,
                     period = 3000L..4000L
                 )
             )
+            jobs.add(
+                jobLauncher.launchAppendEntriesSender(
+                    coroutineContext = CoroutineName("${nodeIdentifier}|append-entries-sender"),
+                    coroutineScope = coroutineScope,
+                    period = 1000L..1000L
+                )
+            )
 
-            val raftCommandSubmitter = RaftCommandSubmitter(raftProtocol, stateMachine, timerFactory)
+            val raftCommandSubmitter = RaftCommandSubmitter(raftProtocolController, stateMachine)
             jobs.add(
                 raftCommandSubmitter.launchCommandApplier(
                     coroutineContext = CoroutineName("${nodeIdentifier}|command-applier"),
@@ -52,22 +60,20 @@ class RaftClusterBuilder {
                 )
             )
 
-            jobs.add(
-                raftCommandSubmitter.launchAppendEntriesSender(
-                    coroutineContext = CoroutineName("${nodeIdentifier}|append-entries-sender"),
-                    coroutineScope = coroutineScope,
-                    period = 1000L..1000L
-                )
+            return RaftClusterNode(
+                address = nodeIdentifier,
+                protocol = raftProtocol,
+                commandSubmitter = raftCommandSubmitter,
+                logStore = logStore,
+                stateMachine = stateMachine
             )
-
-            return raftCommandSubmitter
         }
     }
 
     suspend fun buildNodes(
         coroutineScope: TestCoroutineScope,
         n: Int,
-        action: suspend RaftClusterScope.(List<RaftCommandSubmitter>) -> Unit
+        action: suspend RaftClusterScope.(List<RaftClusterNode>) -> Unit
     ) {
         val transport = CoroutineChannelTransport(coroutineScope)
         val scope = RaftClusterScope(transport, coroutineScope)
