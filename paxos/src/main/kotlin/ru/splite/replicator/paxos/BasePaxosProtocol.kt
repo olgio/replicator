@@ -7,6 +7,7 @@ import ru.splite.replicator.paxos.state.PaxosLocalNodeState
 import ru.splite.replicator.paxos.state.follower.VoteRequestHandler
 import ru.splite.replicator.paxos.state.leader.VoteRequestSender
 import ru.splite.replicator.raft.RaftProtocolConfig
+import ru.splite.replicator.raft.event.IndexWithTerm
 import ru.splite.replicator.raft.message.RaftMessage
 import ru.splite.replicator.raft.state.NodeType
 import ru.splite.replicator.raft.state.follower.AppendEntriesHandler
@@ -62,7 +63,7 @@ class BasePaxosProtocol(
         appendEntriesSender.sendAppendEntriesIfLeader(nodeIdentifiers, messageSender)
     }
 
-    override fun applyCommand(command: ByteArray): Long {
+    override fun applyCommand(command: ByteArray): IndexWithTerm {
         return commandAppender.addCommand(command)
     }
 

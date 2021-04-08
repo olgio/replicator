@@ -2,6 +2,7 @@ package ru.splite.replicator.paxos
 
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.raft.RaftProtocolConfig
+import ru.splite.replicator.raft.event.IndexWithTerm
 import ru.splite.replicator.raft.message.RaftMessage
 import ru.splite.replicator.transport.NodeIdentifier
 import ru.splite.replicator.transport.Transport
@@ -36,7 +37,7 @@ class PaxosProtocolController(
         return protocol.sendAppendEntriesIfLeader(messageSender)
     }
 
-    fun applyCommand(command: ByteArray): Long {
+    fun applyCommand(command: ByteArray): IndexWithTerm {
         return protocol.applyCommand(command)
     }
 

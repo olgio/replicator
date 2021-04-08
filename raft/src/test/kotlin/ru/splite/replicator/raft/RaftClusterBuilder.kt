@@ -48,7 +48,7 @@ class RaftClusterBuilder {
                 )
             )
 
-            val raftCommandSubmitter = RaftCommandSubmitter(raftProtocol, stateMachine)
+            val raftCommandSubmitter = RaftCommandSubmitter(raftProtocolController, stateMachine)
             jobs.add(
                 raftCommandSubmitter.launchCommandApplier(
                     coroutineContext = CoroutineName("${nodeIdentifier}|command-applier"),

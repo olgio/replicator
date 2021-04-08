@@ -64,4 +64,15 @@ sealed class RaftMessage {
          */
         val entries: List<LogEntry> = emptyList()
     ) : RaftMessage()
+
+    @Serializable
+    data class RedirectRequest(
+        val command: ByteArray
+    ) : RaftMessage()
+
+    @Serializable
+    data class RedirectResponse(
+        val index: Long,
+        val term: Long
+    ) : RaftMessage()
 }

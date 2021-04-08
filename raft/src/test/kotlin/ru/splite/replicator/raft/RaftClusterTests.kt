@@ -19,39 +19,39 @@ class RaftClusterTests {
             advanceTimeBy(5000L)
 
             val firstLeader =
-                nodes.first { it.raftProtocol.isLeader && !transport.isNodeIsolated(it.raftProtocol.address) }
+                nodes.first { it.protocol.isLeader && !transport.isNodeIsolated(it.protocol.address) }
 
             val commandReply1 = KeyValueReply.deserializer(firstLeader.submit(command))
             assertThat(commandReply1.value).isEqualTo("v")
 
             advanceTimeBy(5000L)
 
-            assertThatLogs(*nodes.map { it.raftProtocol }.toTypedArray())
+            assertThatLogs(*nodes.map { it.protocol }.toTypedArray())
                 .isCommittedEntriesInSync()
                 .hasCommittedEntriesSize(1L)
 
-            transport.setNodeIsolated(firstLeader.raftProtocol.address, true)
+            transport.setNodeIsolated(firstLeader.protocol.address, true)
 
             advanceTimeBy(5000L)
 
             val secondLeader =
-                nodes.first { it.raftProtocol.isLeader && !transport.isNodeIsolated(it.raftProtocol.address) }
+                nodes.first { it.protocol.isLeader && !transport.isNodeIsolated(it.protocol.address) }
 
             val commandReply2 = KeyValueReply.deserializer(secondLeader.submit(command))
             assertThat(commandReply2.value).isEqualTo("v")
 
             advanceTimeBy(5000L)
 
-            assertThatLogs(*nodes.filter { !transport.isNodeIsolated(it.raftProtocol.address) }
-                .map { it.raftProtocol }.toTypedArray())
+            assertThatLogs(*nodes.filter { !transport.isNodeIsolated(it.protocol.address) }
+                .map { it.protocol }.toTypedArray())
                 .isCommittedEntriesInSync()
                 .hasCommittedEntriesSize(2L)
 
-            transport.setNodeIsolated(firstLeader.raftProtocol.address, false)
+            transport.setNodeIsolated(firstLeader.protocol.address, false)
 
             advanceTimeBy(5000L)
 
-            assertThatLogs(*nodes.map { it.raftProtocol }.toTypedArray())
+            assertThatLogs(*nodes.map { it.protocol }.toTypedArray())
                 .isCommittedEntriesInSync()
                 .hasCommittedEntriesSize(2L)
         }

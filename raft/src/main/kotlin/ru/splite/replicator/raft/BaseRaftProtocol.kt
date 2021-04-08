@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory
 import ru.splite.replicator.log.ReplicatedLogStore
 import ru.splite.replicator.raft.event.AppendEntryEvent
 import ru.splite.replicator.raft.event.CommitEvent
+import ru.splite.replicator.raft.event.IndexWithTerm
 import ru.splite.replicator.raft.message.RaftMessage
 import ru.splite.replicator.raft.state.NodeType
 import ru.splite.replicator.raft.state.RaftLocalNodeState
@@ -75,8 +76,20 @@ class BaseRaftProtocol(
         appendEntriesSender.sendAppendEntriesIfLeader(nodeIdentifiers, messageSender)
     }
 
-    override suspend fun applyCommand(command: ByteArray): Long {
+    override suspend fun appendCommand(command: ByteArray): IndexWithTerm {
         return commandAppender.addCommand(command)
+    }
+
+    override suspend fun redirectAndAppendCommand(
+        messageSender: MessageSender<RaftMessage>,
+        command: ByteArray
+    ): IndexWithTerm {
+        val redirectMessage = RaftMessage.RedirectRequest(command = command)
+        val leaderIdentifier = localNodeState.leaderIdentifier
+            ?: error("Cannot determine leader to redirect")
+        val redirectResponse =
+            messageSender.sendOrThrow(leaderIdentifier, redirectMessage) as RaftMessage.RedirectResponse
+        return IndexWithTerm(index = redirectResponse.index, term = redirectResponse.term)
     }
 
     override suspend fun handleAppendEntries(request: RaftMessage.AppendEntries): RaftMessage.AppendEntriesResponse {

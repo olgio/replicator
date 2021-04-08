@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.StateFlow
 import ru.splite.replicator.log.ReplicatedLogStore
 import ru.splite.replicator.raft.event.AppendEntryEvent
 import ru.splite.replicator.raft.event.CommitEvent
+import ru.splite.replicator.raft.event.IndexWithTerm
 import ru.splite.replicator.raft.message.RaftMessage
 import ru.splite.replicator.raft.message.RaftMessageReceiver
 import ru.splite.replicator.transport.NodeIdentifier
@@ -30,5 +31,8 @@ interface RaftProtocol : RaftMessageReceiver {
 
     suspend fun sendAppendEntriesIfLeader(messageSender: MessageSender<RaftMessage>)
 
-    suspend fun applyCommand(command: ByteArray): Long
+    suspend fun appendCommand(command: ByteArray): IndexWithTerm
+
+    suspend fun redirectAndAppendCommand(messageSender: MessageSender<RaftMessage>, command: ByteArray): IndexWithTerm
+
 }

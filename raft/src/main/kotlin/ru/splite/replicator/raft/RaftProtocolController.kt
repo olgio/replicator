@@ -1,5 +1,6 @@
 package ru.splite.replicator.raft
 
+import ru.splite.replicator.raft.event.IndexWithTerm
 import ru.splite.replicator.raft.message.RaftMessage
 import ru.splite.replicator.transport.NodeIdentifier
 import ru.splite.replicator.transport.Transport
@@ -26,14 +27,22 @@ class RaftProtocolController(
         return protocol.sendAppendEntriesIfLeader(messageSender)
     }
 
-    suspend fun applyCommand(command: ByteArray): Long {
-        return protocol.applyCommand(command)
+    suspend fun applyCommand(command: ByteArray): IndexWithTerm {
+        return protocol.appendCommand(command)
+    }
+
+    suspend fun redirectAndAppendCommand(command: ByteArray): IndexWithTerm {
+        return protocol.redirectAndAppendCommand(messageSender, command)
     }
 
     override suspend fun receive(src: NodeIdentifier, payload: RaftMessage): RaftMessage {
         return when (payload) {
             is RaftMessage.VoteRequest -> protocol.handleVoteRequest(payload)
             is RaftMessage.AppendEntries -> protocol.handleAppendEntries(payload)
+            is RaftMessage.RedirectRequest -> {
+                val indexWithTerm = protocol.appendCommand(payload.command)
+                RaftMessage.RedirectResponse(index = indexWithTerm.index, term = indexWithTerm.term)
+            }
             else -> error("Message type ${payload.javaClass} is not supported")
         }
     }
