@@ -29,18 +29,18 @@ class BasePaxosProtocol(
     override val isLeader: Boolean
         get() = localNodeState.currentNodeType == NodeType.LEADER
 
-    private val appendEntriesSender = AppendEntriesSender(config.address, localNodeState, replicatedLogStore)
-
-    private val appendEntriesHandler = AppendEntriesHandler(localNodeState, replicatedLogStore)
-
-    private val voteRequestSender = VoteRequestSender(config.address, localNodeState, replicatedLogStore)
-
-    private val voteRequestHandler = VoteRequestHandler(localNodeState, replicatedLogStore)
-
     private val commitEntries =
         CommitEntries(localNodeState, replicatedLogStore) { _, _ ->
             true
         }
+
+    private val appendEntriesSender = AppendEntriesSender(config.address, localNodeState, replicatedLogStore)
+
+    private val appendEntriesHandler = AppendEntriesHandler(localNodeState, replicatedLogStore, commitEntries)
+
+    private val voteRequestSender = VoteRequestSender(config.address, localNodeState, replicatedLogStore)
+
+    private val voteRequestHandler = VoteRequestHandler(localNodeState, replicatedLogStore)
 
     private val commandAppender = CommandAppender(localNodeState, replicatedLogStore)
 

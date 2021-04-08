@@ -37,6 +37,7 @@ class RaftCommandSubmitter(
                             ?: error("Index $nextIndexToApply committed but logEntry is null")
                         val result: ByteArray = stateMachine.apply(logEntry.command)
                         val indexWithTerm = IndexWithTerm(index = nextIndexToApply, term = logEntry.term)
+                        LOGGER.debug("Applied command $indexWithTerm")
                         commandResults[indexWithTerm] = result
                         lastAppliedStateFlow.tryEmit(indexWithTerm)
                         nextIndexToApply++

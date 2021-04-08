@@ -42,18 +42,18 @@ class BaseRaftProtocol(
     private val leaderAliveMutableFlow: MutableStateFlow<Instant> = MutableStateFlow(Instant.now())
     override val leaderAliveEventFlow: StateFlow<Instant> = leaderAliveMutableFlow
 
-    private val appendEntriesSender = AppendEntriesSender(config.address, localNodeState, replicatedLogStore)
-
-    private val appendEntriesHandler = AppendEntriesHandler(localNodeState, replicatedLogStore)
-
-    private val voteRequestSender = VoteRequestSender(config.address, localNodeState, replicatedLogStore)
-
-    private val voteRequestHandler = VoteRequestHandler(localNodeState, replicatedLogStore)
-
     private val commitEntries =
         CommitEntries(localNodeState, replicatedLogStore) { logEntry, currentTerm ->
             logEntry.term == currentTerm
         }
+
+    private val appendEntriesSender = AppendEntriesSender(config.address, localNodeState, replicatedLogStore)
+
+    private val appendEntriesHandler = AppendEntriesHandler(localNodeState, replicatedLogStore, commitEntries)
+
+    private val voteRequestSender = VoteRequestSender(config.address, localNodeState, replicatedLogStore)
+
+    private val voteRequestHandler = VoteRequestHandler(localNodeState, replicatedLogStore)
 
     private val commandAppender = CommandAppender(localNodeState, replicatedLogStore)
 
@@ -87,8 +87,10 @@ class BaseRaftProtocol(
         val redirectMessage = RaftMessage.RedirectRequest(command = command)
         val leaderIdentifier = localNodeState.leaderIdentifier
             ?: error("Cannot determine leader to redirect")
+        LOGGER.debug("Redirecting command to $leaderIdentifier")
         val redirectResponse =
             messageSender.sendOrThrow(leaderIdentifier, redirectMessage) as RaftMessage.RedirectResponse
+        LOGGER.debug("Command successfully redirected to $leaderIdentifier: $redirectResponse")
         return IndexWithTerm(index = redirectResponse.index, term = redirectResponse.term)
     }
 

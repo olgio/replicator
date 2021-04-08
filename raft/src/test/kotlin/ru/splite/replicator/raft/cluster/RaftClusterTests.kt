@@ -1,14 +1,39 @@
-package ru.splite.replicator.raft
+package ru.splite.replicator.raft.cluster
 
 import kotlinx.coroutines.test.runBlockingTest
 import org.assertj.core.api.Assertions.assertThat
 import ru.splite.replicator.keyvalue.KeyValueCommand
 import ru.splite.replicator.keyvalue.KeyValueReply
+import ru.splite.replicator.raft.assertThatLogs
 import kotlin.test.Test
 
 class RaftClusterTests {
 
     private val raftClusterBuilder = RaftClusterBuilder()
+
+    @Test
+    fun redirectToLeaderTest(): Unit = runBlockingTest {
+        raftClusterBuilder.buildNodes(this, 3) { nodes ->
+
+            advanceTimeBy(5000L)
+
+            nodes.forEachIndexed { index, node ->
+                val command = KeyValueCommand.newPutCommand("key", index.toString())
+                val commandReply = KeyValueReply.deserializer(node.commandSubmitter.submit(command))
+                assertThat(commandReply.value).isEqualTo(index.toString())
+            }
+
+            advanceTimeBy(5000L)
+
+            assertThatLogs(*nodes.toTypedArray())
+                .isCommittedEntriesInSync()
+                .hasCommittedEntriesSize(3L)
+
+            nodes.forEach {
+                assertThat(it.stateMachine.currentState["key"]).isEqualTo("2")
+            }
+        }
+    }
 
     @Test
     fun failedLeaderCommandReplicationTest(): Unit = runBlockingTest {
@@ -19,9 +44,9 @@ class RaftClusterTests {
             advanceTimeBy(5000L)
 
             val firstLeader =
-                nodes.first { it.protocol.isLeader && !transport.isNodeIsolated(it.protocol.address) }
+                nodes.first { it.protocol.isLeader && !transport.isNodeIsolated(it.address) }
 
-            val commandReply1 = KeyValueReply.deserializer(firstLeader.submit(command))
+            val commandReply1 = KeyValueReply.deserializer(firstLeader.commandSubmitter.submit(command))
             assertThat(commandReply1.value).isEqualTo("v")
 
             advanceTimeBy(5000L)
@@ -37,7 +62,7 @@ class RaftClusterTests {
             val secondLeader =
                 nodes.first { it.protocol.isLeader && !transport.isNodeIsolated(it.protocol.address) }
 
-            val commandReply2 = KeyValueReply.deserializer(secondLeader.submit(command))
+            val commandReply2 = KeyValueReply.deserializer(secondLeader.commandSubmitter.submit(command))
             assertThat(commandReply2.value).isEqualTo("v")
 
             advanceTimeBy(5000L)

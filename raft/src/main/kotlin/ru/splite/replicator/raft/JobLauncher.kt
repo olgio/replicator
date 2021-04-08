@@ -4,6 +4,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import org.slf4j.LoggerFactory
 import ru.splite.replicator.timer.flow.TimerFactory
 import kotlin.coroutines.CoroutineContext
 
@@ -25,8 +26,16 @@ class JobLauncher(
                 .sourceMergedExpirationFlow(flow = protocol.appendEntryEventFlow, period = period)
                 .collect {
                     if (protocol.isLeader) {
-                        raftProtocolController.sendAppendEntriesIfLeader()
-                        raftProtocolController.commitLogEntriesIfLeader()
+                        val result = kotlin.runCatching {
+                            raftProtocolController.sendAppendEntriesIfLeader()
+                            raftProtocolController.commitLogEntriesIfLeader()
+                        }
+                        if (result.isFailure) {
+                            LOGGER.error(
+                                "Cannot send appendEntries because of nested exception",
+                                result.exceptionOrNull()
+                            )
+                        }
                     }
                 }
         }
@@ -46,5 +55,9 @@ class JobLauncher(
                     }
                 }
         }
+    }
+
+    companion object {
+        private val LOGGER = LoggerFactory.getLogger(javaClass.enclosingClass)
     }
 }

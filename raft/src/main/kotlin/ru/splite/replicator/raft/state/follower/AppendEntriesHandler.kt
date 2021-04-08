@@ -5,10 +5,12 @@ import ru.splite.replicator.log.ReplicatedLogStore
 import ru.splite.replicator.raft.message.RaftMessage
 import ru.splite.replicator.raft.state.NodeType
 import ru.splite.replicator.raft.state.RaftLocalNodeState
+import ru.splite.replicator.raft.state.leader.CommitEntries
 
 class AppendEntriesHandler(
     private val localNodeState: RaftLocalNodeState,
-    private val logStore: ReplicatedLogStore
+    private val logStore: ReplicatedLogStore,
+    private val commitEntries: CommitEntries
 ) {
 
     fun handleAppendEntries(request: RaftMessage.AppendEntries): RaftMessage.AppendEntriesResponse {
@@ -52,6 +54,7 @@ class AppendEntriesHandler(
         val lastCommitIndex = logStore.lastCommitIndex() ?: -1
         if (request.lastCommitIndex >= 0 && request.lastCommitIndex > lastCommitIndex) {
             logStore.commit(request.lastCommitIndex)
+            commitEntries.fireCommitEventIfNeeded()
         }
 
         return RaftMessage.AppendEntriesResponse(term = localNodeState.currentTerm, entriesAppended = true)

@@ -21,6 +21,14 @@ class CommitEntries(
 
     val commitEventFlow: StateFlow<CommitEvent> = commitEventMutableFlow
 
+    fun fireCommitEventIfNeeded() {
+        val lastCommitIndex = logStore.lastCommitIndex() ?: return
+
+        if (commitEventFlow.value.index != lastCommitIndex) {
+            commitEventMutableFlow.tryEmit(CommitEvent(lastCommitIndex))
+        }
+    }
+
     fun commitLogEntriesIfLeader(
         nodeIdentifiers: Collection<NodeIdentifier>,
         quorumSize: Int
@@ -73,7 +81,7 @@ class CommitEntries(
 
         if (lastCommittableIndex != null) {
             logStore.commit(lastCommittableIndex)
-            commitEventMutableFlow.tryEmit(CommitEvent(lastCommittableIndex))
+            fireCommitEventIfNeeded()
         }
     }
 
