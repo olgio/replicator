@@ -28,7 +28,10 @@ class JobLauncher(
                     if (protocol.isLeader) {
                         val result = kotlin.runCatching {
                             raftProtocolController.sendAppendEntriesIfLeader()
-                            raftProtocolController.commitLogEntriesIfLeader()
+                            val indexWithTerm = raftProtocolController.commitLogEntriesIfLeader()
+                            if (indexWithTerm != null) {
+                                raftProtocolController.sendAppendEntriesIfLeader()
+                            }
                         }
                         if (result.isFailure) {
                             LOGGER.error(

@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory
 import ru.splite.replicator.log.LogEntry
 import ru.splite.replicator.log.ReplicatedLogStore
 import ru.splite.replicator.raft.event.CommitEvent
+import ru.splite.replicator.raft.event.IndexWithTerm
 import ru.splite.replicator.raft.state.NodeType
 import ru.splite.replicator.raft.state.RaftLocalNodeState
 import ru.splite.replicator.transport.NodeIdentifier
@@ -25,26 +26,28 @@ class CommitEntries(
         val lastCommitIndex = logStore.lastCommitIndex() ?: return
 
         if (commitEventFlow.value.index != lastCommitIndex) {
-            commitEventMutableFlow.tryEmit(CommitEvent(lastCommitIndex))
+            val commitEvent = CommitEvent(lastCommitIndex)
+            val isEmitted = commitEventMutableFlow.tryEmit(commitEvent)
+            LOGGER.debug("Fire event=$commitEvent, isEmitted=$isEmitted")
         }
     }
 
     fun commitLogEntriesIfLeader(
         nodeIdentifiers: Collection<NodeIdentifier>,
         quorumSize: Int
-    ) {
+    ): IndexWithTerm? {
         if (localNodeState.currentNodeType != NodeType.LEADER) {
             LOGGER.warn("cannot commit because node is not leader. currentNodeType = ${localNodeState.currentNodeType}")
-            return
+            return null
         }
 
         LOGGER.info("CommitEntries (term ${localNodeState.currentTerm})")
 
-        val lastLogIndex: Long = logStore.lastLogIndex() ?: return
+        val lastLogIndex: Long = logStore.lastLogIndex() ?: return null
         val firstUncommittedIndex: Long = logStore.lastCommitIndex()?.plus(1) ?: 0
 
         if (firstUncommittedIndex > lastLogIndex) {
-            return
+            return null
         }
 
         LOGGER.debug("lastLogIndex = $lastLogIndex, firstUncommittedIndex = $firstUncommittedIndex")
@@ -82,7 +85,13 @@ class CommitEntries(
         if (lastCommittableIndex != null) {
             logStore.commit(lastCommittableIndex)
             fireCommitEventIfNeeded()
+            return IndexWithTerm(
+                index = lastCommittableIndex,
+                term = logStore.getLogEntryByIndex(lastCommittableIndex)!!.term
+            )
         }
+
+        return null
     }
 
     companion object {

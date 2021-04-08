@@ -66,10 +66,11 @@ class BaseRaftProtocol(
         )
     }
 
-    override suspend fun commitLogEntriesIfLeader(messageSender: MessageSender<RaftMessage>) = coroutineScope {
-        val nodeIdentifiers = messageSender.getAllNodes().minus(address)
-        commitEntries.commitLogEntriesIfLeader(nodeIdentifiers, config.logReplicationQuorumSize)
-    }
+    override suspend fun commitLogEntriesIfLeader(messageSender: MessageSender<RaftMessage>): IndexWithTerm? =
+        coroutineScope {
+            val nodeIdentifiers = messageSender.getAllNodes().minus(address)
+            commitEntries.commitLogEntriesIfLeader(nodeIdentifiers, config.logReplicationQuorumSize)
+        }
 
     override suspend fun sendAppendEntriesIfLeader(messageSender: MessageSender<RaftMessage>) = coroutineScope {
         val nodeIdentifiers = messageSender.getAllNodes().minus(address)

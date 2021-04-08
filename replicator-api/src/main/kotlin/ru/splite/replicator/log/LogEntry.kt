@@ -22,4 +22,10 @@ data class LogEntry(val term: Long, val command: ByteArray) {
         result = 31 * result + command.contentHashCode()
         return result
     }
+
+    override fun toString(): String {
+        return "LogEntry(term=$term, commandSize=${command.size})"
+    }
+
+
 }

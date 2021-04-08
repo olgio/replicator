@@ -29,8 +29,8 @@ class PaxosProtocolController(
         return protocol.sendVoteRequestsAsCandidate(messageSender)
     }
 
-    suspend fun commitLogEntriesIfLeader() {
-        protocol.commitLogEntriesIfLeader(messageSender)
+    suspend fun commitLogEntriesIfLeader(): IndexWithTerm? {
+        return protocol.commitLogEntriesIfLeader(messageSender)
     }
 
     suspend fun sendAppendEntriesIfLeader() {

@@ -33,12 +33,13 @@ class RaftCommandSubmitter(
                 var nextIndexToApply: Long = lastAppliedStateFlow.value?.index?.plus(1) ?: 0
                 if (lastCommitEvent.index != null) {
                     while (lastCommitEvent.index >= nextIndexToApply) {
+                        LOGGER.debug("Detected command to commit index=$nextIndexToApply")
                         val logEntry = protocol.replicatedLogStore.getLogEntryByIndex(nextIndexToApply)
                             ?: error("Index $nextIndexToApply committed but logEntry is null")
                         val result: ByteArray = stateMachine.apply(logEntry.command)
                         val indexWithTerm = IndexWithTerm(index = nextIndexToApply, term = logEntry.term)
-                        LOGGER.debug("Applied command $indexWithTerm")
                         commandResults[indexWithTerm] = result
+                        LOGGER.debug("Applied command to StateMachine $indexWithTerm")
                         lastAppliedStateFlow.tryEmit(indexWithTerm)
                         nextIndexToApply++
                     }
@@ -50,8 +51,11 @@ class RaftCommandSubmitter(
     override suspend fun submit(command: ByteArray): ByteArray {
         val indexWithTerm = if (protocol.isLeader)
             protocol.appendCommand(command) else controller.redirectAndAppendCommand(command)
+        LOGGER.debug("Awaiting command result for $indexWithTerm")
         return withTimeout(controller.config.commandExecutorTimeout) {
-            awaitCommandResult(indexWithTerm)
+            val result = awaitCommandResult(indexWithTerm)
+            LOGGER.debug("Awaited command result for $indexWithTerm")
+            result
         }
     }
 

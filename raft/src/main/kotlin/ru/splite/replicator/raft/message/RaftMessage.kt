@@ -68,7 +68,12 @@ sealed class RaftMessage {
     @Serializable
     data class RedirectRequest(
         val command: ByteArray
-    ) : RaftMessage()
+    ) : RaftMessage() {
+
+        override fun toString(): String {
+            return "RedirectRequest(commandSize=${command.size})"
+        }
+    }
 
     @Serializable
     data class RedirectResponse(

@@ -27,7 +27,7 @@ interface RaftProtocol : RaftMessageReceiver {
 
     suspend fun sendVoteRequestsAsCandidate(messageSender: MessageSender<RaftMessage>): Boolean
 
-    suspend fun commitLogEntriesIfLeader(messageSender: MessageSender<RaftMessage>)
+    suspend fun commitLogEntriesIfLeader(messageSender: MessageSender<RaftMessage>): IndexWithTerm?
 
     suspend fun sendAppendEntriesIfLeader(messageSender: MessageSender<RaftMessage>)
 
