@@ -1,4 +1,4 @@
-package ru.splite.replicator
+package ru.splite.replicator.demo
 
 import io.ktor.application.*
 import io.ktor.features.*

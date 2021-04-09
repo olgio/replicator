@@ -1,10 +1,11 @@
-package ru.splite.replicator
+package ru.splite.replicator.demo
 
 import kotlinx.coroutines.CoroutineName
 import org.kodein.di.DI
 import org.kodein.di.bind
 import org.kodein.di.instance
 import org.kodein.di.singleton
+import ru.splite.replicator.*
 import ru.splite.replicator.executor.CommandExecutor
 import ru.splite.replicator.graph.Dependency
 import ru.splite.replicator.graph.DependencyGraph

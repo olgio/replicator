@@ -1,4 +1,4 @@
-package ru.splite.replicator
+package ru.splite.replicator.demo
 
 import kotlinx.cli.ArgParser
 import kotlinx.cli.ArgType
