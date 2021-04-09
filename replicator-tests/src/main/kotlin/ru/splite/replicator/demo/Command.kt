@@ -1,4 +1,4 @@
-package ru.splite.replicator
+package ru.splite.replicator.demo
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromByteArray

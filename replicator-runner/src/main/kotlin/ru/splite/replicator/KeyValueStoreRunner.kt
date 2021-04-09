@@ -10,7 +10,7 @@ import org.kodein.di.instance
 import org.kodein.di.singleton
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import ru.splite.replicator.keyvalue.KeyValueStateMachine
+import ru.splite.replicator.demo.keyvalue.KeyValueStateMachine
 import ru.splite.replicator.statemachine.ConflictOrderedStateMachine
 import ru.splite.replicator.timer.flow.DelayTimerFactory
 import ru.splite.replicator.timer.flow.TimerFactory

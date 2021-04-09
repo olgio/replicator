@@ -1,4 +1,4 @@
-package ru.splite.replicator.registry
+package ru.splite.replicator.demo.registry
 
 sealed class RegistryCommand {
 

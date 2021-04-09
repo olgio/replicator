@@ -1,4 +1,4 @@
-package ru.splite.replicator.keyvalue
+package ru.splite.replicator.demo.keyvalue
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoBuf

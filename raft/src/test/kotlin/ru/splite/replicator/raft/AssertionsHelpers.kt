@@ -1,6 +1,6 @@
 package ru.splite.replicator.raft
 
-import ru.splite.replicator.LogStoreAssert
+import ru.splite.replicator.demo.LogStoreAssert
 import ru.splite.replicator.raft.cluster.RaftClusterNode
 
 fun assertThatLogs(vararg nodes: RaftProtocol): LogStoreAssert {

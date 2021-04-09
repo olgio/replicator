@@ -1,6 +1,6 @@
 package ru.splite.replicator.paxos
 
-import ru.splite.replicator.LogStoreAssert
+import ru.splite.replicator.demo.LogStoreAssert
 
 fun assertThatLogs(vararg nodes: PaxosProtocol): LogStoreAssert {
     return LogStoreAssert.assertThatLogs(*nodes.map { it.replicatedLogStore }.toTypedArray())

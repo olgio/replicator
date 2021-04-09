@@ -4,7 +4,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.test.runBlockingTest
 import org.assertj.core.api.Assertions.assertThat
-import ru.splite.replicator.Command
+import ru.splite.replicator.demo.Command
 import ru.splite.replicator.transport.*
 import ru.splite.replicator.transport.sender.MessageSender
 import java.util.*

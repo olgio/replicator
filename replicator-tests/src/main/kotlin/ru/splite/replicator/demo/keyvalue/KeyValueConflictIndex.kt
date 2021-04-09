@@ -1,4 +1,4 @@
-package ru.splite.replicator.keyvalue
+package ru.splite.replicator.demo.keyvalue
 
 import ru.splite.replicator.statemachine.ConflictIndex
 import java.util.concurrent.ConcurrentHashMap

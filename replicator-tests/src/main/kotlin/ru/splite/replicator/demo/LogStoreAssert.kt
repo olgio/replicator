@@ -1,4 +1,4 @@
-package ru.splite.replicator
+package ru.splite.replicator.demo
 
 import org.assertj.core.api.Assertions
 import ru.splite.replicator.log.ReplicatedLogStore

@@ -1,4 +1,4 @@
-package ru.splite.replicator.registry
+package ru.splite.replicator.demo.registry
 
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory

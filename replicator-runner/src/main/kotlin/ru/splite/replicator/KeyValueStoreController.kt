@@ -12,8 +12,8 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import ru.splite.replicator.keyvalue.KeyValueCommand
-import ru.splite.replicator.keyvalue.KeyValueReply
+import ru.splite.replicator.demo.keyvalue.KeyValueCommand
+import ru.splite.replicator.demo.keyvalue.KeyValueReply
 import ru.splite.replicator.statemachine.StateMachineCommandSubmitter
 import ru.splite.replicator.transport.NodeIdentifier
 

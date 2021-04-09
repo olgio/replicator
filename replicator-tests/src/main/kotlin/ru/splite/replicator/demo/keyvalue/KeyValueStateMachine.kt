@@ -1,4 +1,4 @@
-package ru.splite.replicator.keyvalue
+package ru.splite.replicator.demo.keyvalue
 
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.statemachine.ConflictIndex

@@ -2,8 +2,8 @@ package ru.splite.replicator.cluster
 
 import kotlinx.coroutines.test.runBlockingTest
 import org.assertj.core.api.Assertions.assertThat
-import ru.splite.replicator.keyvalue.KeyValueCommand
-import ru.splite.replicator.keyvalue.KeyValueReply
+import ru.splite.replicator.demo.keyvalue.KeyValueCommand
+import ru.splite.replicator.demo.keyvalue.KeyValueReply
 import kotlin.test.Test
 
 
