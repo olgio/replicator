@@ -12,8 +12,8 @@
     <artifactId>replicator-runner</artifactId>
 
     <properties>
-        <maven.compiler.source>15</maven.compiler.source>
-        <maven.compiler.target>15</maven.compiler.target>
+        <maven.compiler.source>8</maven.compiler.source>
+        <maven.compiler.target>8</maven.compiler.target>
         <main.class>ru.splite.replicator.KeyValueStoreRunnerKt</main.class>
         <kodein.version>7.4.0</kodein.version>
         <ktor.version>1.5.2</ktor.version>
@@ -30,6 +30,14 @@
     <dependencies>
         <dependency>
             <groupId>ru.splite.replicator</groupId>
+            <artifactId>replicator-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>ru.splite.replicator</groupId>
+            <artifactId>replicator-timers</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>ru.splite.replicator</groupId>
             <artifactId>raft</artifactId>
         </dependency>
         <dependency>
@@ -38,7 +46,7 @@
         </dependency>
         <dependency>
             <groupId>ru.splite.replicator</groupId>
-            <artifactId>raft</artifactId>
+            <artifactId>paxos</artifactId>
         </dependency>
         <dependency>
             <groupId>ru.splite.replicator</groupId>
@@ -99,6 +107,34 @@
                         </configuration>
                     </execution>
                 </executions>
+            </plugin>
+            <!--            <plugin>-->
+            <!--                <artifactId>maven-surefire-plugin</artifactId>-->
+            <!--                <version>2.22.2</version>-->
+            <!--                <configuration>-->
+            <!--                    <argLine>@{argLine}</argLine>-->
+            <!--                </configuration>-->
+            <!--            </plugin>-->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.6</version>
+                <executions>
+                    <execution>
+                        <id>report-aggregate</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>report-aggregate</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <excludes>
+                        <exclude>**/*ru/splite/replicator/demo/**</exclude>
+                        <exclude>**/*ru/splite/replicator/message/proto/**</exclude>
+                        <exclude>**/*ru/splite/replicator/transport/grpc/**</exclude>
+                    </excludes>
+                </configuration>
             </plugin>
         </plugins>
     </build>
