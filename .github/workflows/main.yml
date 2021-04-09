@@ -16,7 +16,7 @@ jobs:
         with:
           java-version: 1.8
       - name: Build with Maven
-        run: mvn --batch-mode --update-snapshots clean compile test
+        run: mvn --batch-mode --update-snapshots clean install
       - name: Publish Test Report
         if: ${{ always() }}
         uses: scacap/action-surefire-report@v1
