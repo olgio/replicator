@@ -14,6 +14,7 @@
         <module>atlas</module>
         <module>transport-grpc</module>
         <module>replicator-runner</module>
+        <module>replicator-transport</module>
     </modules>
     <groupId>ru.splite.replicator</groupId>
     <version>DEV-SNAPSHOT</version>

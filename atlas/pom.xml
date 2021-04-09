@@ -25,6 +25,12 @@
 
         <dependency>
             <groupId>ru.splite.replicator</groupId>
+            <artifactId>replicator-transport</artifactId>
+            <version>DEV-SNAPSHOT</version>
+        </dependency>
+
+        <dependency>
+            <groupId>ru.splite.replicator</groupId>
             <artifactId>replicator-timers</artifactId>
             <version>DEV-SNAPSHOT</version>
         </dependency>
