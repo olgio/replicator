@@ -14,32 +14,21 @@
         <dependency>
             <groupId>ru.splite.replicator</groupId>
             <artifactId>replicator-api</artifactId>
-            <version>DEV-SNAPSHOT</version>
         </dependency>
-
         <dependency>
             <groupId>ru.splite.replicator</groupId>
             <artifactId>replicator-transport</artifactId>
-            <version>DEV-SNAPSHOT</version>
         </dependency>
-
         <dependency>
             <groupId>ru.splite.replicator</groupId>
             <artifactId>replicator-timers</artifactId>
-            <version>DEV-SNAPSHOT</version>
         </dependency>
 
         <dependency>
             <groupId>ru.splite.replicator</groupId>
             <artifactId>replicator-tests</artifactId>
-            <version>DEV-SNAPSHOT</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
-
-    <properties>
-        <maven.compiler.source>8</maven.compiler.source>
-        <maven.compiler.target>8</maven.compiler.target>
-    </properties>
 
 </project>

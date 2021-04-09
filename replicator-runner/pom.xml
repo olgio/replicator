@@ -31,29 +31,22 @@
         <dependency>
             <groupId>ru.splite.replicator</groupId>
             <artifactId>raft</artifactId>
-            <version>DEV-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>ru.splite.replicator</groupId>
             <artifactId>atlas</artifactId>
-            <version>DEV-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>ru.splite.replicator</groupId>
             <artifactId>raft</artifactId>
-            <version>DEV-SNAPSHOT</version>
         </dependency>
-
         <dependency>
             <groupId>ru.splite.replicator</groupId>
             <artifactId>transport-grpc</artifactId>
-            <version>DEV-SNAPSHOT</version>
         </dependency>
-
         <dependency>
             <groupId>ru.splite.replicator</groupId>
             <artifactId>replicator-tests</artifactId>
-            <version>DEV-SNAPSHOT</version>
         </dependency>
 
         <dependency>

@@ -24,6 +24,10 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <maven.compiler.source>8</maven.compiler.source>
+        <maven.compiler.target>8</maven.compiler.target>
+
         <kotlin.code.style>official</kotlin.code.style>
         <kotlin.compiler.jvmTarget>1.8</kotlin.compiler.jvmTarget>
         <kotlin.version>1.4.21</kotlin.version>
@@ -35,6 +39,57 @@
             <url>https://repo1.maven.org/maven2/</url>
         </repository>
     </repositories>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>ru.splite.replicator</groupId>
+                <artifactId>replicator-api</artifactId>
+                <version>DEV-SNAPSHOT</version>
+            </dependency>
+            <dependency>
+                <groupId>ru.splite.replicator</groupId>
+                <artifactId>replicator-transport</artifactId>
+                <version>DEV-SNAPSHOT</version>
+            </dependency>
+            <dependency>
+                <groupId>ru.splite.replicator</groupId>
+                <artifactId>replicator-timers</artifactId>
+                <version>DEV-SNAPSHOT</version>
+            </dependency>
+            <dependency>
+                <groupId>ru.splite.replicator</groupId>
+                <artifactId>replicator-tests</artifactId>
+                <version>DEV-SNAPSHOT</version>
+            </dependency>
+            <dependency>
+                <groupId>ru.splite.replicator</groupId>
+                <artifactId>transport-grpc</artifactId>
+                <version>DEV-SNAPSHOT</version>
+            </dependency>
+            <dependency>
+                <groupId>ru.splite.replicator</groupId>
+                <artifactId>raft</artifactId>
+                <version>DEV-SNAPSHOT</version>
+            </dependency>
+            <dependency>
+                <groupId>ru.splite.replicator</groupId>
+                <artifactId>atlas</artifactId>
+                <version>DEV-SNAPSHOT</version>
+            </dependency>
+            <dependency>
+                <groupId>ru.splite.replicator</groupId>
+                <artifactId>paxos</artifactId>
+                <version>DEV-SNAPSHOT</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.jgrapht</groupId>
+                <artifactId>jgrapht-core</artifactId>
+                <version>1.4.0</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <build>
         <sourceDirectory>src/main/kotlin</sourceDirectory>

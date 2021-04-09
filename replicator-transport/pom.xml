@@ -11,22 +11,14 @@
 
     <artifactId>replicator-transport</artifactId>
 
-    <properties>
-        <maven.compiler.source>8</maven.compiler.source>
-        <maven.compiler.target>8</maven.compiler.target>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>ru.splite.replicator</groupId>
             <artifactId>replicator-api</artifactId>
-            <version>DEV-SNAPSHOT</version>
         </dependency>
-
         <dependency>
             <groupId>ru.splite.replicator</groupId>
             <artifactId>replicator-tests</artifactId>
-            <version>DEV-SNAPSHOT</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

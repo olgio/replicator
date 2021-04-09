@@ -12,9 +12,6 @@
     <artifactId>transport-grpc</artifactId>
 
     <properties>
-        <maven.compiler.source>8</maven.compiler.source>
-        <maven.compiler.target>8</maven.compiler.target>
-
         <grpc.version>1.0.0</grpc.version>
     </properties>
 
@@ -22,8 +19,8 @@
         <dependency>
             <groupId>ru.splite.replicator</groupId>
             <artifactId>replicator-api</artifactId>
-            <version>DEV-SNAPSHOT</version>
         </dependency>
+
         <dependency>
             <groupId>javax.annotation</groupId>
             <artifactId>javax.annotation-api</artifactId>
