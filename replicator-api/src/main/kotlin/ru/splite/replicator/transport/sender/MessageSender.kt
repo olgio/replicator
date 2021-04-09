@@ -3,6 +3,7 @@ package ru.splite.replicator.transport.sender
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.flow
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.transport.NodeIdentifier
@@ -20,48 +21,6 @@ class MessageSender<T>(
     fun getAllNodes(): Set<NodeIdentifier> {
         return getNearestNodes(this.actor.transport.nodes.size)
     }
-
-//    suspend fun sendToQuorum(
-//        nodeIdentifiers: Collection<NodeIdentifier>,
-//        quorumSize: Int = nodeIdentifiers.size,
-//        timeout: Long? = null,
-//        payloadAction: (NodeIdentifier) -> T
-//    ): Flow<RoutedResponse<T>> = coroutineScope {
-//        val fullSize = nodeIdentifiers.size
-//        if (fullSize < quorumSize) {
-//            error("Required quorumSize $quorumSize but received only $fullSize node identifiers")
-//        }
-//        val remainingSize = fullSize - quorumSize
-//
-//        val channel = Channel<RoutedResponse<T?>>(capacity = fullSize)
-//        val jobs = nodeIdentifiers.map { dst ->
-//            launch {
-//                val response = sendOrNull(dst, payloadAction.invoke(dst), timeout)
-//                channel.send(RoutedResponse(dst, response))
-//            }
-//        }
-//
-//        flow<RoutedResponse<T>> {
-//
-//            var successSize = 0
-//            var failuresSize = 0
-//
-//            for (routedResponse in channel) {
-//                if (routedResponse.response != null) {
-//                    successSize++
-//                    emit(RoutedResponse(routedResponse.dst, routedResponse.response))
-//                } else {
-//                    failuresSize++
-//                }
-//                if (successSize >= quorumSize || failuresSize > remainingSize) {
-//                    break
-//                }
-//            }
-//            jobs.forEach {
-//                it.cancel("Quorum with size $quorumSize already completed")
-//            }
-//        }
-//    }
 
     suspend fun sendOrNull(dst: NodeIdentifier, payload: T, timeout: Long? = null): T? {
         val result = runCatching<T> {
@@ -118,6 +77,21 @@ class MessageSender<T>(
                 }
                 jobs.forEach {
                     it.cancel("Quorum with size $quorumSize already completed")
+                }
+            }
+        }
+    }
+
+    fun sendToAllAsFlow(
+        nodeIdentifiers: Collection<NodeIdentifier>,
+        timeout: Long? = null,
+        payloadAction: (NodeIdentifier) -> T
+    ): Flow<RoutedResponse<T?>> {
+        return channelFlow {
+            nodeIdentifiers.forEach { dst ->
+                launch {
+                    val response = sendOrNull(dst, payloadAction.invoke(dst), timeout)
+                    send(RoutedResponse(dst, response))
                 }
             }
         }
