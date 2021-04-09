@@ -8,10 +8,7 @@ import org.kodein.di.instance
 import org.kodein.di.singleton
 import ru.splite.replicator.log.InMemoryReplicatedLogStore
 import ru.splite.replicator.log.ReplicatedLogStore
-import ru.splite.replicator.raft.RaftCommandSubmitter
-import ru.splite.replicator.raft.RaftProtocolConfig
-import ru.splite.replicator.raft.RaftProtocolController
-import ru.splite.replicator.raft.TermClockScheduler
+import ru.splite.replicator.raft.*
 import ru.splite.replicator.raft.state.RaftLocalNodeState
 import ru.splite.replicator.statemachine.StateMachineCommandSubmitter
 
@@ -24,48 +21,41 @@ object RaftDependencyContainer {
                 address = config.nodeIdentifier,
                 n = config.nodes.size,
                 sendMessageTimeout = config.messageTimeout.toLong(),
+                commandExecutorTimeout = config.commandExecutorTimeout.toLong(),
                 termClockPeriod = config.termClockPeriodRange,
                 appendEntriesSendPeriod = config.appendEntriesSendPeriodRange
             )
         }
 
-//        bind<MessageSender<AtlasMessage>>() with singleton {
-//            MessageSender(
-//                instance(),
-//                instance<AtlasProtocolConfig>().sendMessageTimeout
-//            )
-//        }
-
         bind<RaftLocalNodeState>() with singleton { RaftLocalNodeState() }
 
-        bind<TermClockScheduler>() with singleton {
-            TermClockScheduler(instance(), instance())
+        bind<JobLauncher>() with singleton {
+            JobLauncher(instance(), instance())
         }
 
         bind<ReplicatedLogStore>() with singleton { InMemoryReplicatedLogStore() }
 
+        bind<RaftProtocol>() with singleton {
+            BaseRaftProtocol(instance(), instance(), instance())
+        }
+
         bind<RaftProtocolController>() with singleton {
-            RaftProtocolController(
-                instance(),
-                instance(),
-                instance(),
-                instance()
-            )
+            RaftProtocolController(instance(), instance(), instance())
         }
 
         bind<StateMachineCommandSubmitter<ByteArray, ByteArray>>() with singleton {
             val config = instance<RaftProtocolConfig>()
             val coroutineScope = instance<CoroutineScope>()
-            instance<TermClockScheduler>().apply {
+            instance<JobLauncher>().apply {
                 launchTermClock(CoroutineName("term-clock"), coroutineScope, config.termClockPeriod)
-            }
-            RaftCommandSubmitter(instance(), instance(), instance()).apply {
-                launchCommandApplier(CoroutineName("command-applier"), coroutineScope)
                 launchAppendEntriesSender(
                     CoroutineName("entries-sender"),
                     coroutineScope,
                     config.appendEntriesSendPeriod
                 )
+            }
+            RaftCommandSubmitter(instance(), instance()).apply {
+                launchCommandApplier(CoroutineName("command-applier"), coroutineScope)
             }
         }
 

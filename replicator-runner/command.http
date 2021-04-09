@@ -18,12 +18,12 @@ Content-Type: text/plain
 
 value115
 
-### GET store vps728062.ovh.net
+### GET store GCLOUD
 GET http://34.118.75.230:63452/kv/sddsds
 Accept: text/plain
 
-### PUT store vps728062.ovh.net
-POST http://34.118.75.230:63452/kv/sddsdd
+### PUT store GCLOUD
+POST http://34.118.75.230:63452/kv/sddsds
 Content-Type: text/plain
 
-value115
+value120
