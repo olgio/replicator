@@ -69,15 +69,13 @@ class AtlasCommandSubmitter(
         }
     }
 
-    private fun sendCommitToAllExternalContext(
+    private suspend fun sendCommitToAllExternalContext(
         commandCoordinator: CommandCoordinator,
         fastQuorumNodes: Collection<NodeIdentifier>
     ): AtlasMessage.MCommit {
         val commitForFastPath = commandCoordinator.buildCommit(withPayload = false)
 
-        val commitWithPayload by lazy {
-            commandCoordinator.buildCommit(withPayload = true)
-        }
+        val commitWithPayload = commandCoordinator.buildCommit(withPayload = true)
 
         val coroutineName = CoroutineName("commit-${commandCoordinator.commandId}")
         coroutineScopeToSendCommit.launch(coroutineName) {

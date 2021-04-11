@@ -9,11 +9,11 @@ interface AtlasProtocol {
 
     val config: AtlasProtocolConfig
 
-    fun handleCollect(from: NodeIdentifier, message: AtlasMessage.MCollect): AtlasMessage.MCollectAck
+    suspend fun handleCollect(from: NodeIdentifier, message: AtlasMessage.MCollect): AtlasMessage.MCollectAck
 
     fun handleConsensus(message: AtlasMessage.MConsensus): AtlasMessage.MConsensusAck
 
-    fun handleCommit(message: AtlasMessage.MCommit): AtlasMessage.MCommitAck
+    suspend fun handleCommit(message: AtlasMessage.MCommit): AtlasMessage.MCommitAck
 
     fun handleRecovery(message: AtlasMessage.MRecovery): AtlasMessage
 

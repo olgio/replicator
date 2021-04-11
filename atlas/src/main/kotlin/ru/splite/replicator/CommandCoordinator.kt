@@ -11,11 +11,11 @@ interface CommandCoordinator {
 
     val commandId: Id<NodeIdentifier>
 
-    fun buildCollect(command: ByteArray, fastQuorumNodes: Set<NodeIdentifier>): AtlasMessage.MCollect
+    suspend fun buildCollect(command: ByteArray, fastQuorumNodes: Set<NodeIdentifier>): AtlasMessage.MCollect
 
     fun buildConsensus(): AtlasMessage.MConsensus
 
-    fun buildCommit(withPayload: Boolean = false): AtlasMessage.MCommit
+    suspend fun buildCommit(withPayload: Boolean = false): AtlasMessage.MCommit
 
     fun buildRecovery(): AtlasMessage.MRecovery
 

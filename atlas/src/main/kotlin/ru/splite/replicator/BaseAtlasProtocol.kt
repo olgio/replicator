@@ -1,6 +1,5 @@
 package ru.splite.replicator
 
-import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.CommandCoordinator.CollectAckDecision
 import ru.splite.replicator.CommandCoordinator.ConsensusAckDecision
@@ -37,7 +36,10 @@ class BaseAtlasProtocol(
 
         private val recoveryAcks by lazy { mutableMapOf<NodeIdentifier, AtlasMessage.MRecoveryAck>() }
 
-        override fun buildCollect(command: ByteArray, fastQuorumNodes: Set<NodeIdentifier>): AtlasMessage.MCollect {
+        override suspend fun buildCollect(
+            command: ByteArray,
+            fastQuorumNodes: Set<NodeIdentifier>
+        ): AtlasMessage.MCollect {
             if (fastQuorumNodes.size != config.fastQuorumSize) {
                 error("Fast quorum must be ${config.fastQuorumSize} size but ${fastQuorumNodes.size} received")
             }
@@ -56,7 +58,7 @@ class BaseAtlasProtocol(
             return collect
         }
 
-        override fun buildCommit(withPayload: Boolean): AtlasMessage.MCommit {
+        override suspend fun buildCommit(withPayload: Boolean): AtlasMessage.MCommit {
             check(commandState.status != CommandState.Status.START) {
                 "Commit message cannot be created in START status"
             }
@@ -216,7 +218,7 @@ class BaseAtlasProtocol(
         return ManagedCommandCoordinator(commandId)
     }
 
-    override fun handleCollect(from: NodeIdentifier, message: AtlasMessage.MCollect): AtlasMessage.MCollectAck {
+    override suspend fun handleCollect(from: NodeIdentifier, message: AtlasMessage.MCollect): AtlasMessage.MCollectAck {
         val commandState = getCommandState(message.commandId)
 
         if (commandState.status != CommandState.Status.START) {
@@ -282,7 +284,7 @@ class BaseAtlasProtocol(
         )
     }
 
-    override fun handleCommit(message: AtlasMessage.MCommit): AtlasMessage.MCommitAck {
+    override suspend fun handleCommit(message: AtlasMessage.MCommit): AtlasMessage.MCommitAck {
         val commandState = getCommandState(message.commandId)
 
         //TODO buffered commits
@@ -314,9 +316,7 @@ class BaseAtlasProtocol(
         commandState.synodState.consensusValue = message.value
 
         //TODO noop
-        runBlocking {
-            commandExecutor.commit(message.commandId, command, message.value.dependencies)
-        }
+        commandExecutor.commit(message.commandId, command, message.value.dependencies)
 
         commandState.status = CommandState.Status.COMMIT
         LOGGER.debug("Successfully committed commandId=${message.commandId}")
