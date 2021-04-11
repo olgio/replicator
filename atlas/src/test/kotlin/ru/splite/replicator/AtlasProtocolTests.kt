@@ -11,6 +11,7 @@ import ru.splite.replicator.executor.CommandExecutor
 import ru.splite.replicator.graph.Dependency
 import ru.splite.replicator.graph.JGraphTDependencyGraph
 import ru.splite.replicator.id.InMemoryIdGenerator
+import ru.splite.replicator.state.CommandState
 import ru.splite.replicator.transport.CoroutineChannelTransport
 import ru.splite.replicator.transport.NodeIdentifier
 import ru.splite.replicator.transport.Transport
@@ -100,14 +101,55 @@ class AtlasProtocolTests {
         node1.protocol.createCommandCoordinator().let { coordinator ->
             val collectMessage = coordinator.buildCollect(command, setOf(node1.address, node2.address))
 
-
             val commitMessage = coordinator.buildCommit()
             val commitAckMessage = node1.send(node3.address, commitMessage) as AtlasMessage.MCommitAck
             assertThat(commitAckMessage.isAck).isFalse
 
             val collectAckMessage = node1.send(node3.address, collectMessage) as AtlasMessage.MCollectAck
-
             assertThat(collectAckMessage.isAck).isFalse
+            assertThat(node3.protocol.getCommandStatus(collectAckMessage.commandId))
+                .isEqualTo(CommandState.Status.COMMIT)
+        }
+    }
+
+    @Test
+    fun bufferedPayloadTest(): Unit = runBlockingTest {
+        val transport = buildTransport()
+        val (node1, node2, node3) = transport.buildNodes(3, 1)
+
+        val command = KeyValueCommand.newPutCommand("1", "value1")
+
+        node1.protocol.createCommandCoordinator().let { coordinator ->
+            val collectMessage = coordinator.buildCollect(command, setOf(node1.address, node2.address))
+
+            val collectAckMessage = node1.send(node3.address, collectMessage) as AtlasMessage.MCollectAck
+            assertThat(collectAckMessage.isAck).isFalse
+            assertThat(node3.protocol.getCommandStatus(collectAckMessage.commandId))
+                .isEqualTo(CommandState.Status.PAYLOAD)
+
+            val commitMessage = coordinator.buildCommit()
+            val commitAckMessage = node1.send(node3.address, commitMessage) as AtlasMessage.MCommitAck
+            assertThat(commitAckMessage.isAck).isTrue
+            assertThat(node3.protocol.getCommandStatus(collectAckMessage.commandId))
+                .isEqualTo(CommandState.Status.COMMIT)
+        }
+    }
+
+    @Test
+    fun commitWithPayloadTest(): Unit = runBlockingTest {
+        val transport = buildTransport()
+        val (node1, node2, node3) = transport.buildNodes(3, 1)
+
+        val command = KeyValueCommand.newPutCommand("1", "value1")
+
+        node1.protocol.createCommandCoordinator().let { coordinator ->
+            coordinator.buildCollect(command, setOf(node1.address, node2.address))
+
+            val commitMessage = coordinator.buildCommit(withPayload = true)
+            val commitAckMessage = node1.send(node3.address, commitMessage) as AtlasMessage.MCommitAck
+            assertThat(commitAckMessage.isAck).isTrue
+            assertThat(node3.protocol.getCommandStatus(commitAckMessage.commandId))
+                .isEqualTo(CommandState.Status.COMMIT)
         }
     }
 

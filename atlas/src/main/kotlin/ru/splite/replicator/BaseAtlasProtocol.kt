@@ -367,6 +367,10 @@ class BaseAtlasProtocol(
             )
         }
 
+    override fun getCommandStatus(commandId: Id<NodeIdentifier>): CommandState.Status {
+        return this.commands[commandId]?.status ?: CommandState.Status.START
+    }
+
     private suspend fun commitCommand(
         commandState: CommandState,
         message: AtlasMessage.MCommit

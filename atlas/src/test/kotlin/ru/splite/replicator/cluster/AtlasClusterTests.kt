@@ -4,6 +4,7 @@ import kotlinx.coroutines.test.runBlockingTest
 import org.assertj.core.api.Assertions.assertThat
 import ru.splite.replicator.demo.keyvalue.KeyValueCommand
 import ru.splite.replicator.demo.keyvalue.KeyValueReply
+import java.util.*
 import kotlin.test.Test
 
 
@@ -13,48 +14,51 @@ class AtlasClusterTests {
 
     @Test
     fun successReplicationTest(): Unit = runBlockingTest {
+        val key = "key"
         atlasClusterBuilder.buildNodes(this, 3, 1) { nodes ->
-            KeyValueCommand.newPutCommand("1", "v").let { command ->
+            val value1 = UUID.randomUUID().toString()
+            KeyValueCommand.newPutCommand(key, value1).let { command ->
                 val commandReply = KeyValueReply.deserializer(nodes[0].commandSubmitter.submit(command))
-                assertThat(commandReply.value).isEqualTo("v")
+                assertThat(commandReply.value).isEqualTo(value1)
             }
-            KeyValueCommand.newPutCommand("1", "k").let { command ->
+            val value2 = UUID.randomUUID().toString()
+            KeyValueCommand.newPutCommand(key, value2).let { command ->
                 val commandReply = KeyValueReply.deserializer(nodes[0].commandSubmitter.submit(command))
-                assertThat(commandReply.value).isEqualTo("k")
+                assertThat(commandReply.value).isEqualTo(value2)
             }
             awaitTermination()
-            nodes.forEach {
-                assertThat(it.stateMachine.currentState["1"]).isEqualTo("k")
-            }
+            assertNodesHasSameState(nodes)
         }
     }
 
     @Test
     fun successReplicationWhenConflictTest(): Unit = runBlockingTest {
+        val key = "key"
         atlasClusterBuilder.buildNodes(this, 3, 1) { nodes ->
-            KeyValueCommand.newPutCommand("1", "v").let { command ->
+            val value1 = UUID.randomUUID().toString()
+            KeyValueCommand.newPutCommand(key, value1).let { command ->
                 val commandReply = KeyValueReply.deserializer(nodes[0].commandSubmitter.submit(command))
-                assertThat(commandReply.value).isEqualTo("v")
+                assertThat(commandReply.value).isEqualTo(value1)
             }
-            KeyValueCommand.newPutCommand("1", "k").let { command ->
+            val value2 = UUID.randomUUID().toString()
+            KeyValueCommand.newPutCommand(key, value2).let { command ->
                 val commandReply = KeyValueReply.deserializer(nodes[2].commandSubmitter.submit(command))
-                assertThat(commandReply.value).isEqualTo("k")
+                assertThat(commandReply.value).isEqualTo(value2)
             }
             awaitTermination()
-            nodes.forEach {
-                assertThat(it.stateMachine.currentState["1"]).isEqualTo("k")
-            }
+            assertNodesHasSameState(nodes)
         }
     }
 
     @Test
     fun failedLeaderCommandReplicationTest(): Unit = runBlockingTest {
+        val key = "key"
         atlasClusterBuilder.buildNodes(this, 3, 1) { nodes ->
             //success replication if only one one isolated
             listOf(nodes[2]).forEach {
                 transport.setNodeIsolated(it.address, true)
             }
-            KeyValueCommand.newPutCommand("1", "v").let { command ->
+            KeyValueCommand.newPutCommand(key, "v").let { command ->
                 nodes[0].commandSubmitter.submit(command)
             }
 
@@ -62,12 +66,22 @@ class AtlasClusterTests {
             listOf(nodes[1], nodes[2]).forEach {
                 transport.setNodeIsolated(it.address, true)
             }
-            KeyValueCommand.newPutCommand("1", "k").let { command ->
+            KeyValueCommand.newPutCommand(key, "k").let { command ->
                 val result = kotlin.runCatching {
                     nodes[0].commandSubmitter.submit(command)
                 }
                 assertThat(result.exceptionOrNull()).hasStackTraceContaining("isolated")
             }
+        }
+    }
+
+    private fun assertNodesHasSameState(nodes: List<AtlasClusterNode>) {
+        val allKeys = nodes.flatMap { it.stateMachine.currentState.keys }.toSet()
+        assertThat(allKeys).isNotEmpty
+        allKeys.forEach { key ->
+            assertThat(nodes.map {
+                it.stateMachine.currentState[key]
+            }.toSet()).hasSize(1)
         }
     }
 }
