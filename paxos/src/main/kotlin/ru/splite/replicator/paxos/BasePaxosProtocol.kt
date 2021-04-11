@@ -64,7 +64,7 @@ class BasePaxosProtocol(
         appendEntriesSender.sendAppendEntriesIfLeader(nodeIdentifiers, messageSender)
     }
 
-    override fun applyCommand(command: ByteArray): IndexWithTerm {
+    override suspend fun applyCommand(command: ByteArray): IndexWithTerm {
         return commandAppender.addCommand(command)
     }
 

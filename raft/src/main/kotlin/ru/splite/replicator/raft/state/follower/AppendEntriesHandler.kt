@@ -13,7 +13,7 @@ class AppendEntriesHandler(
     private val commitEntries: CommitEntries
 ) {
 
-    fun handleAppendEntries(request: RaftMessage.AppendEntries): RaftMessage.AppendEntriesResponse {
+    suspend fun handleAppendEntries(request: RaftMessage.AppendEntries): RaftMessage.AppendEntriesResponse {
 
         //игнорируем запрос из терма меньше текущего
         if (localNodeState.currentTerm > request.term) {

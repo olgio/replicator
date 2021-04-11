@@ -19,7 +19,7 @@ class CommandAppender(
 
     val appendEntryEventFlow: StateFlow<AppendEntryEvent> = appendEntryEventMutableFlow
 
-    fun addCommand(command: ByteArray): IndexWithTerm {
+    suspend fun addCommand(command: ByteArray): IndexWithTerm {
         val currentTerm = localNodeState.currentTerm
 
         if (localNodeState.currentNodeType != NodeType.LEADER) {

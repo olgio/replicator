@@ -86,7 +86,10 @@ class VoteRequestSender(
         }
     }
 
-    private fun handleVoteResponsesIfMajority(nextTerm: Long, voteResponses: List<RaftMessage.PaxosVoteResponse>) {
+    private suspend fun handleVoteResponsesIfMajority(
+        nextTerm: Long,
+        voteResponses: List<RaftMessage.PaxosVoteResponse>
+    ) {
         val firstUncommittedIndex: Long = logStore.lastCommitIndex()?.plus(1) ?: 0
 
         val entries: MutableList<LogEntry> = generateSequence(firstUncommittedIndex) {

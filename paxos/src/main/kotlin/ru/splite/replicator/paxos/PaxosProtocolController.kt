@@ -37,7 +37,7 @@ class PaxosProtocolController(
         return protocol.sendAppendEntriesIfLeader(messageSender)
     }
 
-    fun applyCommand(command: ByteArray): IndexWithTerm {
+    suspend fun applyCommand(command: ByteArray): IndexWithTerm {
         return protocol.applyCommand(command)
     }
 

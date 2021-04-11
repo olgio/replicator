@@ -1,5 +1,7 @@
 package ru.splite.replicator.log
 
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentHashMap
@@ -14,7 +16,9 @@ class InMemoryReplicatedLogStore : ReplicatedLogStore {
 
     private val lastCommitIndex = AtomicLong(-1)
 
-    override fun setLogEntry(index: Long, logEntry: LogEntry) {
+    private val logMutex = Mutex()
+
+    override suspend fun setLogEntry(index: Long, logEntry: LogEntry) = logMutex.withLock {
         validateIndex(index)
         if (lastCommitIndex.get() >= index) {
             throw CommittedLogEntryOverrideException(
@@ -33,22 +37,15 @@ class InMemoryReplicatedLogStore : ReplicatedLogStore {
         LOGGER.info("Set log entry with index $index: $logEntry")
     }
 
-    override fun appendLogEntry(logEntry: LogEntry): Long {
-        val newIndex = lastIndex.incrementAndGet()
+    override suspend fun appendLogEntry(logEntry: LogEntry): Long = logMutex.withLock {
+        val newIndex = lastIndex.get() + 1
         logEntries[newIndex] = logEntry
+        lastIndex.set(newIndex)
         LOGGER.info("Appended log with index $newIndex: $logEntry")
         return newIndex
     }
 
-    override fun getLogEntryByIndex(index: Long): LogEntry? {
-        validateIndex(index)
-        if (index > lastIndex.get()) {
-            return null
-        }
-        return logEntries[index]
-    }
-
-    override fun prune(index: Long): Long? {
+    override suspend fun prune(index: Long): Long? = logMutex.withLock {
         validateIndex(index)
         if (lastCommitIndex.get() >= index) {
             throw CommittedLogEntryOverrideException(
@@ -60,7 +57,7 @@ class InMemoryReplicatedLogStore : ReplicatedLogStore {
         return if (newIndex < 0) null else newIndex
     }
 
-    override fun commit(index: Long): Long {
+    override suspend fun commit(index: Long): Long = logMutex.withLock {
         validateIndex(index)
         if (index > lastIndex.get()) {
             throw LogGapException(
@@ -70,6 +67,14 @@ class InMemoryReplicatedLogStore : ReplicatedLogStore {
         val newIndex = lastCommitIndex.updateAndGet { oldIndex -> max(oldIndex, index) }
         LOGGER.info("Committed command with index {}: {}", index, this.getLogEntryByIndex(index))
         return newIndex
+    }
+
+    override fun getLogEntryByIndex(index: Long): LogEntry? {
+        validateIndex(index)
+        if (index > lastIndex.get()) {
+            return null
+        }
+        return logEntries[index]
     }
 
     override fun lastLogIndex(): Long? {

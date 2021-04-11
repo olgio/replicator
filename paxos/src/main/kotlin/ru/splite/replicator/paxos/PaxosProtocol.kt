@@ -21,5 +21,5 @@ interface PaxosProtocol : PaxosMessageReceiver {
 
     suspend fun sendAppendEntriesIfLeader(messageSender: MessageSender<RaftMessage>)
 
-    fun applyCommand(command: ByteArray): IndexWithTerm
+    suspend fun applyCommand(command: ByteArray): IndexWithTerm
 }

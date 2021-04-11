@@ -32,7 +32,7 @@ class CommitEntries(
         }
     }
 
-    fun commitLogEntriesIfLeader(
+    suspend fun commitLogEntriesIfLeader(
         nodeIdentifiers: Collection<NodeIdentifier>,
         quorumSize: Int
     ): IndexWithTerm? {
