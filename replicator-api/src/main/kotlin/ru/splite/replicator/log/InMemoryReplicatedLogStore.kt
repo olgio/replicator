@@ -4,6 +4,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
+import kotlin.math.max
 
 class InMemoryReplicatedLogStore : ReplicatedLogStore {
 
@@ -16,10 +17,19 @@ class InMemoryReplicatedLogStore : ReplicatedLogStore {
     override fun setLogEntry(index: Long, logEntry: LogEntry) {
         validateIndex(index)
         if (lastCommitIndex.get() >= index) {
-            error("Cannot override committed log entry at index $index")
+            throw CommittedLogEntryOverrideException(
+                "Cannot override committed log entry at index $index"
+            )
+        }
+        val firstFreeIndex = lastIndex.get() + 1
+        if (index > firstFreeIndex) {
+            throw LogGapException(
+                "Cannot override log entry as this will cause a gap in the log"
+            )
+        } else if (index == firstFreeIndex) {
+            lastIndex.set(index)
         }
         logEntries[index] = logEntry
-        lastIndex.set(index)
         LOGGER.info("Set log entry with index $index: $logEntry")
     }
 
@@ -38,23 +48,28 @@ class InMemoryReplicatedLogStore : ReplicatedLogStore {
         return logEntries[index]
     }
 
-    override fun prune(index: Long): Long {
+    override fun prune(index: Long): Long? {
         validateIndex(index)
         if (lastCommitIndex.get() >= index) {
-            error("Cannot prune log because lastCommitIndex ${lastCommitIndex.get()} >= $index")
+            throw CommittedLogEntryOverrideException(
+                "Cannot prune log because lastCommitIndex ${lastCommitIndex.get()} >= $index"
+            )
         }
-        lastIndex.set(index - 1)
-        return 0L
+        val newIndex = index - 1
+        lastIndex.set(newIndex)
+        return if (newIndex < 0) null else newIndex
     }
 
     override fun commit(index: Long): Long {
         validateIndex(index)
         if (index > lastIndex.get()) {
-            error("Cannot commit log with gaps: $index > ${lastIndex.get()}")
+            throw LogGapException(
+                "Cannot commit log with gaps: $index > ${lastIndex.get()}"
+            )
         }
+        val newIndex = lastCommitIndex.updateAndGet { oldIndex -> max(oldIndex, index) }
         LOGGER.info("Committed command with index {}: {}", index, this.getLogEntryByIndex(index))
-        lastCommitIndex.set(index)
-        return 0L
+        return newIndex
     }
 
     override fun lastLogIndex(): Long? {
