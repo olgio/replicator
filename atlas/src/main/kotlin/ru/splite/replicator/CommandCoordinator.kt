@@ -13,15 +13,18 @@ interface CommandCoordinator {
 
     suspend fun buildCollect(command: ByteArray, fastQuorumNodes: Set<NodeIdentifier>): AtlasMessage.MCollect
 
-    fun buildConsensus(): AtlasMessage.MConsensus
+    suspend fun buildConsensus(): AtlasMessage.MConsensus
 
     suspend fun buildCommit(withPayload: Boolean = false): AtlasMessage.MCommit
 
-    fun buildRecovery(): AtlasMessage.MRecovery
+    suspend fun buildRecovery(): AtlasMessage.MRecovery
 
-    fun handleCollectAck(from: NodeIdentifier, collectAck: AtlasMessage.MCollectAck): CollectAckDecision
+    suspend fun handleCollectAck(from: NodeIdentifier, collectAck: AtlasMessage.MCollectAck): CollectAckDecision
 
-    fun handleConsensusAck(from: NodeIdentifier, consensusAck: AtlasMessage.MConsensusAck): ConsensusAckDecision
+    suspend fun handleConsensusAck(from: NodeIdentifier, consensusAck: AtlasMessage.MConsensusAck): ConsensusAckDecision
 
-    fun handleRecoveryAck(from: NodeIdentifier, recoveryAck: AtlasMessage.MRecoveryAck): AtlasMessage.MConsensus?
+    suspend fun handleRecoveryAck(
+        from: NodeIdentifier,
+        recoveryAck: AtlasMessage.MRecoveryAck
+    ): AtlasMessage.MConsensus?
 }
