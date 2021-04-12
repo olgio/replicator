@@ -23,7 +23,17 @@ class AtlasCommandSubmitter(
         LOGGER.debug("Started coordinating commandId=${commandCoordinator.commandId}")
         return withTimeout(atlasProtocol.config.commandExecutorTimeout) {
             val response = commandExecutor.awaitCommandResponse(commandCoordinator.commandId) {
-                val commitMessage = coordinateCommand(commandCoordinator, command)
+                val commitMessageResult = kotlin.runCatching {
+                    coordinateCommand(commandCoordinator, command)
+                }
+                if (commitMessageResult.isFailure) {
+                    LOGGER.error(
+                        "Failed to coordinate commandId=${commandCoordinator.commandId}. Starting recovery",
+                        commitMessageResult.exceptionOrNull()
+                    )
+                }
+                val commitMessage = commitMessageResult.getOrNull()
+                    ?: recoveryCommand(commandCoordinator)
                 check(!commitMessage.value.isNoop) {
                     "Cannot commit command because chosen value is NOOP"
                 }
@@ -38,7 +48,10 @@ class AtlasCommandSubmitter(
         command: ByteArray
     ): AtlasMessage.MCommit {
         val fastQuorumNodes = messageSender.getNearestNodes(atlasProtocol.config.fastQuorumSize)
-        LOGGER.debug("fastQuorumNodes=${fastQuorumNodes.map { it.identifier }}. commandId=${commandCoordinator.commandId}")
+        LOGGER.debug(
+            "fastQuorumNodes=${fastQuorumNodes.map { it.identifier }}. " +
+                    "commandId=${commandCoordinator.commandId}"
+        )
 
         val collectMessage = commandCoordinator.buildCollect(command, fastQuorumNodes)
 
@@ -60,7 +73,10 @@ class AtlasCommandSubmitter(
                 sendConsensusMessage(commandCoordinator, fastQuorumNodes, consensusMessage)
             }
             else -> {
-                error("Cannot achieve consensus for command ${commandCoordinator.commandId}: collectAckDecision = $collectAckDecision")
+                error(
+                    "Cannot achieve consensus for command ${commandCoordinator.commandId}: " +
+                            "collectAckDecision = $collectAckDecision"
+                )
             }
         }
     }
@@ -75,7 +91,10 @@ class AtlasCommandSubmitter(
 
         val coroutineName = CoroutineName("commit-${commandCoordinator.commandId}")
         coroutineScopeToSendCommit.launch(coroutineName) {
-            LOGGER.debug("Sending commits async. commandId=${commandCoordinator.commandId}")
+            LOGGER.debug(
+                "Sending commits async. " +
+                        "commandId=${commandCoordinator.commandId}"
+            )
             val successCommitsSize = messageSender.getAllNodes().map {
                 async {
                     messageSender.sendOrNull(
@@ -84,7 +103,10 @@ class AtlasCommandSubmitter(
                     )
                 }
             }.mapNotNull { it.await() }.size
-            LOGGER.debug("Successfully sent $successCommitsSize commits. commandId=${commandCoordinator.commandId}")
+            LOGGER.debug(
+                "Successfully sent $successCommitsSize commits. " +
+                        "commandId=${commandCoordinator.commandId}"
+            )
         }
         return commitForFastPath
     }
@@ -122,9 +144,13 @@ class AtlasCommandSubmitter(
                 }
                 else -> null
             }
-        }.filterNotNull().first()
+        }.filterNotNull().firstOrNull()
+            ?: error("Cannot choose decision for recovery. commandId=${commandCoordinator.commandId}")
 
-        LOGGER.debug("Received decision $decisionMessage while recovery. commandId=${commandCoordinator.commandId}")
+        LOGGER.debug(
+            "Received decision $decisionMessage while recovery. " +
+                    "commandId=${commandCoordinator.commandId}"
+        )
 
         return when (decisionMessage) {
             is AtlasMessage.MCommit -> {
@@ -132,12 +158,18 @@ class AtlasCommandSubmitter(
                 check(commitAck.isAck) {
                     "Received MCommit message while recovery but commit rejected"
                 }
-                LOGGER.debug("Completed recovery with ${decisionMessage}. commandId=${commandCoordinator.commandId}")
+                LOGGER.debug(
+                    "Completed recovery with ${decisionMessage}. " +
+                            "commandId=${commandCoordinator.commandId}"
+                )
                 decisionMessage
             }
             is AtlasMessage.MConsensus -> {
                 val commitMessage = sendConsensusMessage(commandCoordinator, emptyList(), decisionMessage)
-                LOGGER.debug("Completed recovery with ${commitMessage}. commandId=${commandCoordinator.commandId}")
+                LOGGER.debug(
+                    "Completed recovery with ${commitMessage}. " +
+                            "commandId=${commandCoordinator.commandId}"
+                )
                 commitMessage
             }
             else -> error("Cannot recovery command ${commandCoordinator.commandId}")

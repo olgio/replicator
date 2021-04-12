@@ -40,7 +40,7 @@ class AtlasClusterTests {
     }
 
     @Test
-    fun failedNodesReplicationTest(): Unit = runBlockingTest {
+    fun failedNodesReplication3_1Test(): Unit = runBlockingTest {
         val key = "key"
         atlasClusterBuilder.buildNodes(this, 3, 1) { nodes ->
             //success replication if only one one isolated
@@ -56,7 +56,28 @@ class AtlasClusterTests {
             val result = kotlin.runCatching {
                 nodes[0].submitPutCommand(key)
             }
-            assertThat(result.exceptionOrNull()).hasStackTraceContaining("isolated")
+            assertThat(result.exceptionOrNull()).isNotNull()
+        }
+    }
+
+    @Test
+    fun failedNodesReplication5_2Test(): Unit = runBlockingTest {
+        val key = "key"
+        atlasClusterBuilder.buildNodes(this, 5, 2) { nodes ->
+            //success replication if only two nodes isolated
+            listOf(nodes[3], nodes[4]).forEach {
+                transport.setNodeIsolated(it.address, true)
+            }
+            nodes[0].submitPutCommand(key)
+
+            //fail if two nodes isolated
+            listOf(nodes[2], nodes[3], nodes[4]).forEach {
+                transport.setNodeIsolated(it.address, true)
+            }
+            val result = kotlin.runCatching {
+                nodes[0].submitPutCommand(key)
+            }
+            assertThat(result.exceptionOrNull()).isNotNull()
         }
     }
 
