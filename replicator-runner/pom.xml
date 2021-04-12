@@ -14,7 +14,7 @@
     <properties>
         <maven.compiler.source>8</maven.compiler.source>
         <maven.compiler.target>8</maven.compiler.target>
-        <main.class>ru.splite.replicator.KeyValueStoreRunnerKt</main.class>
+        <main.class>ru.splite.replicator.demo.KeyValueStoreRunnerKt</main.class>
         <kodein.version>7.4.0</kodein.version>
         <ktor.version>1.5.2</ktor.version>
     </properties>
