@@ -1,5 +1,6 @@
 package ru.splite.replicator.cluster
 
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runBlockingTest
 import org.assertj.core.api.Assertions.assertThat
 import ru.splite.replicator.demo.keyvalue.KeyValueCommand
@@ -13,65 +14,97 @@ class AtlasClusterTests {
     private val atlasClusterBuilder = AtlasClusterBuilder()
 
     @Test
-    fun successReplicationTest(): Unit = runBlockingTest {
+    fun successReplicationSingleKeySingleNodeTest(): Unit = runBlockingTest {
         val key = "key"
         atlasClusterBuilder.buildNodes(this, 3, 1) { nodes ->
-            val value1 = UUID.randomUUID().toString()
-            KeyValueCommand.newPutCommand(key, value1).let { command ->
-                val commandReply = KeyValueReply.deserializer(nodes[0].commandSubmitter.submit(command))
-                assertThat(commandReply.value).isEqualTo(value1)
-            }
-            val value2 = UUID.randomUUID().toString()
-            KeyValueCommand.newPutCommand(key, value2).let { command ->
-                val commandReply = KeyValueReply.deserializer(nodes[0].commandSubmitter.submit(command))
-                assertThat(commandReply.value).isEqualTo(value2)
+            repeat(3) {
+                nodes[0].submitPutCommand(key, UUID.randomUUID().toString())
             }
             awaitTermination()
+            cancelJobs()
             assertNodesHasSameState(nodes)
         }
     }
 
     @Test
-    fun successReplicationWhenConflictTest(): Unit = runBlockingTest {
+    fun successReplicationSingleKeyMultipleNodesTest(): Unit = runBlockingTest {
         val key = "key"
         atlasClusterBuilder.buildNodes(this, 3, 1) { nodes ->
-            val value1 = UUID.randomUUID().toString()
-            KeyValueCommand.newPutCommand(key, value1).let { command ->
-                val commandReply = KeyValueReply.deserializer(nodes[0].commandSubmitter.submit(command))
-                assertThat(commandReply.value).isEqualTo(value1)
-            }
-            val value2 = UUID.randomUUID().toString()
-            KeyValueCommand.newPutCommand(key, value2).let { command ->
-                val commandReply = KeyValueReply.deserializer(nodes[2].commandSubmitter.submit(command))
-                assertThat(commandReply.value).isEqualTo(value2)
+            nodes.forEach {
+                it.submitPutCommand(key, UUID.randomUUID().toString())
             }
             awaitTermination()
+            cancelJobs()
             assertNodesHasSameState(nodes)
         }
     }
 
     @Test
-    fun failedLeaderCommandReplicationTest(): Unit = runBlockingTest {
+    fun failedNodesReplicationTest(): Unit = runBlockingTest {
         val key = "key"
         atlasClusterBuilder.buildNodes(this, 3, 1) { nodes ->
             //success replication if only one one isolated
             listOf(nodes[2]).forEach {
                 transport.setNodeIsolated(it.address, true)
             }
-            KeyValueCommand.newPutCommand(key, "v").let { command ->
-                nodes[0].commandSubmitter.submit(command)
-            }
+            nodes[0].submitPutCommand(key)
 
             //fail if two nodes isolated
             listOf(nodes[1], nodes[2]).forEach {
                 transport.setNodeIsolated(it.address, true)
             }
-            KeyValueCommand.newPutCommand(key, "k").let { command ->
-                val result = kotlin.runCatching {
-                    nodes[0].commandSubmitter.submit(command)
-                }
-                assertThat(result.exceptionOrNull()).hasStackTraceContaining("isolated")
+            val result = kotlin.runCatching {
+                nodes[0].submitPutCommand(key)
             }
+            assertThat(result.exceptionOrNull()).hasStackTraceContaining("isolated")
+        }
+    }
+
+    @Test
+    fun commandRecoveryAfterFailureTest(): Unit = runBlockingTest {
+        val key = "key"
+        atlasClusterBuilder.buildNodes(this, 5, 2) { nodes ->
+
+            listOf(nodes[3], nodes[4]).forEach {
+                transport.setNodeIsolated(it.address, true)
+            }
+
+            val result = kotlin.runCatching {
+                nodes[0].submitPutCommand(key)
+            }
+            assertThat(result.exceptionOrNull()).hasStackTraceContaining("isolated")
+
+            listOf(nodes[3], nodes[4]).forEach {
+                transport.setNodeIsolated(it.address, false)
+            }
+            val value = nodes[0].submitPutCommand(key)
+
+            delay(1)
+            assertNodesHasState(nodes, mapOf(key to value))
+
+            nodes.forEach {
+                it.submitPutCommand(key)
+            }
+            awaitTermination()
+            cancelJobs()
+            assertNodesHasSameState(nodes)
+        }
+    }
+
+    private suspend fun AtlasClusterNode.submitPutCommand(
+        key: String,
+        value: String = UUID.randomUUID().toString()
+    ): String {
+        KeyValueCommand.newPutCommand(key, value).let { command ->
+            val commandReply = KeyValueReply.deserializer(this.commandSubmitter.submit(command))
+            assertThat(commandReply.value).isEqualTo(value)
+        }
+        return value
+    }
+
+    private fun assertNodesHasState(nodes: List<AtlasClusterNode>, state: Map<String, String>) {
+        nodes.forEach {
+            assertThat(it.stateMachine.currentState).isEqualTo(state)
         }
     }
 

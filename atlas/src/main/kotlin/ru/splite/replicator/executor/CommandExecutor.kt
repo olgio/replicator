@@ -2,6 +2,8 @@ package ru.splite.replicator.executor
 
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.slf4j.LoggerFactory
@@ -19,6 +21,10 @@ class CommandExecutor(
 ) {
 
     private object NewCommitEvent
+
+    private val commandBlockersChannel = Channel<Id<NodeIdentifier>>(capacity = Channel.UNLIMITED)
+
+    val commandBlockersFlow: Flow<Id<NodeIdentifier>> = commandBlockersChannel.receiveAsFlow()
 
     private val commandBuffer = ConcurrentHashMap<Id<NodeIdentifier>, ByteArray>()
 
@@ -71,6 +77,10 @@ class CommandExecutor(
 
         keysToExecute.executable.forEach {
             executeCommand(it.dot)
+        }
+
+        keysToExecute.blockers.forEach {
+            commandBlockersChannel.send(it.dot)
         }
     }
 

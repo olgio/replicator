@@ -10,6 +10,7 @@ import ru.splite.replicator.executor.CommandExecutor
 import ru.splite.replicator.graph.Dependency
 import ru.splite.replicator.graph.JGraphTDependencyGraph
 import ru.splite.replicator.id.InMemoryIdGenerator
+import ru.splite.replicator.timer.flow.DelayTimerFactory
 import ru.splite.replicator.transport.CoroutineChannelTransport
 import ru.splite.replicator.transport.NodeIdentifier
 import ru.splite.replicator.transport.sender.MessageSender
@@ -23,6 +24,7 @@ class AtlasClusterBuilder {
     ) {
 
         internal fun buildNode(config: AtlasProtocolConfig): AtlasClusterNode {
+            val timerFactory = DelayTimerFactory()
             val stateMachine = KeyValueStateMachine()
             val dependencyGraph = JGraphTDependencyGraph<Dependency>()
             val commandExecutor = CommandExecutor(dependencyGraph, stateMachine)
@@ -37,10 +39,23 @@ class AtlasClusterBuilder {
             val messageSender = MessageSender(atlasProtocolController, atlasProtocol.config.sendMessageTimeout)
             val atlasCommandSubmitter =
                 AtlasCommandSubmitter(atlasProtocol, messageSender, coroutineScope, commandExecutor)
+            val commandRecoveryCoroutineContext = SupervisorJob()
+                .plus(CoroutineName("command-recovery"))
+            jobs.add(
+                atlasCommandSubmitter.launchCommandRecoveryLoop(
+                    commandRecoveryCoroutineContext,
+                    coroutineScope, timerFactory
+                )
+            )
 
-            val commandExecutorCoroutineName = SupervisorJob()
-                .plus(CoroutineName("${config.address.identifier}|ce"))
-            jobs.add(commandExecutor.launchCommandExecutor(commandExecutorCoroutineName, coroutineScope))
+            val commandExecutorCoroutineContext = SupervisorJob()
+                .plus(CoroutineName("command-executor"))
+            jobs.add(
+                commandExecutor.launchCommandExecutor(
+                    commandExecutorCoroutineContext,
+                    coroutineScope
+                )
+            )
             return AtlasClusterNode(config.address, atlasCommandSubmitter, stateMachine)
         }
 
@@ -49,6 +64,9 @@ class AtlasClusterBuilder {
             childrenJobs.minus(jobs).filter { it is CompletableJob }.forEach {
                 it.join()
             }
+        }
+
+        fun cancelJobs() {
             jobs.forEach { it.cancel() }
         }
     }

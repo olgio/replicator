@@ -8,7 +8,8 @@ data class AtlasProtocolConfig(
     val n: Int,
     val f: Int,
     val sendMessageTimeout: Long = 1000,
-    val commandExecutorTimeout: Long = 3000
+    val commandExecutorTimeout: Long = 3000,
+    val commandRecoveryDelay: LongRange = 2000L..4000L
 ) {
 
     init {

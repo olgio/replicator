@@ -63,14 +63,20 @@ object AtlasDependencyContainer {
 
         bind<StateMachineCommandSubmitter<ByteArray, ByteArray>>() with singleton {
             instance<CommandExecutor>().apply {
-                launchCommandExecutor(CoroutineName("executor"), instance())
+                launchCommandExecutor(CoroutineName("command-executor"), instance())
             }
             AtlasCommandSubmitter(
                 instance(),
                 instance(),
                 instance(),
                 instance()
-            )
+            ).apply {
+                launchCommandRecoveryLoop(
+                    CoroutineName("command-recovery"),
+                    instance(),
+                    instance()
+                )
+            }
         }
 
     }
