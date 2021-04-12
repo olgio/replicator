@@ -14,4 +14,8 @@ open class RaftLocalNodeState(
     var leaderIdentifier: NodeIdentifier? = null
 
     val externalNodeStates: MutableMap<NodeIdentifier, ExternalNodeState> = ConcurrentHashMap()
+
+    override fun toString(): String {
+        return "RaftLocalNodeState(currentTerm=$currentTerm, lastVotedLeaderIdentifier=$lastVotedLeaderIdentifier, currentNodeType=$currentNodeType, leaderIdentifier=$leaderIdentifier)"
+    }
 }

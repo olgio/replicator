@@ -23,7 +23,7 @@ class CommandAppender(
         val currentTerm = localNodeState.currentTerm
 
         if (localNodeState.currentNodeType != NodeType.LEADER) {
-            error("Only leader can add command. currentTerm = ${currentTerm}, currentLeader = ${localNodeState.leaderIdentifier}")
+            error("Only leader can add command. currentState=${localNodeState.currentNodeType}")
         }
         val index = logStore.appendLogEntry(LogEntry(term = currentTerm, command = command))
         appendEntryEventMutableFlow.value = AppendEntryEvent(index)
