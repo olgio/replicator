@@ -210,4 +210,42 @@ class DelayTimerFactoryTests {
         assertThat(fireCount).isEqualTo(4)
         job.cancel()
     }
+
+    /**
+     * Поток [DelayTimerFactory.delayedFlow], задерживающий каждое исходное сообщение
+     * 2 пакета по 4 сообщения с периодом в 200 мс
+     * Период задержки 200 мс
+     * Тогда за 400 мс должно быть получено 8 сообщений
+     */
+    @Test
+    fun delayedFlowTest(): Unit = runBlockingTest {
+        val timerFactory = DelayTimerFactory(currentTimeTick = { TimeTick(currentTime) })
+
+        val flow = flow {
+            repeat(4) {
+                emit(Unit)
+            }
+            delay(200)
+            repeat(4) {
+                emit(Unit)
+            }
+        }
+
+        val delayedFlow = timerFactory.delayedFlow(flow = flow, delay = (200L..200L))
+
+        var fireCount = 0L
+        val job = launch {
+            delayedFlow.collect {
+                fireCount++
+            }
+        }
+
+        advanceTimeBy(200L)
+        assertThat(fireCount).isEqualTo(4)
+
+        advanceTimeBy(200L)
+        assertThat(fireCount).isEqualTo(8)
+
+        job.cancel()
+    }
 }

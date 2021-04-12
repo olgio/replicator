@@ -1,5 +1,6 @@
 package ru.splite.replicator.timer.flow
 
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
@@ -64,6 +65,18 @@ class DelayTimerFactory(
         val expiringFlow = expirationFlow(name, flow, period)
 
         return flowOf(renewFlow, expiringFlow).flattenMerge().conflate()
+    }
+
+    override fun <T> delayedFlow(flow: Flow<T>, delay: LongRange): Flow<T> {
+
+        data class ValueWithTimeTick(val value: T, val timeTick: TimeTick)
+
+        return flow.map {
+            ValueWithTimeTick(it, TimeTick(currentTimeTick().tick + delay.random(random)))
+        }.buffer(capacity = Channel.UNLIMITED).map {
+            delayBefore(it.timeTick)
+            it.value
+        }
     }
 
     private suspend fun delayBefore(timeTick: TimeTick) {
