@@ -82,25 +82,26 @@ class AtlasClusterTests {
     }
 
     @Test
-    fun commandRecoveryAfterFailureTest(): Unit = runBlockingTest {
+    fun commandRecoveryAfterFailure5_2Test(): Unit = runBlockingTest {
         val key = "key"
         atlasClusterBuilder.buildNodes(this, 5, 2) { nodes ->
 
-            listOf(nodes[3], nodes[4]).forEach {
+            listOf(nodes[2], nodes[3], nodes[4]).forEach {
                 transport.setNodeIsolated(it.address, true)
             }
 
             val result = kotlin.runCatching {
                 nodes[0].submitPutCommand(key)
             }
-            assertThat(result.exceptionOrNull()).hasStackTraceContaining("isolated")
+            assertThat(result.exceptionOrNull())
+                .hasStackTraceContaining("Cannot choose decision for recovery")
 
-            listOf(nodes[3], nodes[4]).forEach {
+            listOf(nodes[2], nodes[3], nodes[4]).forEach {
                 transport.setNodeIsolated(it.address, false)
             }
             val value = nodes[0].submitPutCommand(key)
 
-            delay(1)
+            delay(1000)
             assertNodesHasState(nodes, mapOf(key to value))
 
             nodes.forEach {
