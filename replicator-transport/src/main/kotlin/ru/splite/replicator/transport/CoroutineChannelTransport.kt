@@ -1,14 +1,14 @@
 package ru.splite.replicator.transport
 
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.CoroutineName
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.actor
 import java.util.concurrent.ConcurrentHashMap
 
-class CoroutineChannelTransport(private val coroutineScope: CoroutineScope) : Transport {
+class CoroutineChannelTransport(
+    private val coroutineScope: CoroutineScope,
+    private val calculateDelay: (NodeIdentifier, NodeIdentifier) -> Long = { _, _ -> 0L }
+) : Transport {
 
     private class ChannelMessage(
         val src: NodeIdentifier,
@@ -39,16 +39,22 @@ class CoroutineChannelTransport(private val coroutineScope: CoroutineScope) : Tr
         val coroutineName = CoroutineName("$address|transport")
         val channel = coroutineScope.actor<ChannelMessage>(coroutineName + SupervisorJob(), Int.MAX_VALUE) {
             for (message in channel) {
-                try {
-                    if (isolatedNodes.contains(message.src)) {
-                        throw NodeUnavailableException("Cannot receive message from node ${message.src} because it is isolated")
-                    } else if (isolatedNodes.contains(address)) {
-                        throw NodeUnavailableException("Node $address cannot receive message because it is isolated")
+                launch {
+                    val messageDelay = calculateDelay(message.src, address)
+                    if (messageDelay > 0) {
+                        delay(messageDelay)
                     }
-                    val response = receiver.receive(message.src, message.payload)
-                    message.response.complete(response)
-                } catch (e: Throwable) {
-                    message.response.completeExceptionally(e)
+                    try {
+                        if (isolatedNodes.contains(message.src)) {
+                            throw NodeUnavailableException("Cannot receive message from node ${message.src} because it is isolated")
+                        } else if (isolatedNodes.contains(address)) {
+                            throw NodeUnavailableException("Node $address cannot receive message because it is isolated")
+                        }
+                        val response = receiver.receive(message.src, message.payload)
+                        message.response.complete(response)
+                    } catch (e: Throwable) {
+                        message.response.completeExceptionally(e)
+                    }
                 }
             }
         }
