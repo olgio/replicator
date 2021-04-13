@@ -5,6 +5,7 @@ import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.Tag
 import io.micrometer.core.instrument.Timer
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import io.micrometer.stackdriver.StackdriverConfig
 import io.micrometer.stackdriver.StackdriverMeterRegistry
 import java.time.Duration
@@ -12,7 +13,7 @@ import java.util.concurrent.TimeUnit
 
 object Metrics {
 
-    lateinit var registry: MetricsRegistry
+    var registry: MetricsRegistry = MetricsRegistry(SimpleMeterRegistry())
 
     class MetricsRegistry(private val appMicrometerRegistry: MeterRegistry) {
 
