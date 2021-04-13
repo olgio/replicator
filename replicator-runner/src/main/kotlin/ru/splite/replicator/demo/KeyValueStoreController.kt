@@ -1,5 +1,6 @@
 package ru.splite.replicator.demo
 
+import com.google.common.base.Stopwatch
 import io.ktor.application.*
 import io.ktor.features.*
 import io.ktor.http.*
@@ -14,8 +15,12 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.demo.keyvalue.KeyValueCommand
 import ru.splite.replicator.demo.keyvalue.KeyValueReply
+import ru.splite.replicator.metrics.Metrics
+import ru.splite.replicator.metrics.Metrics.recordStopwatch
 import ru.splite.replicator.statemachine.StateMachineCommandSubmitter
 import ru.splite.replicator.transport.NodeIdentifier
+import java.util.concurrent.TimeUnit
+
 
 class KeyValueStoreController(
     private val port: Int,
@@ -25,6 +30,15 @@ class KeyValueStoreController(
 
     fun start() {
         embeddedServer(Netty, port = port) {
+
+//            install(MicrometerMetrics) {
+//                registry = Metrics.appMicrometerRegistry
+//                meterBinders = listOf(
+//                    JvmMemoryMetrics(),
+//                    JvmGcMetrics(),
+//                    ProcessorMetrics()
+//                )
+//            }
 
             install(StatusPages) {
                 exception<Throwable> { cause ->
@@ -60,15 +74,29 @@ class KeyValueStoreController(
                 get("health") {
                     call.respondText("OK")
                 }
+
+//                get("metrics") {
+//                    call.respond(Metrics.appMicrometerRegistry.scrape())
+//                }
             }
         }.start(wait = false)
     }
 
     private suspend fun submitCommand(command: KeyValueCommand): KeyValueReply {
-        val start = System.currentTimeMillis()
-        val resultBytes = stateMachineCommandSubmitter.submit(KeyValueCommand.serialize(command))
-        LOGGER.debug("Submitted command $command in ${System.currentTimeMillis() - start} ms")
-        return KeyValueReply.deserializer(resultBytes)
+        val stopwatch = Stopwatch.createStarted()
+        val responseResult = kotlin.runCatching {
+            val resultBytes = stateMachineCommandSubmitter.submit(KeyValueCommand.serialize(command))
+            KeyValueReply.deserializer(resultBytes)
+        }
+        stopwatch.stop()
+        LOGGER.debug("Submitted command $command in ${stopwatch.elapsed(TimeUnit.MILLISECONDS)} ms")
+
+        if (responseResult.isSuccess) {
+            Metrics.registry.commandSubmitLatency.recordStopwatch(stopwatch)
+        } else {
+            Metrics.registry.commandSubmitErrorLatency.recordStopwatch(stopwatch)
+        }
+        return responseResult.getOrThrow()
     }
 
     companion object {

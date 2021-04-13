@@ -12,7 +12,7 @@
     <artifactId>transport-grpc</artifactId>
 
     <properties>
-        <grpc.version>1.0.0</grpc.version>
+        <grpc.kotlin.version>1.0.0</grpc.kotlin.version>
     </properties>
 
     <dependencies>
@@ -29,12 +29,7 @@
         <dependency>
             <groupId>io.grpc</groupId>
             <artifactId>grpc-kotlin-stub</artifactId>
-            <version>${grpc.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.grpc</groupId>
-            <artifactId>grpc-netty</artifactId>
-            <version>1.37.0</version>
+            <version>${grpc.kotlin.version}</version>
         </dependency>
     </dependencies>
 
@@ -66,7 +61,7 @@
                             <id>grpc-kotlin</id>
                             <groupId>io.grpc</groupId>
                             <artifactId>protoc-gen-grpc-kotlin</artifactId>
-                            <version>${grpc.version}</version>
+                            <version>${grpc.kotlin.version}</version>
                             <classifier>jdk7</classifier>
                             <mainClass>io.grpc.kotlin.generator.GeneratorRunner</mainClass>
                         </protocPlugin>

@@ -35,15 +35,25 @@ spec:
       #                        - replicator
       #                topologyKey: topology.kubernetes.io/zone
       #              weight: 100
+      volumes:
+        - name: google-cloud-key
+          secret:
+            secretName: replicator-key
       containers:
         - name: replicator
           image: olgnet/replicator:latest
           imagePullPolicy: Always
           command: [ "java" ]
-          args: [ "-Xmx1400M", "-jar", "/app.jar", "--protocol", "RAFT", "--nodes", "replicator-0.replicator-grpc-service.default.svc.cluster.local:6545,replicator-1.replicator-grpc-service.default.svc.cluster.local:6545,replicator-2.replicator-grpc-service.default.svc.cluster.local:6545" ]
+          args: [ "-Xmx1400M", "-jar", "/app.jar", "--protocol", "ATLAS", "--nodes", "replicator-0.replicator-grpc-service.default.svc.cluster.local:6545,replicator-1.replicator-grpc-service.default.svc.cluster.local:6545,replicator-2.replicator-grpc-service.default.svc.cluster.local:6545" ]
           ports:
             - containerPort: 8000
             - containerPort: 6545
+          volumeMounts:
+            - mountPath: /var/secrets/google
+              name: google-cloud-key
+          env:
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secrets/google/key.json
           resources:
             limits:
               cpu: 700m

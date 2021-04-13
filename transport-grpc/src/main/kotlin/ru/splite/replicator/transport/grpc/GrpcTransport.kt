@@ -1,5 +1,6 @@
 package ru.splite.replicator.transport.grpc
 
+import com.google.common.base.Stopwatch
 import com.google.protobuf.ByteString
 import io.grpc.Server
 import io.grpc.ServerBuilder
@@ -8,6 +9,8 @@ import org.slf4j.LoggerFactory
 import ru.splite.replicator.message.proto.BinaryMessageRequest
 import ru.splite.replicator.message.proto.BinaryMessageResponse
 import ru.splite.replicator.message.proto.BinaryRpcGrpcKt
+import ru.splite.replicator.metrics.Metrics
+import ru.splite.replicator.metrics.Metrics.recordStopwatch
 import ru.splite.replicator.transport.NodeIdentifier
 import ru.splite.replicator.transport.Receiver
 import ru.splite.replicator.transport.Transport
@@ -102,7 +105,9 @@ class GrpcTransport(addresses: Map<NodeIdentifier, GrpcAddress>) : Transport, Cl
                 check(stubs.containsKey(src)) {
                     "Cannot receive message from $src because stub not found"
                 }
+                val stopwatch = Stopwatch.createStarted()
                 val responseBytes = receiver.receive(src, request.message.toByteArray())
+                Metrics.registry.receiveMessageLatency.recordStopwatch(stopwatch.stop())
                 return BinaryMessageResponse
                     .newBuilder()
                     .setMessage(ByteString.copyFrom(responseBytes))

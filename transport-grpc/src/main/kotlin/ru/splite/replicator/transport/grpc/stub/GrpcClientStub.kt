@@ -1,5 +1,6 @@
 package ru.splite.replicator.transport.grpc.stub
 
+import com.google.common.base.Stopwatch
 import com.google.protobuf.ByteString
 import io.grpc.ConnectivityState
 import io.grpc.ManagedChannel
@@ -8,6 +9,8 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.message.proto.BinaryMessageRequest
 import ru.splite.replicator.message.proto.BinaryRpcGrpcKt
+import ru.splite.replicator.metrics.Metrics
+import ru.splite.replicator.metrics.Metrics.recordStopwatch
 import ru.splite.replicator.transport.NodeIdentifier
 import ru.splite.replicator.transport.grpc.GrpcAddress
 import ru.splite.replicator.transport.grpc.ShutdownSupportable
@@ -15,7 +18,9 @@ import java.util.concurrent.TimeUnit
 
 internal class GrpcClientStub(override val address: GrpcAddress) : ClientStub, ShutdownSupportable {
 
-    private val stub = createStub()
+    private val stub by lazy {
+        createStub()
+    }
 
     override val unavailabilityRank: Int
         get() {
@@ -33,10 +38,11 @@ internal class GrpcClientStub(override val address: GrpcAddress) : ClientStub, S
             .setFrom(from.identifier)
             .setMessage(ByteString.copyFrom(bytes))
             .build()
-
-        val start = System.currentTimeMillis()
+        val stopwatch = Stopwatch.createStarted()
         val response = stub.call(request).message.toByteArray()
-        LOGGER.debug("Sent message to $address in ${System.currentTimeMillis() - start} ms")
+        stopwatch.stop()
+        LOGGER.debug("Sent message to $address in ${stopwatch.elapsed(TimeUnit.MILLISECONDS)} ms")
+        Metrics.registry.sendMessageLatency.recordStopwatch(stopwatch)
         return response
     }
 
