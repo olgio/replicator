@@ -3,6 +3,7 @@ package ru.splite.replicator
 import kotlinx.serialization.Serializable
 import ru.splite.replicator.graph.Dependency
 import ru.splite.replicator.id.Id
+import ru.splite.replicator.state.Command
 import ru.splite.replicator.transport.NodeIdentifier
 
 @Serializable
@@ -24,7 +25,7 @@ sealed class AtlasMessage {
     @Serializable
     data class MCollect(
         override val commandId: Id<NodeIdentifier>,
-        val command: ByteArray,
+        val command: Command.WithPayload,
         val quorum: Set<NodeIdentifier> = emptySet(),
         val remoteDependencies: Set<Dependency> = emptySet()
     ) : AtlasMessage(), PerCommandMessage {
@@ -65,7 +66,7 @@ sealed class AtlasMessage {
     data class MCommit(
         override val commandId: Id<NodeIdentifier>,
         val value: ConsensusValue,
-        val command: ByteArray
+        val command: Command
     ) : AtlasMessage(), PerCommandMessage {
 
         override fun toString(): String {
@@ -114,7 +115,7 @@ sealed class AtlasMessage {
     @Serializable
     data class MRecovery(
         override val commandId: Id<NodeIdentifier>,
-        val command: ByteArray,
+        val command: Command,
         val ballot: Long
     ) : AtlasMessage(), PerCommandMessage {
 

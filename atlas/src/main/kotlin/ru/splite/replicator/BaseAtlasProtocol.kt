@@ -11,6 +11,7 @@ import ru.splite.replicator.executor.CommandExecutor
 import ru.splite.replicator.graph.Dependency
 import ru.splite.replicator.id.Id
 import ru.splite.replicator.id.IdGenerator
+import ru.splite.replicator.state.Command
 import ru.splite.replicator.state.CommandState
 import ru.splite.replicator.state.QuorumDependencies
 import ru.splite.replicator.statemachine.ConflictIndex
@@ -41,17 +42,19 @@ class BaseAtlasProtocol(
         private val recoveryAcknowledgments by lazy { mutableMapOf<NodeIdentifier, AtlasMessage.MRecoveryAck>() }
 
         override suspend fun buildCollect(
-            command: ByteArray,
+            commandBytes: ByteArray,
             fastQuorumNodes: Set<NodeIdentifier>
         ): AtlasMessage.MCollect {
             if (fastQuorumNodes.size != config.fastQuorumSize) {
                 error("Fast quorum must be ${config.fastQuorumSize} size but ${fastQuorumNodes.size} received")
             }
 
+            val command = Command.WithPayload(commandBytes)
+
             val collectMessage = withLock(commandId) { commandState ->
                 commandState.checkStatusIs(CommandState.Status.START)
                 val dependency = Dependency(commandId)
-                val dependencies = conflictIndex.putAndGetConflicts(dependency, command)
+                val dependencies = conflictIndex.putAndGetConflicts(dependency, commandBytes)
                 AtlasMessage.MCollect(commandId, command, fastQuorumNodes, dependencies)
             }
 
@@ -69,8 +72,12 @@ class BaseAtlasProtocol(
                 }
                 val newConsensusValue = commandState.synodState.consensusValue
                     ?: error("No consensus value for commit")
-                val command = if (withPayload) commandState.command else null
-                AtlasMessage.MCommit(commandId, newConsensusValue, command ?: ByteArray(0))
+                val command = when (commandState.command) {
+                    is Command.WithPayload -> if (withPayload) commandState.command else Command.Empty
+                    is Command.WithNoop -> commandState.command
+                    is Command.Empty -> error("Cannot commit Empty command")
+                }
+                AtlasMessage.MCommit(commandId, newConsensusValue, command)
             }
             handleCommit(commitMessage)
             return commitMessage
@@ -134,7 +141,6 @@ class BaseAtlasProtocol(
         override suspend fun buildRecovery(): AtlasMessage.MRecovery {
             val recoveryMessage = withLock(commandId) { commandState ->
                 val command = commandState.command
-                    ?: error("Recovery cannot be initiated from node without payload")
 
                 val currentBallot = commandState.synodState.ballot
                 val newBallot = config.processId + config.n * (currentBallot / config.n + 1)
@@ -263,8 +269,14 @@ class BaseAtlasProtocol(
             }
 
             val dependency = Dependency(message.commandId)
-            val dependencies = if (from == this.address) message.remoteDependencies else
-                conflictIndex.putAndGetConflicts(dependency, message.command, message.remoteDependencies)
+            val dependencies = when (from) {
+                this.address -> message.remoteDependencies
+                else -> conflictIndex.putAndGetConflicts(
+                    dependency,
+                    message.command.payload,
+                    message.remoteDependencies
+                )
+            }
 
             commandState.status = CommandState.Status.COLLECT
             commandState.quorum = message.quorum
@@ -305,7 +317,7 @@ class BaseAtlasProtocol(
     override suspend fun handleCommit(message: AtlasMessage.MCommit): AtlasMessage.MCommitAck =
         withLock(message) { commandState ->
             if (commandState.status == CommandState.Status.START) {
-                if (message.command.isEmpty()) {
+                if (message.command == Command.Empty) {
                     bufferedCommits[message.commandId] = message
                     LOGGER.debug("Commit will be buffered until the payload arrives. commandId = ${message.commandId}")
                     return AtlasMessage.MCommitAck(
@@ -330,7 +342,7 @@ class BaseAtlasProtocol(
                 return AtlasMessage.MCommit(
                     commandId = message.commandId,
                     value = consensusValue,
-                    command = commandState.command ?: ByteArray(0)
+                    command = commandState.command
                 )
             }
 
@@ -347,7 +359,10 @@ class BaseAtlasProtocol(
             if (commandState.synodState.ballot == 0L && commandState.status == CommandState.Status.START) {
                 commandState.command = message.command
                 val dependency = Dependency(message.commandId)
-                val dependencies = conflictIndex.putAndGetConflicts(dependency, message.command)
+                val dependencies = when (message.command) {
+                    is Command.WithPayload -> conflictIndex.putAndGetConflicts(dependency, message.command.payload)
+                    else -> emptySet()
+                }
                 commandState.synodState.consensusValue = AtlasMessage.ConsensusValue(
                     isNoop = false,
                     dependencies = dependencies
@@ -382,12 +397,14 @@ class BaseAtlasProtocol(
                 commandId = message.commandId
             )
         }
-        val command = commandState.command
-            ?: error("Command in status ${commandState.status} but payload is null")
+        val command = when (message.command) {
+            is Command.Empty -> commandState.command
+            else -> message.command
+        }
+        check(command !is Command.Empty)
 
         commandState.synodState.consensusValue = message.value
 
-        //TODO noop
         commandExecutor.commit(message.commandId, command, message.value.dependencies)
 
         commandState.status = CommandState.Status.COMMIT
