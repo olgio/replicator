@@ -1,6 +1,7 @@
 package ru.splite.replicator.metrics
 
 import com.google.common.base.Stopwatch
+import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.Tag
 import io.micrometer.core.instrument.Timer
@@ -46,6 +47,17 @@ object Metrics {
             .publishPercentiles(0.05, 0.5, 0.95, 0.99)
             .publishPercentileHistogram()
             .register(appMicrometerRegistry)
+
+        val atlasCommandExecutorLatency: Timer = Timer
+            .builder("replicator.atlas.executor.latency")
+            .minimumExpectedValue(Duration.ofMillis(1))
+            .maximumExpectedValue(Duration.ofSeconds(30))
+            .publishPercentiles(0.05, 0.5, 0.95, 0.99)
+            .publishPercentileHistogram()
+            .register(appMicrometerRegistry)
+
+        val atlasRecoveryCounter: Counter =
+            appMicrometerRegistry.counter("replicator.atlas.recovery.count")
     }
 
     fun initializeStackdriver(projectId: String, tags: List<Tag>) {
@@ -64,5 +76,14 @@ object Metrics {
 
     fun Timer.recordStopwatch(stopwatch: Stopwatch) {
         this.record(stopwatch.elapsed(TimeUnit.NANOSECONDS), TimeUnit.NANOSECONDS)
+    }
+
+    inline fun Timer.measureAndRecord(action: () -> Unit) {
+        val stopwatch = Stopwatch.createStarted()
+        try {
+            action()
+        } finally {
+            this.record(stopwatch.stop().elapsed(TimeUnit.NANOSECONDS), TimeUnit.NANOSECONDS)
+        }
     }
 }

@@ -1,9 +1,13 @@
 package ru.splite.replicator
 
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.mapNotNull
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.executor.CommandExecutor
+import ru.splite.replicator.metrics.Metrics
 import ru.splite.replicator.state.CommandState
 import ru.splite.replicator.statemachine.StateMachineCommandSubmitter
 import ru.splite.replicator.timer.flow.TimerFactory
@@ -130,6 +134,7 @@ class AtlasCommandSubmitter(
 
     private suspend fun recoveryCommand(commandCoordinator: CommandCoordinator): AtlasMessage.MCommit {
         LOGGER.debug("Started recovery commandId=${commandCoordinator.commandId}")
+        Metrics.registry.atlasRecoveryCounter.increment()
         val recoveryMessage = commandCoordinator.buildRecovery()
 
         val decisionMessage = messageSender.sendToAllAsFlow(messageSender.getAllNodes()) {

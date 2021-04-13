@@ -10,6 +10,8 @@ import org.slf4j.LoggerFactory
 import ru.splite.replicator.graph.Dependency
 import ru.splite.replicator.graph.DependencyGraph
 import ru.splite.replicator.id.Id
+import ru.splite.replicator.metrics.Metrics
+import ru.splite.replicator.metrics.Metrics.measureAndRecord
 import ru.splite.replicator.statemachine.StateMachine
 import ru.splite.replicator.transport.NodeIdentifier
 import java.util.concurrent.ConcurrentHashMap
@@ -59,7 +61,9 @@ class CommandExecutor(
     fun launchCommandExecutor(coroutineContext: CoroutineContext, coroutineScope: CoroutineScope): Job {
         return coroutineScope.launch(coroutineContext) {
             for (newCommitEvent in committedChannel) {
-                executeAvailableCommands()
+                Metrics.registry.atlasCommandExecutorLatency.measureAndRecord {
+                    executeAvailableCommands()
+                }
             }
         }
     }
