@@ -1,9 +1,12 @@
 package ru.splite.replicator.executor
 
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.slf4j.LoggerFactory
@@ -12,6 +15,7 @@ import ru.splite.replicator.graph.DependencyGraph
 import ru.splite.replicator.id.Id
 import ru.splite.replicator.metrics.Metrics
 import ru.splite.replicator.metrics.Metrics.measureAndRecord
+import ru.splite.replicator.state.Command
 import ru.splite.replicator.statemachine.StateMachine
 import ru.splite.replicator.transport.NodeIdentifier
 import java.util.concurrent.ConcurrentHashMap
@@ -28,7 +32,7 @@ class CommandExecutor(
 
     val commandBlockersFlow: Flow<Id<NodeIdentifier>> = commandBlockersChannel.receiveAsFlow()
 
-    private val commandBuffer = ConcurrentHashMap<Id<NodeIdentifier>, ByteArray>()
+    private val commandBuffer = ConcurrentHashMap<Id<NodeIdentifier>, Command>()
 
     private val completableDeferredResponses = ConcurrentHashMap<Id<NodeIdentifier>, CompletableDeferred<ByteArray>>()
 
@@ -48,8 +52,7 @@ class CommandExecutor(
         }
     }
 
-    suspend fun commit(commandId: Id<NodeIdentifier>, command: ByteArray, dependencies: Set<Dependency>) {
-        //TODO noop
+    suspend fun commit(commandId: Id<NodeIdentifier>, command: Command, dependencies: Set<Dependency>) {
         commandBuffer[commandId] = command
         graphMutex.withLock {
             dependencyGraph.commit(Dependency(commandId), dependencies)
@@ -91,23 +94,32 @@ class CommandExecutor(
     private fun executeCommand(commandId: Id<NodeIdentifier>) {
         LOGGER.debug("Executing on state machine commandId=$commandId")
         val response = kotlin.runCatching {
-            stateMachine.apply(
-                commandBuffer.remove(commandId)
-                    ?: error("Cannot extract command from buffer. commandId = $commandId")
-            )
+            when (val commandToExecute = commandBuffer.remove(commandId)) {
+                is Command.WithPayload -> {
+                    stateMachine.apply(commandToExecute.payload)
+                }
+                is Command.WithNoop -> null
+                else -> error(
+                    "Cannot extract command from buffer. " +
+                            "value=$commandToExecute, commandId=$commandId"
+                )
+            }
         }
         LOGGER.debug("Executed on state machine commandId=$commandId")
-
         completableDeferredResponses[commandId]?.let { deferredResponse ->
-            deferredResponse.completeWith(response)
-            if (response.isFailure) {
+            response.onSuccess { payload ->
+                if (payload == null) {
+                    LOGGER.warn("Command cannot be completed because value is NOOP. commandId=$commandId")
+                } else {
+                    deferredResponse.complete(payload)
+                }
+            }.onFailure { exception ->
                 LOGGER.error(
-                    "Cannot execute commandId=$commandId because of nested exception",
-                    response.exceptionOrNull()
+                    "Cannot execute command because of nested exception. commandId=$commandId",
+                    exception
                 )
-                response.getOrThrow()
-            } else {
-                LOGGER.debug("Completed deferred for awaiting client request. commandId=$commandId")
+                deferredResponse.completeExceptionally(exception)
+                throw exception
             }
         }
     }
