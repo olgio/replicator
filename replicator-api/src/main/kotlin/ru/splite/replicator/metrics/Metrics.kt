@@ -13,9 +13,15 @@ import java.util.concurrent.TimeUnit
 
 object Metrics {
 
-    var registry: MetricsRegistry = MetricsRegistry(SimpleMeterRegistry())
+    private var meterRegistryBuildAction: () -> MeterRegistry = {
+        SimpleMeterRegistry()
+    }
 
-    class MetricsRegistry(private val appMicrometerRegistry: MeterRegistry) {
+    val registry: MetricsRegistry by lazy {
+        MetricsRegistry(meterRegistryBuildAction())
+    }
+
+    class MetricsRegistry(micrometerRegistry: MeterRegistry) {
 
         val commandSubmitLatency: Timer = Timer
             .builder("replicator.submit.latency")
@@ -23,7 +29,7 @@ object Metrics {
             .maximumExpectedValue(Duration.ofSeconds(30))
             .publishPercentiles(0.05, 0.5, 0.95, 0.99)
             .publishPercentileHistogram()
-            .register(appMicrometerRegistry)
+            .register(micrometerRegistry)
 
         val commandSubmitErrorLatency: Timer = Timer
             .builder("replicator.submit.error.latency")
@@ -31,7 +37,7 @@ object Metrics {
             .maximumExpectedValue(Duration.ofSeconds(30))
             .publishPercentiles(0.05, 0.5, 0.95, 0.99)
             .publishPercentileHistogram()
-            .register(appMicrometerRegistry)
+            .register(micrometerRegistry)
 
         val sendMessageLatency: Timer = Timer
             .builder("replicator.transport.send.latency")
@@ -39,7 +45,7 @@ object Metrics {
             .maximumExpectedValue(Duration.ofSeconds(30))
             .publishPercentiles(0.05, 0.5, 0.95, 0.99)
             .publishPercentileHistogram()
-            .register(appMicrometerRegistry)
+            .register(micrometerRegistry)
 
         val receiveMessageLatency: Timer = Timer
             .builder("replicator.transport.receive.latency")
@@ -47,7 +53,7 @@ object Metrics {
             .maximumExpectedValue(Duration.ofSeconds(30))
             .publishPercentiles(0.05, 0.5, 0.95, 0.99)
             .publishPercentileHistogram()
-            .register(appMicrometerRegistry)
+            .register(micrometerRegistry)
 
         val atlasCommandExecutorLatency: Timer = Timer
             .builder("replicator.atlas.executor.latency")
@@ -55,24 +61,26 @@ object Metrics {
             .maximumExpectedValue(Duration.ofSeconds(30))
             .publishPercentiles(0.05, 0.5, 0.95, 0.99)
             .publishPercentileHistogram()
-            .register(appMicrometerRegistry)
+            .register(micrometerRegistry)
 
         val atlasRecoveryCounter: Counter =
-            appMicrometerRegistry.counter("replicator.atlas.recovery.count")
+            micrometerRegistry.counter("replicator.atlas.recovery.count")
     }
 
     fun initializeStackdriver(projectId: String, tags: List<Tag>) {
-        val meterRegistry = StackdriverMeterRegistry.builder(object : StackdriverConfig {
-            override fun projectId(): String {
-                return projectId
-            }
+        this.meterRegistryBuildAction = {
+            val meterRegistry = StackdriverMeterRegistry.builder(object : StackdriverConfig {
+                override fun projectId(): String {
+                    return projectId
+                }
 
-            override fun get(p0: String): String? {
-                return null
-            }
-        }).build()
-        meterRegistry.config().commonTags(tags)
-        this.registry = MetricsRegistry(meterRegistry)
+                override fun get(p0: String): String? {
+                    return null
+                }
+            }).build()
+            meterRegistry.config().commonTags(tags)
+            meterRegistry
+        }
     }
 
     fun Timer.recordStopwatch(stopwatch: Stopwatch) {
