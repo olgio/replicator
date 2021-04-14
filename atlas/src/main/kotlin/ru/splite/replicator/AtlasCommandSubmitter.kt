@@ -69,9 +69,11 @@ class AtlasCommandSubmitter(
 
         return when (collectAckDecision) {
             CommandCoordinator.CollectAckDecision.COMMIT -> {
+                Metrics.registry.atlasFastPathCounter.increment()
                 sendCommitToAllExternalContext(commandCoordinator, fastQuorumNodes)
             }
             CommandCoordinator.CollectAckDecision.CONFLICT -> {
+                Metrics.registry.atlasSlowPathCounter.increment()
                 LOGGER.debug("Chosen slow path. commandId=${commandCoordinator.commandId}")
                 val consensusMessage = commandCoordinator.buildConsensus()
                 sendConsensusMessage(commandCoordinator, fastQuorumNodes, consensusMessage)
