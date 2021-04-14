@@ -65,6 +65,12 @@ object Metrics {
 
         val atlasRecoveryCounter: Counter =
             micrometerRegistry.counter("replicator.atlas.recovery.count")
+
+        val atlasFastPathCounter: Counter =
+            micrometerRegistry.counter("replicator.atlas.fastpath.count")
+
+        val atlasSlowPathCounter: Counter =
+            micrometerRegistry.counter("replicator.atlas.slowpath.count")
     }
 
     fun initializeStackdriver(projectId: String, tags: List<Tag>) {
