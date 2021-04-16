@@ -9,11 +9,11 @@
         </layout>
     </appender>
 
-    <logger name="ru.splite.replicator" level="debug" additivity="false">
+    <logger name="ru.splite.replicator" level="error" additivity="false">
         <appender-ref ref="CONSOLE"/>
     </logger>
 
-    <root level="info">
+    <root level="error">
         <appender-ref ref="CONSOLE"/>
     </root>
 

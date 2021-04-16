@@ -9,7 +9,7 @@
         </layout>
     </appender>
 
-    <logger name="ru.splite.replicator" level="debug" additivity="false">
+    <logger name="ru.splite.replicator" level="warn" additivity="false">
         <appender-ref ref="CONSOLE"/>
     </logger>
 
