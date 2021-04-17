@@ -1,5 +1,6 @@
 package ru.splite.replicator.demo
 
+import io.micrometer.core.instrument.Tag
 import kotlinx.cli.ArgParser
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.newFixedThreadPoolContext
@@ -11,6 +12,7 @@ import org.kodein.di.singleton
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.demo.keyvalue.KeyValueStateMachine
+import ru.splite.replicator.metrics.Metrics
 import ru.splite.replicator.statemachine.ConflictOrderedStateMachine
 import ru.splite.replicator.timer.flow.DelayTimerFactory
 import ru.splite.replicator.timer.flow.TimerFactory
@@ -72,10 +74,18 @@ fun main(args: Array<String>) {
 
     parser.parse(args)
 
+    config.googleProjectId?.let { googleProjectId ->
+        Metrics.initializeStackdriver(
+            googleProjectId, listOf(
+                Tag.of("protocol", config.protocol.name)
+            )
+        )
+    }
+
     val protocolDependencyContainer = when (config.protocol) {
         RunnerConfig.Protocol.RAFT -> RaftDependencyContainer.module
         RunnerConfig.Protocol.ATLAS -> AtlasDependencyContainer.module
-        RunnerConfig.Protocol.PAXOS -> TODO()
+        RunnerConfig.Protocol.PAXOS -> PaxosDependencyContainer.module
     }
 
     runBlocking(newFixedThreadPoolContext(config.threads, "node-${config.nodeIdentifier}")) {

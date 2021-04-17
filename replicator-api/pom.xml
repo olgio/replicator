@@ -11,4 +11,20 @@
 
     <artifactId>replicator-api</artifactId>
 
+    <properties>
+        <grpc.version>1.37.0</grpc.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.google.cloud</groupId>
+            <artifactId>google-cloud-monitoring</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-stackdriver</artifactId>
+            <version>1.6.5</version>
+        </dependency>
+    </dependencies>
+
 </project>
