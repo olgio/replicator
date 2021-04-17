@@ -7,10 +7,10 @@ import ru.splite.replicator.transport.Transport
 import ru.splite.replicator.transport.TypedActor
 import ru.splite.replicator.transport.sender.MessageSender
 
-class RaftProtocolController(
+open class RaftProtocolController(
     transport: Transport,
     val config: RaftProtocolConfig,
-    val protocol: RaftProtocol
+    open val protocol: RaftProtocol
 ) : TypedActor<RaftMessage>(config.address, transport, RaftMessage.serializer()) {
 
     private val messageSender = MessageSender(this, config.sendMessageTimeout)
