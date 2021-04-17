@@ -4,6 +4,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.slf4j.LoggerFactory
+import ru.splite.replicator.log.LogEntry
 import ru.splite.replicator.log.ReplicatedLogStore
 import ru.splite.replicator.raft.event.AppendEntryEvent
 import ru.splite.replicator.raft.event.CommitEvent
@@ -24,7 +25,10 @@ import java.time.Instant
 class BaseRaftProtocol(
     override val replicatedLogStore: ReplicatedLogStore,
     private val config: RaftProtocolConfig,
-    private val localNodeState: RaftLocalNodeState
+    private val localNodeState: RaftLocalNodeState,
+    commitEntriesCondition: (LogEntry, Long) -> Boolean = { logEntry, currentTerm ->
+        logEntry.term == currentTerm
+    }
 ) : RaftProtocol {
 
     override val address: NodeIdentifier
@@ -43,9 +47,7 @@ class BaseRaftProtocol(
     override val leaderAliveEventFlow: StateFlow<Instant> = leaderAliveMutableFlow
 
     private val commitEntries =
-        CommitEntries(localNodeState, replicatedLogStore) { logEntry, currentTerm ->
-            logEntry.term == currentTerm
-        }
+        CommitEntries(localNodeState, replicatedLogStore, commitEntriesCondition)
 
     private val appendEntriesSender = AppendEntriesSender(config.address, localNodeState, replicatedLogStore)
 
