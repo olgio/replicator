@@ -4,7 +4,7 @@ import kotlinx.coroutines.*
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Disabled
 import org.kodein.di.*
-import ru.splite.replicator.AtlasProtocolConfig
+import ru.splite.replicator.atlas.AtlasProtocolConfig
 import ru.splite.replicator.demo.keyvalue.KeyValueCommand
 import ru.splite.replicator.demo.keyvalue.KeyValueReply
 import ru.splite.replicator.demo.keyvalue.KeyValueStateMachine

@@ -6,7 +6,7 @@ import kotlinx.cli.ArgType
 import kotlinx.cli.default
 import kotlinx.coroutines.*
 import org.kodein.di.*
-import ru.splite.replicator.AtlasProtocolConfig
+import ru.splite.replicator.atlas.AtlasProtocolConfig
 import ru.splite.replicator.demo.AtlasDependencyContainer
 import ru.splite.replicator.demo.RaftDependencyContainer
 import ru.splite.replicator.demo.keyvalue.KeyValueCommand
