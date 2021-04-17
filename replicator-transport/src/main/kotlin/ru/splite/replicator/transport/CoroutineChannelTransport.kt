@@ -21,7 +21,7 @@ class CoroutineChannelTransport(
     private val isolatedNodes: MutableSet<NodeIdentifier> = mutableSetOf()
 
     override val nodes: Collection<NodeIdentifier>
-        get() = actors.keys
+        get() = actors.keys.sortedBy { if (isNodeIsolated(it)) 1 else 0 }
 
     fun isNodeIsolated(nodeIdentifier: NodeIdentifier): Boolean {
         return isolatedNodes.contains(nodeIdentifier)
