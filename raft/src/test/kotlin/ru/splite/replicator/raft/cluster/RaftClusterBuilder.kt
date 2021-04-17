@@ -5,7 +5,11 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.test.TestCoroutineScope
 import ru.splite.replicator.demo.keyvalue.KeyValueStateMachine
 import ru.splite.replicator.log.InMemoryReplicatedLogStore
-import ru.splite.replicator.raft.*
+import ru.splite.replicator.raft.JobLauncher
+import ru.splite.replicator.raft.RaftCommandSubmitter
+import ru.splite.replicator.raft.RaftProtocolConfig
+import ru.splite.replicator.raft.RaftProtocolController
+import ru.splite.replicator.raft.protocol.BaseRaftProtocol
 import ru.splite.replicator.raft.state.RaftLocalNodeState
 import ru.splite.replicator.timer.flow.DelayTimerFactory
 import ru.splite.replicator.timer.flow.TimeTick

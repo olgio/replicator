@@ -2,6 +2,7 @@ package ru.splite.replicator.raft
 
 import ru.splite.replicator.raft.event.IndexWithTerm
 import ru.splite.replicator.raft.message.RaftMessage
+import ru.splite.replicator.raft.protocol.RaftProtocol
 import ru.splite.replicator.transport.NodeIdentifier
 import ru.splite.replicator.transport.Transport
 import ru.splite.replicator.transport.TypedActor

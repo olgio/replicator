@@ -8,6 +8,8 @@ import kotlinx.coroutines.flow.mapNotNull
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.executor.CommandExecutor
 import ru.splite.replicator.metrics.Metrics
+import ru.splite.replicator.protocol.AtlasProtocol
+import ru.splite.replicator.protocol.CommandCoordinator
 import ru.splite.replicator.state.CommandState
 import ru.splite.replicator.statemachine.StateMachineCommandSubmitter
 import ru.splite.replicator.timer.flow.TimerFactory

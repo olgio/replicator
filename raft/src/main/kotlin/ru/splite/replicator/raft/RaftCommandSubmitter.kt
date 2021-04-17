@@ -10,6 +10,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.raft.event.IndexWithTerm
+import ru.splite.replicator.raft.protocol.RaftProtocol
 import ru.splite.replicator.statemachine.StateMachine
 import ru.splite.replicator.statemachine.StateMachineCommandSubmitter
 import java.util.concurrent.ConcurrentHashMap

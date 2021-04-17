@@ -1,4 +1,4 @@
-package ru.splite.replicator.paxos.state.leader
+package ru.splite.replicator.paxos.protocol.leader
 
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -12,7 +12,7 @@ import ru.splite.replicator.raft.state.NodeType
 import ru.splite.replicator.transport.NodeIdentifier
 import ru.splite.replicator.transport.sender.MessageSender
 
-class VoteRequestSender(
+internal class VoteRequestSender(
     private val nodeIdentifier: NodeIdentifier,
     private val localNodeState: PaxosLocalNodeState,
     private val logStore: ReplicatedLogStore

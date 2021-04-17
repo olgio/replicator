@@ -1,14 +1,14 @@
-package ru.splite.replicator.paxos
+package ru.splite.replicator.paxos.protocol
 
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.log.ReplicatedLogStore
+import ru.splite.replicator.paxos.protocol.follower.VoteRequestHandler
+import ru.splite.replicator.paxos.protocol.leader.VoteRequestSender
 import ru.splite.replicator.paxos.state.PaxosLocalNodeState
-import ru.splite.replicator.paxos.state.follower.VoteRequestHandler
-import ru.splite.replicator.paxos.state.leader.VoteRequestSender
-import ru.splite.replicator.raft.BaseRaftProtocol
-import ru.splite.replicator.raft.RaftProtocol
 import ru.splite.replicator.raft.RaftProtocolConfig
 import ru.splite.replicator.raft.message.RaftMessage
+import ru.splite.replicator.raft.protocol.BaseRaftProtocol
+import ru.splite.replicator.raft.protocol.RaftProtocol
 import ru.splite.replicator.transport.sender.MessageSender
 
 class BasePaxosProtocol(

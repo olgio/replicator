@@ -1,4 +1,4 @@
-package ru.splite.replicator.raft
+package ru.splite.replicator.raft.protocol
 
 import kotlinx.coroutines.flow.StateFlow
 import ru.splite.replicator.log.ReplicatedLogStore

@@ -1,6 +1,5 @@
 package ru.splite.replicator.raft
 
-import ru.splite.replicator.raft.state.asMajority
 import ru.splite.replicator.transport.NodeIdentifier
 
 data class RaftProtocolConfig(

@@ -1,4 +1,4 @@
-package ru.splite.replicator.raft
+package ru.splite.replicator.raft.protocol
 
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -6,18 +6,19 @@ import kotlinx.coroutines.flow.StateFlow
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.log.LogEntry
 import ru.splite.replicator.log.ReplicatedLogStore
+import ru.splite.replicator.raft.RaftProtocolConfig
 import ru.splite.replicator.raft.event.AppendEntryEvent
 import ru.splite.replicator.raft.event.CommitEvent
 import ru.splite.replicator.raft.event.IndexWithTerm
 import ru.splite.replicator.raft.message.RaftMessage
+import ru.splite.replicator.raft.protocol.follower.AppendEntriesHandler
+import ru.splite.replicator.raft.protocol.follower.VoteRequestHandler
+import ru.splite.replicator.raft.protocol.leader.AppendEntriesSender
+import ru.splite.replicator.raft.protocol.leader.CommandAppender
+import ru.splite.replicator.raft.protocol.leader.CommitEntries
+import ru.splite.replicator.raft.protocol.leader.VoteRequestSender
 import ru.splite.replicator.raft.state.NodeType
 import ru.splite.replicator.raft.state.RaftLocalNodeState
-import ru.splite.replicator.raft.state.follower.AppendEntriesHandler
-import ru.splite.replicator.raft.state.follower.VoteRequestHandler
-import ru.splite.replicator.raft.state.leader.AppendEntriesSender
-import ru.splite.replicator.raft.state.leader.CommandAppender
-import ru.splite.replicator.raft.state.leader.CommitEntries
-import ru.splite.replicator.raft.state.leader.VoteRequestSender
 import ru.splite.replicator.transport.NodeIdentifier
 import ru.splite.replicator.transport.sender.MessageSender
 import java.time.Instant

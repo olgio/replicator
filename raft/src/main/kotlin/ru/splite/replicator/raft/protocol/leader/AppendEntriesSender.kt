@@ -1,4 +1,4 @@
-package ru.splite.replicator.raft.state.leader
+package ru.splite.replicator.raft.protocol.leader
 
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
@@ -11,7 +11,7 @@ import ru.splite.replicator.raft.state.RaftLocalNodeState
 import ru.splite.replicator.transport.NodeIdentifier
 import ru.splite.replicator.transport.sender.MessageSender
 
-class AppendEntriesSender(
+internal class AppendEntriesSender(
     private val nodeIdentifier: NodeIdentifier,
     private val localNodeState: RaftLocalNodeState,
     private val logStore: ReplicatedLogStore

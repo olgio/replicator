@@ -1,5 +1,7 @@
-package ru.splite.replicator
+package ru.splite.replicator.protocol
 
+import ru.splite.replicator.AtlasMessage
+import ru.splite.replicator.AtlasProtocolConfig
 import ru.splite.replicator.id.Id
 import ru.splite.replicator.state.CommandState
 import ru.splite.replicator.transport.NodeIdentifier

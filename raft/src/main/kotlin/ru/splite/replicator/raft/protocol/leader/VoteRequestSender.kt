@@ -1,4 +1,4 @@
-package ru.splite.replicator.raft.state.leader
+package ru.splite.replicator.raft.protocol.leader
 
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -11,7 +11,7 @@ import ru.splite.replicator.raft.state.RaftLocalNodeState
 import ru.splite.replicator.transport.NodeIdentifier
 import ru.splite.replicator.transport.sender.MessageSender
 
-class VoteRequestSender(
+internal class VoteRequestSender(
     private val nodeIdentifier: NodeIdentifier,
     private val localNodeState: RaftLocalNodeState,
     private val logStore: ReplicatedLogStore

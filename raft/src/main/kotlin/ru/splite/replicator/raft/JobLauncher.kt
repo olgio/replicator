@@ -5,6 +5,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
+import ru.splite.replicator.raft.protocol.RaftProtocol
 import ru.splite.replicator.timer.flow.TimerFactory
 import kotlin.coroutines.CoroutineContext
 
