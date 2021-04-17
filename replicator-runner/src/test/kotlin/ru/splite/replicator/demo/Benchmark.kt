@@ -8,8 +8,8 @@ import ru.splite.replicator.AtlasProtocolConfig
 import ru.splite.replicator.demo.keyvalue.KeyValueCommand
 import ru.splite.replicator.demo.keyvalue.KeyValueReply
 import ru.splite.replicator.demo.keyvalue.KeyValueStateMachine
-import ru.splite.replicator.raft.RaftProtocol
 import ru.splite.replicator.raft.RaftProtocolConfig
+import ru.splite.replicator.raft.protocol.RaftProtocol
 import ru.splite.replicator.statemachine.StateMachineCommandSubmitter
 import ru.splite.replicator.timer.flow.DelayTimerFactory
 import ru.splite.replicator.timer.flow.TimerFactory

@@ -1,5 +1,6 @@
 package ru.splite.replicator.paxos
 
+import ru.splite.replicator.paxos.protocol.PaxosProtocol
 import ru.splite.replicator.raft.RaftProtocolConfig
 import ru.splite.replicator.raft.RaftProtocolController
 import ru.splite.replicator.raft.message.RaftMessage

@@ -1,4 +1,4 @@
-package ru.splite.replicator.raft.state.leader
+package ru.splite.replicator.raft.protocol.leader
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -11,7 +11,7 @@ import ru.splite.replicator.raft.state.NodeType
 import ru.splite.replicator.raft.state.RaftLocalNodeState
 import ru.splite.replicator.transport.NodeIdentifier
 
-class CommitEntries(
+internal class CommitEntries(
     private val localNodeState: RaftLocalNodeState,
     private val logStore: ReplicatedLogStore,
     private val logEntryCommittableCondition: (LogEntry, Long) -> Boolean

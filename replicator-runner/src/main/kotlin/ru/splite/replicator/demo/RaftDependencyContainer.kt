@@ -8,7 +8,12 @@ import org.kodein.di.instance
 import org.kodein.di.singleton
 import ru.splite.replicator.log.InMemoryReplicatedLogStore
 import ru.splite.replicator.log.ReplicatedLogStore
-import ru.splite.replicator.raft.*
+import ru.splite.replicator.raft.JobLauncher
+import ru.splite.replicator.raft.RaftCommandSubmitter
+import ru.splite.replicator.raft.RaftProtocolConfig
+import ru.splite.replicator.raft.RaftProtocolController
+import ru.splite.replicator.raft.protocol.BaseRaftProtocol
+import ru.splite.replicator.raft.protocol.RaftProtocol
 import ru.splite.replicator.raft.state.RaftLocalNodeState
 import ru.splite.replicator.statemachine.StateMachineCommandSubmitter
 

@@ -1,11 +1,11 @@
-package ru.splite.replicator.paxos.state.follower
+package ru.splite.replicator.paxos.protocol.follower
 
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.log.ReplicatedLogStore
 import ru.splite.replicator.paxos.state.PaxosLocalNodeState
 import ru.splite.replicator.raft.message.RaftMessage
 
-class VoteRequestHandler(
+internal class VoteRequestHandler(
     private val localNodeState: PaxosLocalNodeState,
     private val logStore: ReplicatedLogStore
 ) {

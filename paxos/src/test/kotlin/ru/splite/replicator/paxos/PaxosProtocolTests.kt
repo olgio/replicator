@@ -6,6 +6,7 @@ import org.assertj.core.api.Assertions.assertThat
 import ru.splite.replicator.demo.Command
 import ru.splite.replicator.demo.hasOnlyCommands
 import ru.splite.replicator.log.InMemoryReplicatedLogStore
+import ru.splite.replicator.paxos.protocol.BasePaxosProtocol
 import ru.splite.replicator.paxos.state.PaxosLocalNodeState
 import ru.splite.replicator.raft.RaftProtocolConfig
 import ru.splite.replicator.transport.CoroutineChannelTransport

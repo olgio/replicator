@@ -1,16 +1,18 @@
-package ru.splite.replicator
+package ru.splite.replicator.protocol
 
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.slf4j.LoggerFactory
-import ru.splite.replicator.CommandCoordinator.CollectAckDecision
-import ru.splite.replicator.CommandCoordinator.ConsensusAckDecision
+import ru.splite.replicator.AtlasMessage
+import ru.splite.replicator.AtlasProtocolConfig
 import ru.splite.replicator.exception.StaleBallotNumberException
 import ru.splite.replicator.exception.UnexpectedCommandStatusException
 import ru.splite.replicator.executor.CommandExecutor
 import ru.splite.replicator.graph.Dependency
 import ru.splite.replicator.id.Id
 import ru.splite.replicator.id.IdGenerator
+import ru.splite.replicator.protocol.CommandCoordinator.CollectAckDecision
+import ru.splite.replicator.protocol.CommandCoordinator.ConsensusAckDecision
 import ru.splite.replicator.state.Command
 import ru.splite.replicator.state.CommandState
 import ru.splite.replicator.state.QuorumDependencies

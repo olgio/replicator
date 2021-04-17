@@ -8,9 +8,9 @@ import org.kodein.di.instance
 import org.kodein.di.singleton
 import ru.splite.replicator.log.InMemoryReplicatedLogStore
 import ru.splite.replicator.log.ReplicatedLogStore
-import ru.splite.replicator.paxos.BasePaxosProtocol
-import ru.splite.replicator.paxos.PaxosProtocol
 import ru.splite.replicator.paxos.PaxosProtocolController
+import ru.splite.replicator.paxos.protocol.BasePaxosProtocol
+import ru.splite.replicator.paxos.protocol.PaxosProtocol
 import ru.splite.replicator.paxos.state.PaxosLocalNodeState
 import ru.splite.replicator.raft.JobLauncher
 import ru.splite.replicator.raft.RaftCommandSubmitter
