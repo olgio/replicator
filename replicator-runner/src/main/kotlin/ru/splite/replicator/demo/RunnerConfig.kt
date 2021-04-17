@@ -32,6 +32,9 @@ class RunnerConfig(parser: ArgParser) {
         .option(type = ArgType.Int, description = "KeyValue store port")
         .default(8000)
 
+    val googleProjectId by parser
+        .option(type = ArgType.String, description = "Google Project Id")
+
     private val protocolString by parser
         .option(fullName = "protocol", type = ArgType.String, description = "Protocol")
         .default(Protocol.ATLAS.name)
