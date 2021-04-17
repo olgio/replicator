@@ -24,6 +24,7 @@ import ru.splite.replicator.transport.NodeIdentifier
 import ru.splite.replicator.transport.Transport
 import java.util.*
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.ceil
 import kotlin.system.measureTimeMillis
 
@@ -39,10 +40,20 @@ class Benchmark {
         data class RaftOnlyLeader(override val n: Int = 3) : Protocol(n, n - n.asMajority())
     }
 
+    data class RaftNode(
+        val protocol: RaftProtocol,
+        val submitter: StateMachineCommandSubmitter<ByteArray, ByteArray>
+    )
+
+    data class AtlasNode(
+        val address: NodeIdentifier,
+        val submitter: StateMachineCommandSubmitter<ByteArray, ByteArray>
+    )
+
     data class BenchmarkConfig(
         val threadCount: Int = 30,
         val concurrency: Int = 30,
-        val iterations: Int = 1000,
+        val iterations: Int = 5000,
         val delayMs: Int = 50,
         val keys: Int = 3
     ) {
@@ -73,9 +84,10 @@ class Benchmark {
                     processId = it.toLong(),
                     n = n,
                     f = protocol.f,
-                    enableRecovery = false,
+                    enableRecovery = true,
                     sendMessageTimeout = 10000L,
-                    commandExecutorTimeout = 10000L
+                    commandExecutorTimeout = 10000L,
+                    commandRecoveryDelay = (300L..600L)
                 )
 
                 DI {
@@ -95,7 +107,20 @@ class Benchmark {
 
             delay(2000)
 
-            startBenchmark(config, protocol, nodes)
+            launch {
+                delay(20000)
+                transport.setNodeIsolated(
+                    nodes.map { it.instance<AtlasProtocolConfig>() }.first().address,
+                    true
+                )
+            }
+
+            val atlasNodes =
+                nodes.map { AtlasNode(address = it.instance<AtlasProtocolConfig>().address, submitter = it.instance()) }
+
+            startBenchmark(config, protocol) {
+                atlasNodes.filter { !transport.isNodeIsolated(it.address) }.map { it.submitter }
+            }
             assertStateMachines(nodes)
 
             coroutineContext.job.children.forEach {
@@ -132,14 +157,16 @@ class Benchmark {
                 }.direct
             }
 
-            nodes.map { it.instance<StateMachineCommandSubmitter<ByteArray, ByteArray>>() }
+            val submitters = nodes.map { it.instance<StateMachineCommandSubmitter<ByteArray, ByteArray>>() }
             val protocols = nodes.map { it.instance<RaftProtocol>() }
             while (protocols.none { it.isLeader }) {
                 delay(200)
             }
             delay(2000)
 
-            startBenchmark(config, protocol, nodes)
+            startBenchmark(config, protocol) {
+                submitters
+            }
             assertStateMachines(nodes)
 
             coroutineContext.job.children.forEach {
@@ -155,8 +182,8 @@ class Benchmark {
                 val config = RaftProtocolConfig(
                     address = NodeIdentifier(it.toString()),
                     n = n,
-                    termClockPeriod = 3000L..5000L,
-                    appendEntriesSendPeriod = 1000L..1000L,
+                    termClockPeriod = 2000L..4000L,
+                    appendEntriesSendPeriod = 500L..500L,
                     sendMessageTimeout = 10000L,
                     commandExecutorTimeout = 10000L
                 )
@@ -183,7 +210,25 @@ class Benchmark {
             }
             delay(2000)
 
-            startBenchmark(config, protocol, nodes.filter { it.instance<RaftProtocol>().isLeader })
+            launch {
+                delay(20000)
+                transport.setNodeIsolated(
+                    nodes.map { it.instance<RaftProtocol>() }.first { it.isLeader }.address,
+                    true
+                )
+            }
+
+            val raftNodes = nodes.map {
+                RaftNode(
+                    protocol = it.instance(),
+                    submitter = it.instance()
+                )
+            }
+
+            startBenchmark(config, protocol) {
+                raftNodes.filter { !transport.isNodeIsolated(it.protocol.address) && it.protocol.isLeader }
+                    .map { it.submitter }
+            }
             assertStateMachines(nodes)
 
             coroutineContext.job.children.forEach {
@@ -191,15 +236,18 @@ class Benchmark {
             }
         }
 
-    private suspend fun startBenchmark(config: BenchmarkConfig, protocol: Protocol, nodes: List<DirectDI>) =
+    private suspend fun startBenchmark(
+        config: BenchmarkConfig,
+        protocol: Protocol,
+        getNodes: () -> List<StateMachineCommandSubmitter<ByteArray, ByteArray>>
+    ) =
         coroutineScope {
-            val submitters = nodes.map { it.instance<StateMachineCommandSubmitter<ByteArray, ByteArray>>() }
 
             val stopwatch = Stopwatch.createStarted()
             println("Starting warmup")
 
             repeat(3) {
-                submitters.forEach { submitter ->
+                getNodes().forEach { submitter ->
                     val value = UUID.randomUUID().toString()
                     KeyValueCommand.newPutCommand(config.generateKey(), value).let { command ->
                         val commandReply = KeyValueReply.deserializer(submitter.submit(command))
@@ -211,6 +259,15 @@ class Benchmark {
 
             println("Starting benchmark")
 
+            val submitCounter = AtomicLong(0)
+
+            val counterJob = launch {
+                while (true) {
+                    delay(1000)
+                    println("COUNTER: ${submitCounter.getAndSet(0)}")
+                }
+            }
+
             val start = System.currentTimeMillis()
             val times = (1..config.concurrency).map { i ->
                 async {
@@ -220,9 +277,14 @@ class Benchmark {
                         val value = UUID.randomUUID().toString()
                         val time = KeyValueCommand.newPutCommand(config.generateKey(), value).let { command ->
                             measureTimeMillis {
-                                val submitter = submitters.random()
-                                val commandReply = KeyValueReply.deserializer(submitter.submit(command))
-                                check(commandReply.value == value)
+                                kotlin.runCatching {
+                                    val submitter = getNodes().random()
+                                    val commandReply = KeyValueReply.deserializer(submitter.submit(command))
+                                    submitCounter.incrementAndGet()
+                                    check(commandReply.value == value)
+                                }.onFailure {
+                                    println("ERR: $it")
+                                }
                             }
                         }
                         //println("$id) TIME=$time")
@@ -232,6 +294,9 @@ class Benchmark {
             }.flatMap { it.await() }
 
             val fullTime = System.currentTimeMillis() - start
+
+            delay(600)
+            counterJob.cancel()
 
 
             println("REPORT:")

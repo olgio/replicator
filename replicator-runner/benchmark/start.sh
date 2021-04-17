@@ -46,14 +46,14 @@ echo Startting script
 
 #for conflict influence diagram Atlas
 
-java -Xms1536M -Xmx1536M -cp /app.jar ru.splite.replicator.benchmark.BenchmarkKt --protocol Raft --n 5 --f 2 --keys 1
-java -Xms1536M -Xmx1536M -cp /app.jar ru.splite.replicator.benchmark.BenchmarkKt --protocol Raft --n 5 --f 2 --keys 5
-java -Xms1536M -Xmx1536M -cp /app.jar ru.splite.replicator.benchmark.BenchmarkKt --protocol Raft --n 5 --f 2 --keys 15
-java -Xms1536M -Xmx1536M -cp /app.jar ru.splite.replicator.benchmark.BenchmarkKt --protocol Raft --n 5 --f 2 --keys 30
-java -Xms1536M -Xmx1536M -cp /app.jar ru.splite.replicator.benchmark.BenchmarkKt --protocol Raft --n 5 --f 2 --keys 100
-java -Xms1536M -Xmx1536M -cp /app.jar ru.splite.replicator.benchmark.BenchmarkKt --protocol Raft --n 5 --f 2 --keys 200
-java -Xms1536M -Xmx1536M -cp /app.jar ru.splite.replicator.benchmark.BenchmarkKt --protocol Raft --n 5 --f 2 --keys 800
-java -Xms1536M -Xmx1536M -cp /app.jar ru.splite.replicator.benchmark.BenchmarkKt --protocol Raft --n 5 --f 2 --keys 3200
+#java -Xms1536M -Xmx1536M -cp /app.jar ru.splite.replicator.benchmark.BenchmarkKt --protocol Raft --n 5 --f 2 --keys 1
+#java -Xms1536M -Xmx1536M -cp /app.jar ru.splite.replicator.benchmark.BenchmarkKt --protocol Raft --n 5 --f 2 --keys 5
+#java -Xms1536M -Xmx1536M -cp /app.jar ru.splite.replicator.benchmark.BenchmarkKt --protocol Raft --n 5 --f 2 --keys 15
+#java -Xms1536M -Xmx1536M -cp /app.jar ru.splite.replicator.benchmark.BenchmarkKt --protocol Raft --n 5 --f 2 --keys 30
+#java -Xms1536M -Xmx1536M -cp /app.jar ru.splite.replicator.benchmark.BenchmarkKt --protocol Raft --n 5 --f 2 --keys 100
+#java -Xms1536M -Xmx1536M -cp /app.jar ru.splite.replicator.benchmark.BenchmarkKt --protocol Raft --n 5 --f 2 --keys 200
+#java -Xms1536M -Xmx1536M -cp /app.jar ru.splite.replicator.benchmark.BenchmarkKt --protocol Raft --n 5 --f 2 --keys 800
+#java -Xms1536M -Xmx1536M -cp /app.jar ru.splite.replicator.benchmark.BenchmarkKt --protocol Raft --n 5 --f 2 --keys 3200
 
 #for conflict influence diagram Atlas end
 
@@ -124,6 +124,11 @@ java -Xms1536M -Xmx1536M -cp /app.jar ru.splite.replicator.benchmark.BenchmarkKt
 #java -Xms1536M -Xmx1536M -cp /app.jar ru.splite.replicator.benchmark.BenchmarkKt --protocol RaftOnlyLeader --n 13 --keys 3200
 
 #end for latency diagram
+
+
+#java -Xms1536M -Xmx1536M -cp /app.jar ru.splite.replicator.benchmark.BenchmarkKt --protocol RaftOnlyLeader --n 3 --keys 30
+java -Xms1536M -Xmx1536M -cp /app.jar ru.splite.replicator.benchmark.BenchmarkKt --protocol Atlas --n 3 --f 1 --keys 30
+
 
 
 echo Completed script

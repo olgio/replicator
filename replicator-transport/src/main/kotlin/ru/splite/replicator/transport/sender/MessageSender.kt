@@ -28,9 +28,9 @@ class MessageSender<T>(
                 actor.send(dst, payload)
             }
         }
-        if (result.isFailure) {
-            LOGGER.error("Failed request ${actor.address} -> $dst: ${result.exceptionOrNull()}")
-        }
+//        if (result.isFailure) {
+//            LOGGER.error("Failed request ${actor.address} -> $dst: ${result.exceptionOrNull()}")
+//        }
         return result.getOrNull()
     }
 
