@@ -74,16 +74,18 @@ fun main(args: Array<String>) {
 
     parser.parse(args)
 
-    Metrics.initializeStackdriver(
-        "massive-triumph-309118", listOf(
-            Tag.of("protocol", config.protocol.name)
+    config.googleProjectId?.let { googleProjectId ->
+        Metrics.initializeStackdriver(
+            googleProjectId, listOf(
+                Tag.of("protocol", config.protocol.name)
+            )
         )
-    )
+    }
 
     val protocolDependencyContainer = when (config.protocol) {
         RunnerConfig.Protocol.RAFT -> RaftDependencyContainer.module
         RunnerConfig.Protocol.ATLAS -> AtlasDependencyContainer.module
-        RunnerConfig.Protocol.PAXOS -> TODO()
+        RunnerConfig.Protocol.PAXOS -> PaxosDependencyContainer.module
     }
 
     runBlocking(newFixedThreadPoolContext(config.threads, "node-${config.nodeIdentifier}")) {
