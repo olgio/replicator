@@ -16,6 +16,9 @@ import ru.splite.replicator.statemachine.StateMachineCommandSubmitter
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.CoroutineContext
 
+/**
+ * Реализация отправки команд на репликацию протоколом Raft
+ */
 class RaftCommandSubmitter(
     private val controller: RaftProtocolController,
     private val stateMachine: StateMachine<ByteArray, ByteArray>

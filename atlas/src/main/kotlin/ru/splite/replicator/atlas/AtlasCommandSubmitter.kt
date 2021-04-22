@@ -17,6 +17,9 @@ import ru.splite.replicator.transport.NodeIdentifier
 import ru.splite.replicator.transport.sender.MessageSender
 import kotlin.coroutines.CoroutineContext
 
+/**
+ * Реализация отправки команд на репликацию протоколом Atlas
+ */
 class AtlasCommandSubmitter(
     private val atlasProtocol: AtlasProtocol,
     private val messageSender: MessageSender<AtlasMessage>,
