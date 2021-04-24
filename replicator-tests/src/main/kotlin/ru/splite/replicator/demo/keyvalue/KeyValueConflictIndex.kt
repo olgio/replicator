@@ -37,8 +37,4 @@ internal class KeyValueConflictIndex<K> : ConflictIndex<K, ByteArray> {
             }
         }
     }
-
-    override fun putAndGetConflicts(key: K, command: ByteArray, dependencies: Set<K>): Set<K> {
-        return putAndGetConflicts(key, command).plus(dependencies)
-    }
 }

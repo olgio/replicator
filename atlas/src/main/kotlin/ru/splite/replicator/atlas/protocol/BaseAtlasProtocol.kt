@@ -275,9 +275,8 @@ class BaseAtlasProtocol(
                 this.address -> message.remoteDependencies
                 else -> conflictIndex.putAndGetConflicts(
                     dependency,
-                    message.command.payload,
-                    message.remoteDependencies
-                )
+                    message.command.payload
+                ).plus(message.remoteDependencies)
             }
 
             commandState.status = CommandState.Status.COLLECT
