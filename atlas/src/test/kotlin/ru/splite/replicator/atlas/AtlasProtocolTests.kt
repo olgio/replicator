@@ -12,7 +12,7 @@ import ru.splite.replicator.atlas.protocol.CommandCoordinator
 import ru.splite.replicator.atlas.protocol.CommandCoordinator.CollectAckDecision
 import ru.splite.replicator.atlas.protocol.CommandCoordinator.ConsensusAckDecision
 import ru.splite.replicator.atlas.state.Command
-import ru.splite.replicator.atlas.state.CommandState
+import ru.splite.replicator.atlas.state.CommandStatus
 import ru.splite.replicator.demo.keyvalue.KeyValueCommand
 import ru.splite.replicator.demo.keyvalue.KeyValueStateMachine
 import ru.splite.replicator.transport.CoroutineChannelTransport
@@ -111,7 +111,7 @@ class AtlasProtocolTests {
             val collectAckMessage = node1.send(node3.address, collectMessage) as AtlasMessage.MCollectAck
             assertThat(collectAckMessage.isAck).isFalse
             assertThat(node3.protocol.getCommandStatus(collectAckMessage.commandId))
-                .isEqualTo(CommandState.Status.COMMIT)
+                .isEqualTo(CommandStatus.COMMIT)
         }
     }
 
@@ -128,13 +128,13 @@ class AtlasProtocolTests {
             val collectAckMessage = node1.send(node3.address, collectMessage) as AtlasMessage.MCollectAck
             assertThat(collectAckMessage.isAck).isFalse
             assertThat(node3.protocol.getCommandStatus(collectAckMessage.commandId))
-                .isEqualTo(CommandState.Status.PAYLOAD)
+                .isEqualTo(CommandStatus.PAYLOAD)
 
             val commitMessage = coordinator.buildCommit()
             val commitAckMessage = node1.send(node3.address, commitMessage) as AtlasMessage.MCommitAck
             assertThat(commitAckMessage.isAck).isTrue
             assertThat(node3.protocol.getCommandStatus(collectAckMessage.commandId))
-                .isEqualTo(CommandState.Status.COMMIT)
+                .isEqualTo(CommandStatus.COMMIT)
         }
     }
 
@@ -152,7 +152,7 @@ class AtlasProtocolTests {
             val commitAckMessage = node1.send(node3.address, commitMessage) as AtlasMessage.MCommitAck
             assertThat(commitAckMessage.isAck).isTrue
             assertThat(node3.protocol.getCommandStatus(commitAckMessage.commandId))
-                .isEqualTo(CommandState.Status.COMMIT)
+                .isEqualTo(CommandStatus.COMMIT)
         }
     }
 

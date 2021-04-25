@@ -3,7 +3,7 @@ package ru.splite.replicator.atlas.state
 import ru.splite.replicator.transport.NodeIdentifier
 
 class CommandState(
-    var status: Status = Status.START,
+    var status: CommandStatus = CommandStatus.START,
     var quorum: Set<NodeIdentifier> = emptySet(),
     var command: Command = Command.WithNoop
 ) {
@@ -12,5 +12,4 @@ class CommandState(
         SynodState()
     }
 
-    enum class Status { START, COLLECT, PAYLOAD, COMMIT, RECOVERY }
 }

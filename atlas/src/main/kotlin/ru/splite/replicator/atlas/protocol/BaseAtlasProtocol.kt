@@ -15,6 +15,7 @@ import ru.splite.replicator.atlas.protocol.CommandCoordinator.CollectAckDecision
 import ru.splite.replicator.atlas.protocol.CommandCoordinator.ConsensusAckDecision
 import ru.splite.replicator.atlas.state.Command
 import ru.splite.replicator.atlas.state.CommandState
+import ru.splite.replicator.atlas.state.CommandStatus
 import ru.splite.replicator.atlas.state.QuorumDependencies
 import ru.splite.replicator.statemachine.ConflictIndex
 import ru.splite.replicator.transport.NodeIdentifier
@@ -54,7 +55,7 @@ class BaseAtlasProtocol(
             val command = Command.WithPayload(commandBytes)
 
             val collectMessage = withLock(commandId) { commandState ->
-                commandState.checkStatusIs(CommandState.Status.START)
+                commandState.checkStatusIs(CommandStatus.START)
                 val dependency = Dependency(commandId)
                 val dependencies = conflictIndex.putAndGetConflicts(dependency, commandBytes)
                 AtlasMessage.MCollect(commandId, command, fastQuorumNodes, dependencies)
@@ -69,7 +70,7 @@ class BaseAtlasProtocol(
 
         override suspend fun buildCommit(withPayload: Boolean): AtlasMessage.MCommit {
             val commitMessage = withLock(commandId) { commandState ->
-                check(commandState.status != CommandState.Status.START) {
+                check(commandState.status != CommandStatus.START) {
                     "Commit message cannot be created in START status"
                 }
                 val newConsensusValue = commandState.synodState.consensusValue
@@ -122,7 +123,7 @@ class BaseAtlasProtocol(
             collectAck: AtlasMessage.MCollectAck
         ): CollectAckDecision =
             withLock(collectAck) { commandState ->
-                if (commandState.status != CommandState.Status.COLLECT || !collectAck.isAck) {
+                if (commandState.status != CommandStatus.COLLECT || !collectAck.isAck) {
                     return CollectAckDecision.NONE
                 }
                 quorumDependencies.addParticipant(from, collectAck.remoteDependencies, config.fastQuorumSize)
@@ -249,7 +250,7 @@ class BaseAtlasProtocol(
     override suspend fun handleCollect(from: NodeIdentifier, message: AtlasMessage.MCollect): AtlasMessage.MCollectAck =
         withLock(message) { commandState ->
 
-            if (commandState.status != CommandState.Status.START) {
+            if (commandState.status != CommandStatus.START) {
                 return AtlasMessage.MCollectAck(
                     isAck = false,
                     commandId = message.commandId
@@ -257,7 +258,7 @@ class BaseAtlasProtocol(
             }
 
             if (!message.quorum.contains(address)) {
-                commandState.status = CommandState.Status.PAYLOAD
+                commandState.status = CommandStatus.PAYLOAD
                 commandState.command = message.command
 
                 bufferedCommits.remove(message.commandId)?.let { bufferedCommitMessage ->
@@ -279,7 +280,7 @@ class BaseAtlasProtocol(
                 ).plus(message.remoteDependencies)
             }
 
-            commandState.status = CommandState.Status.COLLECT
+            commandState.status = CommandStatus.COLLECT
             commandState.quorum = message.quorum
             commandState.command = message.command
             commandState.synodState.consensusValue = AtlasMessage.ConsensusValue(
@@ -317,7 +318,7 @@ class BaseAtlasProtocol(
 
     override suspend fun handleCommit(message: AtlasMessage.MCommit): AtlasMessage.MCommitAck =
         withLock(message) { commandState ->
-            if (commandState.status == CommandState.Status.START) {
+            if (commandState.status == CommandStatus.START) {
                 if (message.command == Command.Empty) {
                     bufferedCommits[message.commandId] = message
                     LOGGER.debug("Commit will be buffered until the payload arrives. commandId = ${message.commandId}")
@@ -328,7 +329,7 @@ class BaseAtlasProtocol(
                 } else {
                     LOGGER.debug("Payload received with commit message. commandId = ${message.commandId}")
                     commandState.command = message.command
-                    commandState.status = CommandState.Status.PAYLOAD
+                    commandState.status = CommandStatus.PAYLOAD
                 }
             }
 
@@ -337,7 +338,7 @@ class BaseAtlasProtocol(
 
     override suspend fun handleRecovery(message: AtlasMessage.MRecovery): AtlasMessage =
         withLock(message) { commandState ->
-            if (commandState.status == CommandState.Status.COMMIT) {
+            if (commandState.status == CommandStatus.COMMIT) {
                 val consensusValue = commandState.synodState.consensusValue
                     ?: error("Command status COMMIT but consensusValue absent")
                 return AtlasMessage.MCommit(
@@ -357,7 +358,7 @@ class BaseAtlasProtocol(
                 )
             }
 
-            if (commandState.synodState.ballot == 0L && commandState.status == CommandState.Status.START) {
+            if (commandState.synodState.ballot == 0L && commandState.status == CommandStatus.START) {
                 commandState.command = message.command
                 val dependency = Dependency(message.commandId)
                 val dependencies = when (message.command) {
@@ -371,7 +372,7 @@ class BaseAtlasProtocol(
             }
 
             commandState.synodState.ballot = message.ballot
-            commandState.status = CommandState.Status.RECOVERY
+            commandState.status = CommandStatus.RECOVERY
 
             return AtlasMessage.MRecoveryAck(
                 isAck = true,
@@ -383,15 +384,15 @@ class BaseAtlasProtocol(
             )
         }
 
-    override fun getCommandStatus(commandId: Id<NodeIdentifier>): CommandState.Status {
-        return this.commands[commandId]?.status ?: CommandState.Status.START
+    override fun getCommandStatus(commandId: Id<NodeIdentifier>): CommandStatus {
+        return this.commands[commandId]?.status ?: CommandStatus.START
     }
 
     private suspend fun commitCommand(
         commandState: CommandState,
         message: AtlasMessage.MCommit
     ): AtlasMessage.MCommitAck {
-        if (commandState.status == CommandState.Status.COMMIT) {
+        if (commandState.status == CommandStatus.COMMIT) {
             LOGGER.debug("Commit processed idempotently. commandId = ${message.commandId}")
             return AtlasMessage.MCommitAck(
                 isAck = true,
@@ -408,7 +409,7 @@ class BaseAtlasProtocol(
 
         commandExecutor.commit(message.commandId, command, message.value.dependencies)
 
-        commandState.status = CommandState.Status.COMMIT
+        commandState.status = CommandStatus.COMMIT
         LOGGER.debug("Successfully committed commandId=${message.commandId}")
 
         return AtlasMessage.MCommitAck(
@@ -428,7 +429,7 @@ class BaseAtlasProtocol(
             }
             val result = action(commandState)
             //Состояния COMMIT неизменяемо
-            if (commandState.status == CommandState.Status.COMMIT) {
+            if (commandState.status == CommandStatus.COMMIT) {
                 mutexCanBeRemovedAfterRelease = true
             }
             result
@@ -443,7 +444,7 @@ class BaseAtlasProtocol(
         return withLock(message.commandId, action)
     }
 
-    private fun CommandState.checkStatusIs(expectedStatus: CommandState.Status) {
+    private fun CommandState.checkStatusIs(expectedStatus: CommandStatus) {
         if (this.status != expectedStatus) {
             throw UnexpectedCommandStatusException(this.status, expectedStatus)
         }
