@@ -3,7 +3,7 @@ package ru.splite.replicator.atlas.protocol
 import ru.splite.replicator.atlas.AtlasMessage
 import ru.splite.replicator.atlas.AtlasProtocolConfig
 import ru.splite.replicator.atlas.id.Id
-import ru.splite.replicator.atlas.state.CommandState
+import ru.splite.replicator.atlas.state.CommandStatus
 import ru.splite.replicator.transport.NodeIdentifier
 
 interface AtlasProtocol {
@@ -24,5 +24,5 @@ interface AtlasProtocol {
 
     suspend fun createCommandCoordinator(commandId: Id<NodeIdentifier>): CommandCoordinator
 
-    fun getCommandStatus(commandId: Id<NodeIdentifier>): CommandState.Status
+    fun getCommandStatus(commandId: Id<NodeIdentifier>): CommandStatus
 }

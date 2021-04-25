@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory
 import ru.splite.replicator.atlas.executor.CommandExecutor
 import ru.splite.replicator.atlas.protocol.AtlasProtocol
 import ru.splite.replicator.atlas.protocol.CommandCoordinator
-import ru.splite.replicator.atlas.state.CommandState
+import ru.splite.replicator.atlas.state.CommandStatus
 import ru.splite.replicator.metrics.Metrics
 import ru.splite.replicator.statemachine.StateMachineCommandSubmitter
 import ru.splite.replicator.timer.flow.TimerFactory
@@ -202,7 +202,7 @@ class AtlasCommandSubmitter(
             }
             launch {
                 try {
-                    if (atlasProtocol.getCommandStatus(it) == CommandState.Status.COMMIT) {
+                    if (atlasProtocol.getCommandStatus(it) == CommandStatus.COMMIT) {
                         return@launch
                     }
                     val commandCoordinator = atlasProtocol.createCommandCoordinator(it)
