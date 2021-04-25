@@ -258,7 +258,7 @@ class BaseAtlasProtocol(
             }
 
             if (!message.quorum.contains(address)) {
-                commandStateStore.setCommandState(
+                val commandStateAfterUpdate = commandStateStore.setCommandState(
                     commandId = message.commandId,
                     commandState = commandState.copy(
                         status = CommandStatus.PAYLOAD,
@@ -267,7 +267,7 @@ class BaseAtlasProtocol(
                 )
                 bufferedCommits.remove(message.commandId)?.let { bufferedCommitMessage ->
                     LOGGER.debug("Received payload for buffered commit $bufferedCommitMessage")
-                    commitCommand(commandState, bufferedCommitMessage)
+                    commitCommand(commandStateAfterUpdate, bufferedCommitMessage)
                 }
                 return AtlasMessage.MCollectAck(
                     isAck = false,
@@ -341,8 +341,17 @@ class BaseAtlasProtocol(
                         isAck = false,
                         commandId = message.commandId
                     )
+                } else {
+                    LOGGER.debug("Payload received with commit message. commandId = ${message.commandId}")
+                    val commandStateAfterUpdate = commandStateStore.setCommandState(
+                        commandId = message.commandId,
+                        commandState = commandState.copy(
+                            status = CommandStatus.PAYLOAD,
+                            command = message.command
+                        )
+                    )
+                    return commitCommand(commandStateAfterUpdate, message)
                 }
-                LOGGER.debug("Payload received with commit message. commandId = ${message.commandId}")
             }
 
             return commitCommand(commandState, message)
@@ -370,7 +379,7 @@ class BaseAtlasProtocol(
                 )
             }
 
-            val commandSTateAfterUpdate = if (commandState.ballot == 0L && commandState.status == CommandStatus.START) {
+            val commandStateAfterUpdate = if (commandState.ballot == 0L && commandState.status == CommandStatus.START) {
                 val dependency = Dependency(message.commandId)
                 val dependencies = when (message.command) {
                     is Command.WithPayload -> conflictIndex.putAndGetConflicts(dependency, message.command.payload)
@@ -402,10 +411,10 @@ class BaseAtlasProtocol(
             return AtlasMessage.MRecoveryAck(
                 isAck = true,
                 commandId = message.commandId,
-                consensusValue = commandSTateAfterUpdate.consensusValue!!,
-                quorum = commandSTateAfterUpdate.quorum,
-                ballot = commandSTateAfterUpdate.ballot,
-                acceptedBallot = commandSTateAfterUpdate.acceptedBallot
+                consensusValue = commandStateAfterUpdate.consensusValue!!,
+                quorum = commandStateAfterUpdate.quorum,
+                ballot = commandStateAfterUpdate.ballot,
+                acceptedBallot = commandStateAfterUpdate.acceptedBallot
             )
         }
 
