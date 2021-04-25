@@ -1,15 +1,13 @@
 package ru.splite.replicator.atlas.state
 
+import ru.splite.replicator.atlas.AtlasMessage
 import ru.splite.replicator.transport.NodeIdentifier
 
-class CommandState(
-    var status: CommandStatus = CommandStatus.START,
-    var quorum: Set<NodeIdentifier> = emptySet(),
-    var command: Command = Command.WithNoop
-) {
-
-    val synodState by lazy {
-        SynodState()
-    }
-
-}
+data class CommandState(
+    val status: CommandStatus = CommandStatus.START,
+    val quorum: Set<NodeIdentifier> = emptySet(),
+    val command: Command = Command.WithNoop,
+    val ballot: Long = 0,
+    val acceptedBallot: Long = 0,
+    val consensusValue: AtlasMessage.ConsensusValue? = null
+)
