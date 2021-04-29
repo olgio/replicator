@@ -14,7 +14,8 @@ import ru.splite.replicator.raft.RaftProtocolConfig
 import ru.splite.replicator.raft.RaftProtocolController
 import ru.splite.replicator.raft.protocol.BaseRaftProtocol
 import ru.splite.replicator.raft.protocol.RaftProtocol
-import ru.splite.replicator.raft.state.RaftLocalNodeState
+import ru.splite.replicator.raft.state.InMemoryNodeStateStore
+import ru.splite.replicator.raft.state.NodeStateStore
 import ru.splite.replicator.statemachine.StateMachineCommandSubmitter
 
 object RaftDependencyContainer {
@@ -24,6 +25,7 @@ object RaftDependencyContainer {
             val config = instance<RunnerConfig>()
             RaftProtocolConfig(
                 address = config.nodeIdentifier,
+                processId = config.nodeIdentifier.identifier.toLong(),
                 n = config.nodes.size,
                 sendMessageTimeout = config.messageTimeout.toLong(),
                 commandExecutorTimeout = config.commandExecutorTimeout.toLong(),
@@ -32,7 +34,7 @@ object RaftDependencyContainer {
             )
         }
 
-        bind<RaftLocalNodeState>() with singleton { RaftLocalNodeState() }
+        bind<NodeStateStore>() with singleton { InMemoryNodeStateStore() }
 
         bind<JobLauncher>() with singleton {
             JobLauncher(instance(), instance())
