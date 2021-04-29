@@ -13,7 +13,14 @@ class InMemoryNodeStateStore : NodeStateStore {
     override fun getState(): LocalNodeState = currentState.get()
 
     override fun setState(localNodeState: LocalNodeState): LocalNodeState {
-        currentState.set(localNodeState)
+        val oldState = currentState.get()
+        check(oldState.currentTerm <= localNodeState.currentTerm) {
+            "Cannot decrease term: ${oldState.currentTerm} > ${localNodeState.currentTerm}"
+        }
+        val isUpdated = currentState.compareAndSet(oldState, localNodeState)
+        check(isUpdated) {
+            "State updated concurrently"
+        }
         return localNodeState
     }
 
