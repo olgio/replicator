@@ -6,14 +6,14 @@ import org.slf4j.LoggerFactory
 import ru.splite.replicator.log.ReplicatedLogStore
 import ru.splite.replicator.raft.message.RaftMessage
 import ru.splite.replicator.raft.state.ExternalNodeState
+import ru.splite.replicator.raft.state.NodeStateStore
 import ru.splite.replicator.raft.state.NodeType
-import ru.splite.replicator.raft.state.RaftLocalNodeState
 import ru.splite.replicator.transport.NodeIdentifier
 import ru.splite.replicator.transport.sender.MessageSender
 
 internal class VoteRequestSender(
     private val nodeIdentifier: NodeIdentifier,
-    private val localNodeState: RaftLocalNodeState,
+    private val localNodeStateStore: NodeStateStore,
     private val logStore: ReplicatedLogStore
 ) {
 
@@ -41,7 +41,7 @@ internal class VoteRequestSender(
                 it.voteGranted
             }.count() + 1
 
-        LOGGER.info("VoteResult for term ${localNodeState.currentTerm}: ${voteGrantedCount}/${messageSender.getAllNodes().size} (quorum = ${quorumSize})")
+        LOGGER.info("VoteResult for term ${voteRequest.term}: ${voteGrantedCount}/${messageSender.getAllNodes().size} (quorum = ${quorumSize})")
         if (voteGrantedCount >= quorumSize) {
             becomeLeader()
             reinitializeExternalNodeStates(messageSender.getAllNodes())
@@ -51,33 +51,45 @@ internal class VoteRequestSender(
         }
     }
 
-    private fun becomeCandidate(): RaftMessage.VoteRequest {
-        LOGGER.debug("State transition ${localNodeState.currentNodeType} (term ${localNodeState.currentTerm}) -> CANDIDATE")
-        localNodeState.currentTerm = localNodeState.currentTerm + 1
-        localNodeState.lastVotedLeaderIdentifier = nodeIdentifier
-        localNodeState.currentNodeType = NodeType.CANDIDATE
+    private fun becomeCandidate(): RaftMessage.VoteRequest =
+        localNodeStateStore.getState().let { localNodeState ->
+            LOGGER.debug("State transition ${localNodeState.currentNodeType} (term ${localNodeState.currentTerm}) -> CANDIDATE")
+            val newTerm = localNodeState.currentTerm + 1
+            localNodeStateStore.setState(
+                localNodeState.copy(
+                    currentTerm = newTerm,
+                    lastVotedLeaderIdentifier = nodeIdentifier,
+                    currentNodeType = NodeType.CANDIDATE
+                )
+            )
 
-        val lastLogIndex: Long? = logStore.lastLogIndex()
-        val lastLogTerm: Long? = lastLogIndex?.let { logStore.getLogEntryByIndex(it)!!.term }
+            val lastLogIndex: Long? = logStore.lastLogIndex()
+            val lastLogTerm: Long? = lastLogIndex?.let { logStore.getLogEntryByIndex(it)!!.term }
 
-        return RaftMessage.VoteRequest(
-            term = localNodeState.currentTerm, candidateIdentifier = nodeIdentifier,
-            lastLogIndex = lastLogIndex ?: -1, lastLogTerm = lastLogTerm ?: -1
-        )
-    }
+            return RaftMessage.VoteRequest(
+                term = newTerm, candidateIdentifier = nodeIdentifier,
+                lastLogIndex = lastLogIndex ?: -1, lastLogTerm = lastLogTerm ?: -1
+            )
+        }
 
-    private fun becomeLeader() {
+    private fun becomeLeader() = localNodeStateStore.getState().let { localNodeState ->
         LOGGER.debug("State transition ${localNodeState.currentNodeType} -> LEADER (term ${localNodeState.currentTerm})")
-        localNodeState.lastVotedLeaderIdentifier = null
-        localNodeState.leaderIdentifier = nodeIdentifier
-        localNodeState.currentNodeType = NodeType.LEADER
+        localNodeStateStore.setState(
+            localNodeState.copy(
+                currentNodeType = NodeType.LEADER,
+                lastVotedLeaderIdentifier = null,
+                leaderIdentifier = nodeIdentifier
+            )
+        )
     }
 
     private fun reinitializeExternalNodeStates(clusterNodeIdentifiers: Collection<NodeIdentifier>) {
         val lastLogIndex = logStore.lastLogIndex()?.plus(1) ?: 0
         clusterNodeIdentifiers.forEach { dstNodeIdentifier ->
-            localNodeState.externalNodeStates[dstNodeIdentifier] =
+            localNodeStateStore.setExternalNodeState(
+                dstNodeIdentifier,
                 ExternalNodeState(nextIndex = lastLogIndex, matchIndex = -1)
+            )
         }
     }
 

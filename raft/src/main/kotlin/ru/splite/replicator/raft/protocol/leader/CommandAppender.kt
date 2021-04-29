@@ -6,11 +6,11 @@ import ru.splite.replicator.log.LogEntry
 import ru.splite.replicator.log.ReplicatedLogStore
 import ru.splite.replicator.raft.event.AppendEntryEvent
 import ru.splite.replicator.raft.event.IndexWithTerm
+import ru.splite.replicator.raft.state.NodeStateStore
 import ru.splite.replicator.raft.state.NodeType
-import ru.splite.replicator.raft.state.RaftLocalNodeState
 
 internal class CommandAppender(
-    private val localNodeState: RaftLocalNodeState,
+    private val localNodeStateStore: NodeStateStore,
     private val logStore: ReplicatedLogStore
 ) {
 
@@ -20,13 +20,15 @@ internal class CommandAppender(
     val appendEntryEventFlow: StateFlow<AppendEntryEvent> = appendEntryEventMutableFlow
 
     suspend fun addCommand(command: ByteArray): IndexWithTerm {
-        val currentTerm = localNodeState.currentTerm
+        localNodeStateStore.getState().let { localNodeState ->
+            val currentTerm = localNodeState.currentTerm
 
-        if (localNodeState.currentNodeType != NodeType.LEADER) {
-            error("Only leader can add command. currentState=${localNodeState.currentNodeType}")
+            if (localNodeState.currentNodeType != NodeType.LEADER) {
+                error("Only leader can add command. currentState=${localNodeState.currentNodeType}")
+            }
+            val index = logStore.appendLogEntry(LogEntry(term = currentTerm, command = command))
+            appendEntryEventMutableFlow.value = AppendEntryEvent(index)
+            return IndexWithTerm(index = index, term = currentTerm)
         }
-        val index = logStore.appendLogEntry(LogEntry(term = currentTerm, command = command))
-        appendEntryEventMutableFlow.value = AppendEntryEvent(index)
-        return IndexWithTerm(index = index, term = currentTerm)
     }
 }

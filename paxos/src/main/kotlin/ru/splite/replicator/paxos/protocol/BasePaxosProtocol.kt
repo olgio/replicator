@@ -4,22 +4,24 @@ import org.slf4j.LoggerFactory
 import ru.splite.replicator.log.ReplicatedLogStore
 import ru.splite.replicator.paxos.protocol.follower.VoteRequestHandler
 import ru.splite.replicator.paxos.protocol.leader.VoteRequestSender
-import ru.splite.replicator.paxos.state.PaxosLocalNodeState
 import ru.splite.replicator.raft.RaftProtocolConfig
 import ru.splite.replicator.raft.message.RaftMessage
 import ru.splite.replicator.raft.protocol.BaseRaftProtocol
 import ru.splite.replicator.raft.protocol.RaftProtocol
+import ru.splite.replicator.raft.state.NodeStateStore
 import ru.splite.replicator.transport.sender.MessageSender
 
 class BasePaxosProtocol(
     replicatedLogStore: ReplicatedLogStore,
     private val config: RaftProtocolConfig,
-    localNodeState: PaxosLocalNodeState
-) : RaftProtocol by BaseRaftProtocol(replicatedLogStore, config, localNodeState, { _, _ -> true }), PaxosProtocol {
+    localNodeStateStore: NodeStateStore
+) : RaftProtocol by BaseRaftProtocol(
+    replicatedLogStore, config, localNodeStateStore, { _, _ -> true }), PaxosProtocol {
 
-    private val voteRequestSender = VoteRequestSender(config.address, localNodeState, replicatedLogStore)
+    private val voteRequestSender =
+        VoteRequestSender(config.address, config.processId, localNodeStateStore, replicatedLogStore)
 
-    private val voteRequestHandler = VoteRequestHandler(localNodeState, replicatedLogStore)
+    private val voteRequestHandler = VoteRequestHandler(localNodeStateStore, replicatedLogStore)
 
     override suspend fun sendVoteRequestsAsCandidate(messageSender: MessageSender<RaftMessage>): Boolean {
         val nodeIdentifiers = messageSender.getAllNodes().minus(address)

@@ -10,7 +10,7 @@ import ru.splite.replicator.raft.RaftCommandSubmitter
 import ru.splite.replicator.raft.RaftProtocolConfig
 import ru.splite.replicator.raft.RaftProtocolController
 import ru.splite.replicator.raft.protocol.BaseRaftProtocol
-import ru.splite.replicator.raft.state.RaftLocalNodeState
+import ru.splite.replicator.raft.state.InMemoryNodeStateStore
 import ru.splite.replicator.timer.flow.DelayTimerFactory
 import ru.splite.replicator.timer.flow.TimeTick
 import ru.splite.replicator.transport.CoroutineChannelTransport
@@ -32,11 +32,15 @@ class RaftClusterBuilder {
 
             val nodeIdentifier = NodeIdentifier(name)
             val logStore = InMemoryReplicatedLogStore()
-            val localNodeState = RaftLocalNodeState()
             val stateMachine = KeyValueStateMachine()
-            val config = RaftProtocolConfig(address = nodeIdentifier, n = fullSize)
+            val nodeStateStore = InMemoryNodeStateStore()
+            val config = RaftProtocolConfig(
+                address = nodeIdentifier,
+                processId = 0L,
+                n = fullSize
+            )
 
-            val raftProtocol = BaseRaftProtocol(logStore, config, localNodeState)
+            val raftProtocol = BaseRaftProtocol(logStore, config, nodeStateStore)
 
             val raftProtocolController = RaftProtocolController(transport, config, raftProtocol)
 

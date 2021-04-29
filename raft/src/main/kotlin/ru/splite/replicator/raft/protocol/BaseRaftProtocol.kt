@@ -17,8 +17,8 @@ import ru.splite.replicator.raft.protocol.leader.AppendEntriesSender
 import ru.splite.replicator.raft.protocol.leader.CommandAppender
 import ru.splite.replicator.raft.protocol.leader.CommitEntries
 import ru.splite.replicator.raft.protocol.leader.VoteRequestSender
+import ru.splite.replicator.raft.state.NodeStateStore
 import ru.splite.replicator.raft.state.NodeType
-import ru.splite.replicator.raft.state.RaftLocalNodeState
 import ru.splite.replicator.transport.NodeIdentifier
 import ru.splite.replicator.transport.sender.MessageSender
 import java.time.Instant
@@ -26,7 +26,7 @@ import java.time.Instant
 class BaseRaftProtocol(
     override val replicatedLogStore: ReplicatedLogStore,
     private val config: RaftProtocolConfig,
-    private val localNodeState: RaftLocalNodeState,
+    private val localNodeStateStore: NodeStateStore,
     commitEntriesCondition: (LogEntry, Long) -> Boolean = { logEntry, currentTerm ->
         logEntry.term == currentTerm
     }
@@ -36,7 +36,7 @@ class BaseRaftProtocol(
         get() = config.address
 
     override val isLeader: Boolean
-        get() = localNodeState.currentNodeType == NodeType.LEADER
+        get() = localNodeStateStore.getState().currentNodeType == NodeType.LEADER
 
     override val commitEventFlow: StateFlow<CommitEvent>
         get() = commitEntries.commitEventFlow
@@ -48,17 +48,17 @@ class BaseRaftProtocol(
     override val leaderAliveEventFlow: StateFlow<Instant> = leaderAliveMutableFlow
 
     private val commitEntries =
-        CommitEntries(localNodeState, replicatedLogStore, commitEntriesCondition)
+        CommitEntries(localNodeStateStore, replicatedLogStore, commitEntriesCondition)
 
-    private val appendEntriesSender = AppendEntriesSender(config.address, localNodeState, replicatedLogStore)
+    private val appendEntriesSender = AppendEntriesSender(config.address, localNodeStateStore, replicatedLogStore)
 
-    private val appendEntriesHandler = AppendEntriesHandler(localNodeState, replicatedLogStore, commitEntries)
+    private val appendEntriesHandler = AppendEntriesHandler(localNodeStateStore, replicatedLogStore, commitEntries)
 
-    private val voteRequestSender = VoteRequestSender(config.address, localNodeState, replicatedLogStore)
+    private val voteRequestSender = VoteRequestSender(config.address, localNodeStateStore, replicatedLogStore)
 
-    private val voteRequestHandler = VoteRequestHandler(localNodeState, replicatedLogStore)
+    private val voteRequestHandler = VoteRequestHandler(localNodeStateStore, replicatedLogStore)
 
-    private val commandAppender = CommandAppender(localNodeState, replicatedLogStore)
+    private val commandAppender = CommandAppender(localNodeStateStore, replicatedLogStore)
 
     override suspend fun sendVoteRequestsAsCandidate(messageSender: MessageSender<RaftMessage>): Boolean {
         val nodeIdentifiers = messageSender.getAllNodes().minus(address)
@@ -89,7 +89,7 @@ class BaseRaftProtocol(
         command: ByteArray
     ): IndexWithTerm {
         val redirectMessage = RaftMessage.RedirectRequest(command = command)
-        val leaderIdentifier = localNodeState.leaderIdentifier
+        val leaderIdentifier = localNodeStateStore.getState().leaderIdentifier
             ?: error("Cannot determine leader to redirect")
         LOGGER.debug("Redirecting command to $leaderIdentifier")
         val redirectResponse =
