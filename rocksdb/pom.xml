@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns="http://maven.apache.org/POM/4.0.0"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <artifactId>replicator</artifactId>
+        <groupId>ru.splite.replicator</groupId>
+        <version>DEV-SNAPSHOT</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>rocksdb</artifactId>
+
+    <dependencies>
+        <dependency>
+            <groupId>ru.splite.replicator</groupId>
+            <artifactId>raft</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>ru.splite.replicator</groupId>
+            <artifactId>atlas</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>ru.splite.replicator</groupId>
+            <artifactId>replicator-tests</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.rocksdb</groupId>
+            <artifactId>rocksdbjni</artifactId>
+            <version>6.15.2</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>30.1-jre</version>
+        </dependency>
+    </dependencies>
+
+</project>
