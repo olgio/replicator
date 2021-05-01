@@ -32,6 +32,13 @@ interface ReplicatedLogStore {
     suspend fun commit(index: Long): Long
 
     /**
+     * Пометка записи с индексом [index] и всех предшествующих записей примененными
+     * @throws LogGapException если слот с индексом [index] или предыдущие слоты еще не заполнены
+     * @return индекс последнего примененного слота журнала после обновления
+     */
+    suspend fun markApplied(index: Long): Long
+
+    /**
      * @return запись журнала с индексом [index]
      */
     fun getLogEntryByIndex(index: Long): LogEntry?
@@ -45,4 +52,9 @@ interface ReplicatedLogStore {
      * @return индекс последнего подтвержденного слота журнала
      */
     fun lastCommitIndex(): Long?
+
+    /**
+     * @return индекс последнего примененного слота журнала
+     */
+    fun lastAppliedIndex(): Long?
 }
