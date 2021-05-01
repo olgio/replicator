@@ -7,12 +7,12 @@ import ru.splite.replicator.log.LogEntry
 import ru.splite.replicator.log.ReplicatedLogStore
 import ru.splite.replicator.raft.event.CommitEvent
 import ru.splite.replicator.raft.event.IndexWithTerm
+import ru.splite.replicator.raft.state.NodeStateStore
 import ru.splite.replicator.raft.state.NodeType
-import ru.splite.replicator.raft.state.RaftLocalNodeState
 import ru.splite.replicator.transport.NodeIdentifier
 
 internal class CommitEntries(
-    private val localNodeState: RaftLocalNodeState,
+    private val localNodeStateStore: NodeStateStore,
     private val logStore: ReplicatedLogStore,
     private val logEntryCommittableCondition: (LogEntry, Long) -> Boolean
 ) {
@@ -35,7 +35,7 @@ internal class CommitEntries(
     suspend fun commitLogEntriesIfLeader(
         nodeIdentifiers: Collection<NodeIdentifier>,
         quorumSize: Int
-    ): IndexWithTerm? {
+    ): IndexWithTerm? = localNodeStateStore.getState().let { localNodeState ->
         if (localNodeState.currentNodeType != NodeType.LEADER) {
             LOGGER.warn("cannot commit because node is not leader. currentNodeType = ${localNodeState.currentNodeType}")
             return null
@@ -60,7 +60,7 @@ internal class CommitEntries(
             }
 
             val matchedNodesCount = nodeIdentifiers.count {
-                localNodeState.externalNodeStates[it]!!.matchIndex >= uncommittedIndex
+                localNodeStateStore.getExternalNodeState(it).matchIndex >= uncommittedIndex
             } + 1
 
             if (matchedNodesCount < quorumSize) {

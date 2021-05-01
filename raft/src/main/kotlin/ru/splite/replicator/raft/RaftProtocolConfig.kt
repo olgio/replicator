@@ -4,6 +4,7 @@ import ru.splite.replicator.transport.NodeIdentifier
 
 data class RaftProtocolConfig(
     val address: NodeIdentifier,
+    val processId: Long,
     val n: Int,
     val leaderElectionQuorumSize: Int = n.asMajority(),
     val logReplicationQuorumSize: Int = n.asMajority(),

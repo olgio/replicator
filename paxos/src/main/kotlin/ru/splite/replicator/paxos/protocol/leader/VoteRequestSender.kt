@@ -5,16 +5,17 @@ import kotlinx.coroutines.coroutineScope
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.log.LogEntry
 import ru.splite.replicator.log.ReplicatedLogStore
-import ru.splite.replicator.paxos.state.PaxosLocalNodeState
 import ru.splite.replicator.raft.message.RaftMessage
 import ru.splite.replicator.raft.state.ExternalNodeState
+import ru.splite.replicator.raft.state.NodeStateStore
 import ru.splite.replicator.raft.state.NodeType
 import ru.splite.replicator.transport.NodeIdentifier
 import ru.splite.replicator.transport.sender.MessageSender
 
 internal class VoteRequestSender(
     private val nodeIdentifier: NodeIdentifier,
-    private val localNodeState: PaxosLocalNodeState,
+    private val uniqueNodeIdentifier: Long,
+    private val localNodeStateStore: NodeStateStore,
     private val logStore: ReplicatedLogStore
 ) {
 
@@ -50,7 +51,10 @@ internal class VoteRequestSender(
 
         val voteGrantedCount: Int = voteResponses.size + 1
 
-        LOGGER.info("VoteResult for term ${localNodeState.currentTerm}: ${voteGrantedCount}/${messageSender.getAllNodes().size} (quorum = ${quorumSize})")
+        LOGGER.info(
+            "VoteResult for term ${localNodeStateStore.getState().currentTerm}: " +
+                    "${voteGrantedCount}/${messageSender.getAllNodes().size} (quorum = ${quorumSize})"
+        )
         if (voteGrantedCount >= quorumSize) {
             handleVoteResponsesIfMajority(nextTerm, voteResponses)
             becomeLeader()
@@ -62,27 +66,38 @@ internal class VoteRequestSender(
     }
 
     private fun becomeCandidate(nextTerm: Long, lastCommitIndex: Long?): RaftMessage.PaxosVoteRequest {
-        LOGGER.debug("State transition ${localNodeState.currentNodeType} (term ${localNodeState.currentTerm}) -> CANDIDATE")
-        localNodeState.currentTerm = nextTerm
-        localNodeState.currentNodeType = NodeType.CANDIDATE
-
-        return RaftMessage.PaxosVoteRequest(
-            term = localNodeState.currentTerm,
-            leaderCommit = lastCommitIndex ?: -1
-        )
+        localNodeStateStore.getState().let { localNodeState ->
+            LOGGER.debug("State transition ${localNodeState.currentNodeType} (term ${localNodeState.currentTerm}) -> CANDIDATE")
+            localNodeStateStore.setState(
+                localNodeState.copy(
+                    currentTerm = nextTerm,
+                    currentNodeType = NodeType.CANDIDATE
+                )
+            )
+            return RaftMessage.PaxosVoteRequest(
+                term = nextTerm,
+                leaderCommit = lastCommitIndex ?: -1
+            )
+        }
     }
 
-    private fun becomeLeader() {
+    private fun becomeLeader() = localNodeStateStore.getState().let { localNodeState ->
         LOGGER.debug("State transition ${localNodeState.currentNodeType} -> LEADER (term ${localNodeState.currentTerm})")
-        localNodeState.leaderIdentifier = nodeIdentifier
-        localNodeState.currentNodeType = NodeType.LEADER
+        localNodeStateStore.setState(
+            localNodeState.copy(
+                leaderIdentifier = nodeIdentifier,
+                currentNodeType = NodeType.LEADER
+            )
+        )
     }
 
     private fun reinitializeExternalNodeStates(clusterNodeIdentifiers: Collection<NodeIdentifier>) {
         val nextIndex: Long = logStore.lastCommitIndex()?.plus(1) ?: 0
         clusterNodeIdentifiers.forEach { dstNodeIdentifier ->
-            localNodeState.externalNodeStates[dstNodeIdentifier] =
+            localNodeStateStore.setExternalNodeState(
+                dstNodeIdentifier,
                 ExternalNodeState(nextIndex = nextIndex, matchIndex = -1)
+            )
         }
     }
 
@@ -118,11 +133,13 @@ internal class VoteRequestSender(
         }
     }
 
-    private fun calculateNextTerm(fullClusterSize: Long): Long {
+    private fun calculateNextTerm(
+        fullClusterSize: Long
+    ): Long = localNodeStateStore.getState().let { localNodeState ->
         val currentTerm: Long = localNodeState.currentTerm
-        val currentRoundDelta = if (currentTerm % fullClusterSize >= localNodeState.uniqueNodeIdentifier) 1L else 0L
+        val currentRoundDelta = if (currentTerm % fullClusterSize >= uniqueNodeIdentifier) 1L else 0L
         val currentRound = currentTerm / fullClusterSize + currentRoundDelta
-        return currentRound * fullClusterSize + localNodeState.uniqueNodeIdentifier
+        return currentRound * fullClusterSize + uniqueNodeIdentifier
     }
 
     companion object {

@@ -15,6 +15,7 @@
         <module>transport-grpc</module>
         <module>replicator-runner</module>
         <module>replicator-transport</module>
+        <module>rocksdb</module>
     </modules>
     <groupId>ru.splite.replicator</groupId>
     <version>DEV-SNAPSHOT</version>
@@ -87,6 +88,11 @@
             <dependency>
                 <groupId>ru.splite.replicator</groupId>
                 <artifactId>paxos</artifactId>
+                <version>DEV-SNAPSHOT</version>
+            </dependency>
+            <dependency>
+                <groupId>ru.splite.replicator</groupId>
+                <artifactId>rocksdb</artifactId>
                 <version>DEV-SNAPSHOT</version>
             </dependency>
 

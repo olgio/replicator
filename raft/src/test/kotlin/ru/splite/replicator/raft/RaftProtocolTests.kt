@@ -7,7 +7,7 @@ import ru.splite.replicator.demo.Command
 import ru.splite.replicator.demo.hasOnlyCommands
 import ru.splite.replicator.log.InMemoryReplicatedLogStore
 import ru.splite.replicator.raft.protocol.BaseRaftProtocol
-import ru.splite.replicator.raft.state.RaftLocalNodeState
+import ru.splite.replicator.raft.state.InMemoryNodeStateStore
 import ru.splite.replicator.transport.CoroutineChannelTransport
 import ru.splite.replicator.transport.NodeIdentifier
 import ru.splite.replicator.transport.Transport
@@ -331,9 +331,13 @@ class RaftProtocolTests {
     private fun Transport.buildNode(name: String, fullSize: Int): RaftProtocolController {
         val nodeIdentifier = NodeIdentifier(name)
         val logStore = InMemoryReplicatedLogStore()
-        val localNodeState = RaftLocalNodeState()
-        val config = RaftProtocolConfig(address = nodeIdentifier, n = fullSize)
-        val protocol = BaseRaftProtocol(logStore, config, localNodeState)
+        val config = RaftProtocolConfig(
+            address = nodeIdentifier,
+            processId = 0L,
+            n = fullSize
+        )
+        val nodeStateStore = InMemoryNodeStateStore()
+        val protocol = BaseRaftProtocol(logStore, config, nodeStateStore)
         return RaftProtocolController(this, config, protocol)
     }
 

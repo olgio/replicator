@@ -11,10 +11,11 @@ import ru.splite.replicator.log.ReplicatedLogStore
 import ru.splite.replicator.paxos.PaxosProtocolController
 import ru.splite.replicator.paxos.protocol.BasePaxosProtocol
 import ru.splite.replicator.paxos.protocol.PaxosProtocol
-import ru.splite.replicator.paxos.state.PaxosLocalNodeState
 import ru.splite.replicator.raft.JobLauncher
 import ru.splite.replicator.raft.RaftCommandSubmitter
 import ru.splite.replicator.raft.RaftProtocolConfig
+import ru.splite.replicator.raft.state.InMemoryNodeStateStore
+import ru.splite.replicator.raft.state.NodeStateStore
 import ru.splite.replicator.statemachine.StateMachineCommandSubmitter
 
 object PaxosDependencyContainer {
@@ -24,6 +25,7 @@ object PaxosDependencyContainer {
             val config = instance<RunnerConfig>()
             RaftProtocolConfig(
                 address = config.nodeIdentifier,
+                processId = config.nodeIdentifier.identifier.toLong(),
                 n = config.nodes.size,
                 sendMessageTimeout = config.messageTimeout.toLong(),
                 commandExecutorTimeout = config.commandExecutorTimeout.toLong(),
@@ -32,10 +34,7 @@ object PaxosDependencyContainer {
             )
         }
 
-        bind<PaxosLocalNodeState>() with singleton {
-            val processId = instance<RunnerConfig>().nodeIdentifier.identifier.toLong()
-            PaxosLocalNodeState(processId)
-        }
+        bind<NodeStateStore>() with singleton { InMemoryNodeStateStore() }
 
         bind<JobLauncher>() with singleton {
             JobLauncher(instance(), instance())
