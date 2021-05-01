@@ -9,7 +9,7 @@ internal class KeyValueConflictIndex<K> : ConflictIndex<K, ByteArray> {
 
     private val lastReadWrite = ConcurrentHashMap<String, LastReadWrite<K>>()
 
-    override fun putAndGetConflicts(key: K, command: ByteArray): Set<K> {
+    override suspend fun putAndGetConflicts(key: K, command: ByteArray): Set<K> {
         return when (val deserializedCommand = KeyValueCommand.deserializer(command)) {
             is KeyValueCommand.GetValue -> {
                 //read depends on last write

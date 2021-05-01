@@ -11,5 +11,5 @@ interface ConflictIndex<K, T> {
      * Вставка команды [command] по ключу [key] в индекс.
      * @return множество ключей команд, конфликтующих с командой [command]
      */
-    fun putAndGetConflicts(key: K, command: T): Set<K>
+    suspend fun putAndGetConflicts(key: K, command: T): Set<K>
 }
