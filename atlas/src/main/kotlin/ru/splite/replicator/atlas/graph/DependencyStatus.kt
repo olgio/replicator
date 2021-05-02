@@ -1,4 +1,4 @@
-package ru.splite.replicator.atlas.rocksdb
+package ru.splite.replicator.atlas.graph
 
 import kotlinx.serialization.Serializable
 

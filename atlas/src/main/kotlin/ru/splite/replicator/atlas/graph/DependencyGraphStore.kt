@@ -1,6 +1,7 @@
-package ru.splite.replicator.atlas.rocksdb
+package ru.splite.replicator.atlas.graph
 
 interface DependencyGraphStore<K> {
+
     fun setDependenciesPerKey(key: K, dependencies: Set<K>)
 
     fun deleteDependenciesPerKey(key: K)

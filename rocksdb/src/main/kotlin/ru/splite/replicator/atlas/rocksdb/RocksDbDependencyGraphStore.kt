@@ -2,6 +2,8 @@ package ru.splite.replicator.atlas.rocksdb
 
 import kotlinx.serialization.Serializable
 import ru.splite.replicator.atlas.graph.Dependency
+import ru.splite.replicator.atlas.graph.DependencyGraphStore
+import ru.splite.replicator.atlas.graph.DependencyStatus
 import ru.splite.replicator.rocksdb.RocksDbStore
 
 class RocksDbDependencyGraphStore(db: RocksDbStore) : DependencyGraphStore<Dependency> {

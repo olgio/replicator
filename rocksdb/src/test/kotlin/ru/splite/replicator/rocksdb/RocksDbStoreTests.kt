@@ -4,8 +4,8 @@ import kotlinx.coroutines.test.runBlockingTest
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.TestInstance
 import ru.splite.replicator.atlas.graph.Dependency
+import ru.splite.replicator.atlas.graph.DependencyStatus
 import ru.splite.replicator.atlas.id.Id
-import ru.splite.replicator.atlas.rocksdb.DependencyStatus
 import ru.splite.replicator.atlas.rocksdb.RocksDbCommandStateStore
 import ru.splite.replicator.atlas.rocksdb.RocksDbDependencyGraphStore
 import ru.splite.replicator.atlas.state.CommandState
