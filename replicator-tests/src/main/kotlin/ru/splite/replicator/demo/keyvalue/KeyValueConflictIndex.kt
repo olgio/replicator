@@ -3,7 +3,7 @@ package ru.splite.replicator.demo.keyvalue
 import ru.splite.replicator.statemachine.ConflictIndex
 import java.util.concurrent.ConcurrentHashMap
 
-internal class KeyValueConflictIndex<K> : ConflictIndex<K, ByteArray> {
+class KeyValueConflictIndex<K> : ConflictIndex<K, ByteArray> {
 
     private data class LastReadWrite<K>(val lastRead: K? = null, val lastWrite: K? = null)
 
