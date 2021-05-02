@@ -8,6 +8,7 @@ import ru.splite.replicator.atlas.graph.DependencyStatus
 import ru.splite.replicator.atlas.id.Id
 import ru.splite.replicator.atlas.rocksdb.RocksDbCommandStateStore
 import ru.splite.replicator.atlas.rocksdb.RocksDbDependencyGraphStore
+import ru.splite.replicator.atlas.rocksdb.RocksDbIdGenerator
 import ru.splite.replicator.atlas.state.CommandState
 import ru.splite.replicator.demo.keyvalue.KeyValueCommand
 import ru.splite.replicator.demo.keyvalue.KeyValueReply
@@ -37,6 +38,7 @@ class RocksDbStoreTests {
                     + RocksDbKeyValueConflictIndex.COLUMN_FAMILY_NAMES
                     + RocksDbCommandStateStore.COLUMN_FAMILY_NAMES
                     + RocksDbDependencyGraphStore.COLUMN_FAMILY_NAMES
+                    + RocksDbIdGenerator.COLUMN_FAMILY_NAMES
         )
     }
 
@@ -154,6 +156,18 @@ class RocksDbStoreTests {
             dependencyGraphStore.deleteStatusPerKey(dependency)
             assertThat(dependencyGraphStore.getStatuses().toList())
                 .isEmpty()
+        }
+    }
+
+    @Test
+    fun idGeneratorTest() = runBlockingTest {
+        val nodeIdentifier = NodeIdentifier("node-1")
+        var prevId = -1L
+        repeat(10) {
+            val idGeneratorStore = RocksDbIdGenerator(nodeIdentifier, db, 3)
+            val newId = idGeneratorStore.generateNext().id
+            assertThat(newId).isGreaterThan(prevId)
+            prevId = newId
         }
     }
 
