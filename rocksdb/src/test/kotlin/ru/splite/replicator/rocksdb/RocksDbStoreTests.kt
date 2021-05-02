@@ -5,6 +5,10 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.TestInstance
 import ru.splite.replicator.atlas.graph.Dependency
 import ru.splite.replicator.atlas.id.Id
+import ru.splite.replicator.atlas.rocksdb.DependencyStatus
+import ru.splite.replicator.atlas.rocksdb.RocksDbCommandStateStore
+import ru.splite.replicator.atlas.rocksdb.RocksDbDependencyGraphStore
+import ru.splite.replicator.atlas.state.CommandState
 import ru.splite.replicator.demo.keyvalue.KeyValueCommand
 import ru.splite.replicator.demo.keyvalue.KeyValueReply
 import ru.splite.replicator.log.LogEntry
@@ -31,6 +35,8 @@ class RocksDbStoreTests {
                     + RocksDbReplicatedLogStore.COLUMN_FAMILY_NAMES
                     + RocksDbKeyValueStateMachine.COLUMN_FAMILY_NAMES
                     + RocksDbKeyValueConflictIndex.COLUMN_FAMILY_NAMES
+                    + RocksDbCommandStateStore.COLUMN_FAMILY_NAMES
+                    + RocksDbDependencyGraphStore.COLUMN_FAMILY_NAMES
         )
     }
 
@@ -76,6 +82,78 @@ class RocksDbStoreTests {
             val nodeStateStore = RocksDbNodeStateStore(db)
             assertThat(nodeStateStore.getExternalNodeState(nodeIdentifier))
                 .isEqualTo(externalNodeState)
+        }
+    }
+
+    @Test
+    fun commandStateTest() {
+        val nodeIdentifier = NodeIdentifier("node-1")
+        val id = Id(nodeIdentifier, 0L)
+        val commandState = CommandState(ballot = 2L)
+        kotlin.run {
+            val commandStateStore = RocksDbCommandStateStore(db)
+            commandStateStore.setCommandState(
+                id,
+                commandState
+            )
+            assertThat(commandStateStore.getCommandState(id))
+                .isEqualTo(commandState)
+        }
+
+        kotlin.run {
+            val commandStateStore = RocksDbCommandStateStore(db)
+            assertThat(commandStateStore.getCommandState(id))
+                .isEqualTo(commandState)
+        }
+    }
+
+    @Test
+    fun dependencyGraphTest() {
+        val nodeIdentifier = NodeIdentifier("node-1")
+        val dependency1 = Dependency(Id(nodeIdentifier, 0L))
+        val dependency2 = Dependency(Id(nodeIdentifier, 1L))
+
+        kotlin.run {
+            val dependencyGraphStore = RocksDbDependencyGraphStore(db)
+            assertThat(dependencyGraphStore.getDependencies().toList())
+                .isEmpty()
+
+            dependencyGraphStore.setDependenciesPerKey(dependency1, setOf(dependency2))
+            assertThat(dependencyGraphStore.getDependencies().toList())
+                .containsExactlyInAnyOrder(dependency1 to setOf(dependency2))
+        }
+
+        kotlin.run {
+            val dependencyGraphStore = RocksDbDependencyGraphStore(db)
+            assertThat(dependencyGraphStore.getDependencies().toList())
+                .containsExactlyInAnyOrder(dependency1 to setOf(dependency2))
+            dependencyGraphStore.deleteDependenciesPerKey(dependency1)
+            assertThat(dependencyGraphStore.getDependencies().toList())
+                .isEmpty()
+        }
+    }
+
+    @Test
+    fun dependencyStatusTest() {
+        val nodeIdentifier = NodeIdentifier("node-1")
+        val dependency = Dependency(Id(nodeIdentifier, 0L))
+
+        kotlin.run {
+            val dependencyGraphStore = RocksDbDependencyGraphStore(db)
+            assertThat(dependencyGraphStore.getStatuses().toList())
+                .isEmpty()
+            dependencyGraphStore.setStatusPerKey(dependency, DependencyStatus.COMMITTED)
+            assertThat(dependencyGraphStore.getStatuses().toList())
+                .containsExactlyInAnyOrder(dependency to DependencyStatus.COMMITTED)
+        }
+
+        kotlin.run {
+            val dependencyGraphStore = RocksDbDependencyGraphStore(db)
+            assertThat(dependencyGraphStore.getStatuses().toList())
+                .containsExactlyInAnyOrder(dependency to DependencyStatus.COMMITTED)
+            dependencyGraphStore.deleteStatusPerKey(dependency)
+            assertThat(dependencyGraphStore.getStatuses().toList())
+                .isEmpty()
         }
     }
 

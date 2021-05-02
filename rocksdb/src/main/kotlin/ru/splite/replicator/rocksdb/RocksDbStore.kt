@@ -1,6 +1,5 @@
 package ru.splite.replicator.rocksdb
 
-import com.google.common.primitives.Longs
 import kotlinx.serialization.BinaryFormat
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.protobuf.ProtoBuf
@@ -12,24 +11,60 @@ class RocksDbStore(
     columnFamilyNames: Collection<String>
 ) {
 
-    data class KeyValue<K, V>(val key: K, val value: V)
-
     inner class ColumnFamilyStore(private val columnFamilyHandle: ColumnFamilyHandle) {
 
+        fun put(key: ByteArray, value: ByteArray) {
+            db.put(columnFamilyHandle, key, value)
+        }
+
         fun put(key: String, value: ByteArray) {
-            db.put(columnFamilyHandle, key.toByteArray(), value)
+            put(key.toByteArray(), value)
         }
 
         fun put(key: Long, value: ByteArray) {
-            db.put(columnFamilyHandle, Longs.toByteArray(key), value)
+            put(key.toByteArray(), value)
+        }
+
+        fun getAsByteArray(key: ByteArray): ByteArray? {
+            return db.get(columnFamilyHandle, key)
         }
 
         fun getAsByteArray(key: String): ByteArray? {
-            return db.get(columnFamilyHandle, key.toByteArray())
+            return getAsByteArray(key.toByteArray())
         }
 
         fun getAsByteArray(key: Long): ByteArray? {
-            return db.get(columnFamilyHandle, Longs.toByteArray(key))
+            return getAsByteArray(key.toByteArray())
+        }
+
+        fun delete(key: ByteArray) {
+            db.delete(columnFamilyHandle, key)
+        }
+
+        inline fun <reified K, reified T> getAsType(
+            key: K,
+            keySerializer: KSerializer<K>,
+            serializer: KSerializer<T>
+        ): T? {
+            return getAsByteArray(
+                key.encodeToByteArray(keySerializer)
+            )?.decodeFromByteArray(serializer)
+        }
+
+        inline fun <reified K, reified T> putAsType(
+            key: K,
+            value: T,
+            keySerializer: KSerializer<K>,
+            serializer: KSerializer<T>
+        ) {
+            put(key.encodeToByteArray(keySerializer), value.encodeToByteArray(serializer))
+        }
+
+        inline fun <reified K> delete(
+            key: K,
+            keySerializer: KSerializer<K>
+        ) {
+            return delete(key.encodeToByteArray(keySerializer))
         }
 
         inline fun <reified T> getAsType(key: String, serializer: KSerializer<T>): T? {
@@ -58,6 +93,18 @@ class RocksDbStore(
             return getAll().map {
                 KeyValue(
                     String(it.key),
+                    it.value.decodeFromByteArray(valueSerializer)
+                )
+            }
+        }
+
+        inline fun <reified K, reified V> getAll(
+            keySerializer: KSerializer<K>,
+            valueSerializer: KSerializer<V>
+        ): Sequence<KeyValue<K, V>> {
+            return getAll().map {
+                KeyValue(
+                    it.key.decodeFromByteArray(keySerializer),
                     it.value.decodeFromByteArray(valueSerializer)
                 )
             }
