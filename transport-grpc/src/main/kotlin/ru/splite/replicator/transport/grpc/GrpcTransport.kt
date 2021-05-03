@@ -43,6 +43,15 @@ class GrpcTransport(addresses: Map<NodeIdentifier, GrpcAddress>) : Transport, Cl
         return stub.send(receiver.address, payload)
     }
 
+    suspend fun pingAll(): Int {
+        val from = stubs.filter { it.value is GrpcServer }.keys.first()
+        return stubs.values.map {
+            kotlin.runCatching {
+                it.ping(from)
+            }
+        }.count { it.isSuccess }
+    }
+
     fun awaitTermination() {
         stubs.values.filterIsInstance<GrpcServer>().forEach {
             it.awaitTermination()
@@ -75,6 +84,8 @@ class GrpcTransport(addresses: Map<NodeIdentifier, GrpcAddress>) : Transport, Cl
             return receiver.receive(from, bytes)
         }
 
+        override suspend fun ping(from: NodeIdentifier) = Unit
+
         fun start() {
             server.start()
             LOGGER.info("Server started listening on $address")
@@ -104,6 +115,12 @@ class GrpcTransport(addresses: Map<NodeIdentifier, GrpcAddress>) : Transport, Cl
                 val src = NodeIdentifier(request.from)
                 check(stubs.containsKey(src)) {
                     "Cannot receive message from $src because stub not found"
+                }
+                if (request.ping) {
+                    return BinaryMessageResponse
+                        .newBuilder()
+                        .setMessage(request.message)
+                        .build()
                 }
                 val stopwatch = Stopwatch.createStarted()
                 val responseBytes = receiver.receive(src, request.message.toByteArray())

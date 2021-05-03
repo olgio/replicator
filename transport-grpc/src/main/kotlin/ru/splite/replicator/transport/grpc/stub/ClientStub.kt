@@ -10,4 +10,6 @@ internal interface ClientStub {
     val unavailabilityRank: Int
 
     suspend fun send(from: NodeIdentifier, bytes: ByteArray): ByteArray
+
+    suspend fun ping(from: NodeIdentifier)
 }

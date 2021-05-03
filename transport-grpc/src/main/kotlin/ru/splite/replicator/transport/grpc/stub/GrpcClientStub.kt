@@ -46,6 +46,15 @@ internal class GrpcClientStub(override val address: GrpcAddress) : ClientStub, S
         return response
     }
 
+    override suspend fun ping(from: NodeIdentifier) {
+        val request = BinaryMessageRequest.newBuilder()
+            .setFrom(from.identifier)
+            .setMessage(ByteString.EMPTY)
+            .setPing(true)
+            .build()
+        stub.call(request)
+    }
+
     override fun shutdown() {
         (stub.channel as ManagedChannel).shutdown()
     }
