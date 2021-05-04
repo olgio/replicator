@@ -22,6 +22,7 @@ import ru.splite.replicator.timer.flow.TimerFactory
 import ru.splite.replicator.transport.NodeIdentifier
 import ru.splite.replicator.transport.grpc.GrpcAddress
 import ru.splite.replicator.transport.grpc.GrpcTransport
+import java.net.InetAddress
 
 class KeyValueStoreRunner(
     protocolDependencyContainer: DI.Module,
@@ -85,7 +86,8 @@ fun main(args: Array<String>) {
     config.googleProjectId?.let { googleProjectId ->
         Metrics.initializeStackdriver(
             googleProjectId, listOf(
-                Tag.of("protocol", config.protocol.name)
+                Tag.of("protocol", config.protocol.name),
+                Tag.of("pod", InetAddress.getLocalHost().hostName)
             )
         )
     }
