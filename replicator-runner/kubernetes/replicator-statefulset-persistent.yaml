@@ -5,7 +5,7 @@ metadata:
   labels:
     app: replicator
 spec:
-  replicas: 3
+  replicas: 0
   serviceName: "replicator-grpc-service"
   selector:
     matchLabels:
@@ -45,10 +45,12 @@ spec:
           imagePullPolicy: Always
           command: [ "java" ]
           args: [
-              "-Xmx1400M", "-jar", "/app.jar",
+              "--add-opens", "java.base/jdk.internal.misc=ALL-UNNAMED", "-Dio.netty.tryReflectionSetAccessible=true",
+              "-Xms1024M", "-Xmx1400M", "-jar", "/app.jar",
               "--protocol", "ATLAS",
               "--nodes", "replicator-0.replicator-grpc-service.default.svc.cluster.local:6545,replicator-1.replicator-grpc-service.default.svc.cluster.local:6545,replicator-2.replicator-grpc-service.default.svc.cluster.local:6545",
               "--googleProjectId", "massive-triumph-309118",
+              "--rocksDbFile", "/data"
           ]
           ports:
             - containerPort: 8000
@@ -56,6 +58,8 @@ spec:
           volumeMounts:
             - mountPath: /var/secrets/google
               name: google-cloud-key
+            - mountPath: /data
+              name: data
           env:
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secrets/google/key.json
@@ -65,7 +69,7 @@ spec:
               memory: "1536Mi"
             requests:
               cpu: 100m
-              memory: "512Mi"
+              memory: "1024Mi"
           livenessProbe:
             httpGet:
               path: /health
@@ -80,3 +84,12 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 5
             failureThreshold: 10
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi

@@ -56,6 +56,10 @@
             <groupId>ru.splite.replicator</groupId>
             <artifactId>replicator-tests</artifactId>
         </dependency>
+        <dependency>
+            <groupId>ru.splite.replicator</groupId>
+            <artifactId>rocksdb</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>org.kodein.di</groupId>

@@ -10,14 +10,13 @@ import ru.splite.replicator.atlas.AtlasMessage
 import ru.splite.replicator.atlas.AtlasProtocolConfig
 import ru.splite.replicator.atlas.AtlasProtocolController
 import ru.splite.replicator.atlas.executor.CommandExecutor
-import ru.splite.replicator.atlas.graph.Dependency
-import ru.splite.replicator.atlas.graph.DependencyGraph
-import ru.splite.replicator.atlas.graph.JGraphTDependencyGraph
+import ru.splite.replicator.atlas.graph.*
 import ru.splite.replicator.atlas.id.IdGenerator
 import ru.splite.replicator.atlas.id.InMemoryIdGenerator
 import ru.splite.replicator.atlas.protocol.AtlasProtocol
 import ru.splite.replicator.atlas.protocol.BaseAtlasProtocol
-import ru.splite.replicator.statemachine.ConflictOrderedStateMachine
+import ru.splite.replicator.atlas.state.CommandStateStore
+import ru.splite.replicator.atlas.state.InMemoryCommandStateStore
 import ru.splite.replicator.statemachine.StateMachineCommandSubmitter
 import ru.splite.replicator.transport.NodeIdentifier
 import ru.splite.replicator.transport.TypedActor
@@ -46,7 +45,9 @@ object AtlasDependencyContainer {
             CommandExecutor(instance(), instance())
         }
 
-        bind<DependencyGraph<Dependency>>() with singleton { JGraphTDependencyGraph() }
+        bind<DependencyGraphStore<Dependency>>() with singleton { EmptyDependencyGraphStore() }
+
+        bind<DependencyGraph<Dependency>>() with singleton { JGraphTDependencyGraph(instance()) }
 
         bind<MessageSender<AtlasMessage>>() with singleton {
             MessageSender(
@@ -55,11 +56,16 @@ object AtlasDependencyContainer {
             )
         }
 
+        bind<CommandStateStore>() with singleton {
+            InMemoryCommandStateStore()
+        }
+
         bind<AtlasProtocol>() with singleton {
             BaseAtlasProtocol(
                 instance(),
                 instance(),
-                instance<ConflictOrderedStateMachine<ByteArray, ByteArray>>().newConflictIndex(),
+                instance(),
+                instance(),
                 instance()
             )
         }
