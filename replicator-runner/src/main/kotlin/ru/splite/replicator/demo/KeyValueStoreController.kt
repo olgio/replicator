@@ -9,7 +9,6 @@ import io.ktor.response.*
 import io.ktor.routing.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -31,15 +30,6 @@ class KeyValueStoreController(
     fun start() {
         embeddedServer(Netty, port = port) {
 
-//            install(MicrometerMetrics) {
-//                registry = Metrics.appMicrometerRegistry
-//                meterBinders = listOf(
-//                    JvmMemoryMetrics(),
-//                    JvmGcMetrics(),
-//                    ProcessorMetrics()
-//                )
-//            }
-
             install(StatusPages) {
                 exception<Throwable> { cause ->
                     call.respond(HttpStatusCode.InternalServerError, cause.toString())
@@ -58,7 +48,10 @@ class KeyValueStoreController(
                         val command = KeyValueCommand.GetValue(key)
                         LOGGER.debug("Received GET command $command")
                         val commandReply = submitCommand(command)
-                        call.respondText(Json.encodeToString(commandReply), ContentType.Application.Json)
+                        call.respondText(
+                            Json.encodeToString(KeyValueReply.serializer(), commandReply),
+                            ContentType.Application.Json
+                        )
                     }
 
                     post("{key}") {
@@ -67,17 +60,16 @@ class KeyValueStoreController(
                         val command = KeyValueCommand.PutValue(key, value)
                         LOGGER.debug("Received PUT command $command")
                         val commandReply = submitCommand(command)
-                        call.respondText(Json.encodeToString(commandReply), ContentType.Application.Json)
+                        call.respondText(
+                            Json.encodeToString(KeyValueReply.serializer(), commandReply),
+                            ContentType.Application.Json
+                        )
                     }
                 }
 
                 get("health") {
                     call.respondText("OK")
                 }
-
-//                get("metrics") {
-//                    call.respond(Metrics.appMicrometerRegistry.scrape())
-//                }
             }
         }.start(wait = false)
     }
