@@ -135,6 +135,7 @@ class Benchmark {
             val nodes = (1..n).map {
                 val config = RaftProtocolConfig(
                     address = NodeIdentifier(it.toString()),
+                    processId = it.toLong(),
                     n = n,
                     termClockPeriod = 3000L..5000L,
                     appendEntriesSendPeriod = 1000L..1000L,
@@ -181,6 +182,7 @@ class Benchmark {
             val nodes = (1..n).map {
                 val config = RaftProtocolConfig(
                     address = NodeIdentifier(it.toString()),
+                    processId = it.toLong(),
                     n = n,
                     termClockPeriod = 2000L..4000L,
                     appendEntriesSendPeriod = 500L..500L,
