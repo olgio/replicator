@@ -35,6 +35,9 @@ class RunnerConfig(parser: ArgParser) {
     val googleProjectId by parser
         .option(type = ArgType.String, description = "Google Project Id")
 
+    val rocksDbFile by parser
+        .option(type = ArgType.String, description = "RocksDb file ")
+
     private val protocolString by parser
         .option(fullName = "protocol", type = ArgType.String, description = "Protocol")
         .default(Protocol.ATLAS.name)

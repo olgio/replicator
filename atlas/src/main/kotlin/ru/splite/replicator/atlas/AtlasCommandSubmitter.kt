@@ -192,17 +192,19 @@ class AtlasCommandSubmitter(
         coroutineScope: CoroutineScope,
         timerFactory: TimerFactory
     ): Job = coroutineScope.launch(coroutineContext) {
+        if (!atlasProtocol.config.enableRecovery) {
+            return@launch
+        }
+        LOGGER.info("Enabled command recovery")
         val delayedFlow = timerFactory.delayedFlow(
             commandExecutor.commandBlockersFlow,
             atlasProtocol.config.commandRecoveryDelay
         )
         delayedFlow.collect {
-            if (!atlasProtocol.config.enableRecovery) {
-                return@collect
-            }
             launch {
                 try {
                     if (atlasProtocol.getCommandStatus(it) == CommandStatus.COMMIT) {
+                        LOGGER.debug("Command already committed. commandId=${it}")
                         return@launch
                     }
                     val commandCoordinator = atlasProtocol.createCommandCoordinator(it)

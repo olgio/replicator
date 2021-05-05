@@ -34,7 +34,7 @@ class RaftCommandSubmitter(
     fun launchCommandApplier(coroutineContext: CoroutineContext, coroutineScope: CoroutineScope): Job {
         return coroutineScope.launch(coroutineContext) {
             protocol.commitEventFlow.collect { lastCommitEvent ->
-                var nextIndexToApply: Long = lastAppliedStateFlow.value?.index?.plus(1) ?: 0
+                var nextIndexToApply: Long = protocol.replicatedLogStore.lastAppliedIndex()?.plus(1) ?: 0
                 if (lastCommitEvent.index != null) {
                     while (lastCommitEvent.index >= nextIndexToApply) {
                         LOGGER.debug("Detected command to commit index=$nextIndexToApply")
@@ -45,6 +45,7 @@ class RaftCommandSubmitter(
                         commandResults[indexWithTerm] = result
                         LOGGER.debug("Applied command to StateMachine $indexWithTerm")
                         lastAppliedStateFlow.tryEmit(indexWithTerm)
+                        protocol.replicatedLogStore.markApplied(nextIndexToApply)
                         nextIndexToApply++
                     }
                 }

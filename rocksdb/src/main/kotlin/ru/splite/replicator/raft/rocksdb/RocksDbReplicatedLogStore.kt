@@ -20,9 +20,11 @@ class RocksDbReplicatedLogStore(db: RocksDbStore) : ReplicatedLogStore {
 
     private val indexStore = db.createColumnFamilyStore(LOG_INDEX_FAMILY_NAME)
 
-    private val lastIndex = AtomicLong(readLastLogIndex())
+    private val lastIndex = AtomicLong(readIndexByKey(LAST_INDEX_KEY))
 
-    private val lastCommitIndex = AtomicLong(readLastCommitIndex())
+    private val lastCommitIndex = AtomicLong(readIndexByKey(COMMIT_INDEX_KEY))
+
+    private val lastAppliedIndex = AtomicLong(readIndexByKey(APPLIED_INDEX_KEY))
 
     private val logMutex = Mutex()
 
@@ -78,6 +80,18 @@ class RocksDbReplicatedLogStore(db: RocksDbStore) : ReplicatedLogStore {
         return newIndex
     }
 
+    override suspend fun markApplied(index: Long): Long {
+        validateIndex(index)
+        if (index > lastCommitIndex.get()) {
+            throw LogGapException(
+                "Cannot mark applied because command not committed: $index > ${lastCommitIndex.get()}"
+            )
+        }
+        val newIndex = max(lastAppliedIndex.get(), index)
+        putAppliedIndex(newIndex)
+        return newIndex
+    }
+
     override fun getLogEntryByIndex(index: Long): LogEntry? {
         validateIndex(index)
         if (index > lastIndex.get()) {
@@ -98,18 +112,20 @@ class RocksDbReplicatedLogStore(db: RocksDbStore) : ReplicatedLogStore {
         }
     }
 
+    override fun lastAppliedIndex(): Long? {
+        lastAppliedIndex.get().let {
+            return if (it < 0) null else it
+        }
+    }
+
     private fun validateIndex(index: Long) {
         if (index < 0) {
             error("Log entry index cannot be less than 0")
         }
     }
 
-    private fun readLastLogIndex(): Long {
-        return indexStore.getAsByteArray(LAST_INDEX_KEY)?.asLong() ?: -1L
-    }
-
-    private fun readLastCommitIndex(): Long {
-        return indexStore.getAsByteArray(COMMIT_INDEX_KEY)?.asLong() ?: -1L
+    private fun readIndexByKey(storeKey: String): Long {
+        return indexStore.getAsByteArray(storeKey)?.asLong() ?: -1L
     }
 
     private fun putLastLogIndex(index: Long) {
@@ -122,6 +138,11 @@ class RocksDbReplicatedLogStore(db: RocksDbStore) : ReplicatedLogStore {
         lastCommitIndex.set(index)
     }
 
+    private fun putAppliedIndex(index: Long) {
+        indexStore.put(APPLIED_INDEX_KEY, Longs.toByteArray(index))
+        lastAppliedIndex.set(index)
+    }
+
     companion object {
         private val LOGGER: Logger = LoggerFactory.getLogger(javaClass.enclosingClass)
 
@@ -130,6 +151,7 @@ class RocksDbReplicatedLogStore(db: RocksDbStore) : ReplicatedLogStore {
         private const val LOG_INDEX_FAMILY_NAME = "LOG_INDEX"
         private const val LAST_INDEX_KEY = "LAST_INDEX"
         private const val COMMIT_INDEX_KEY = "COMMIT_INDEX"
+        private const val APPLIED_INDEX_KEY = "APPLIED_INDEX"
 
         val COLUMN_FAMILY_NAMES = listOf(
             LOG_INDEX_FAMILY_NAME,

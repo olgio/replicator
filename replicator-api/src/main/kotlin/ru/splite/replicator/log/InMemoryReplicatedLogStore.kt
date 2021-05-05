@@ -16,6 +16,8 @@ class InMemoryReplicatedLogStore : ReplicatedLogStore {
 
     private val lastCommitIndex = AtomicLong(-1)
 
+    private val lastAppliedIndex = AtomicLong(-1)
+
     private val logMutex = Mutex()
 
     override suspend fun setLogEntry(index: Long, logEntry: LogEntry) = logMutex.withLock {
@@ -69,6 +71,16 @@ class InMemoryReplicatedLogStore : ReplicatedLogStore {
         return newIndex
     }
 
+    override suspend fun markApplied(index: Long): Long {
+        validateIndex(index)
+        if (index > lastCommitIndex.get()) {
+            throw LogGapException(
+                "Cannot mark applied because command not committed: $index > ${lastCommitIndex.get()}"
+            )
+        }
+        return lastAppliedIndex.updateAndGet { oldIndex -> max(oldIndex, index) }
+    }
+
     override fun getLogEntryByIndex(index: Long): LogEntry? {
         validateIndex(index)
         if (index > lastIndex.get()) {
@@ -85,6 +97,12 @@ class InMemoryReplicatedLogStore : ReplicatedLogStore {
 
     override fun lastCommitIndex(): Long? {
         lastCommitIndex.get().let {
+            return if (it < 0) null else it
+        }
+    }
+
+    override fun lastAppliedIndex(): Long? {
+        lastAppliedIndex.get().let {
             return if (it < 0) null else it
         }
     }

@@ -8,23 +8,41 @@ import org.jgrapht.graph.SimpleDirectedGraph
 import org.jgrapht.traverse.BreadthFirstIterator
 import org.jgrapht.traverse.TopologicalOrderIterator
 
-class JGraphTDependencyGraph<K : Comparable<K>> : DependencyGraph<K> {
+class JGraphTDependencyGraph<K : Comparable<K>>(
+    private val dependencyGraphStore: DependencyGraphStore<K> = EmptyDependencyGraphStore()
+) : DependencyGraph<K> {
 
     override val numVertices: Int
         get() = graph.vertexSet().size
 
-    private val graph = SimpleDirectedGraph<K, DefaultEdge>(DefaultEdge::class.java)
+    private val graph = SimpleDirectedGraph<K, DefaultEdge>(DefaultEdge::class.java).apply {
+        dependencyGraphStore.getDependencies().forEach { (key, dependencies) ->
+            addVertex(key)
 
-    private val committed = mutableSetOf<K>()
+            dependencies.forEach {
+                addVertex(it)
+                addEdge(key, it)
+            }
+        }
+    }
+
+    private val committed = dependencyGraphStore.getStatuses().filter { (_, status) ->
+        status == DependencyStatus.COMMITTED
+    }.map { it.first }.toMutableSet()
 
     //private val sequenceNumbers = mutableMapOf<K,>()
 
-    private val executed = mutableSetOf<K>()
+    private val executed = dependencyGraphStore.getStatuses().filter { (_, status) ->
+        status == DependencyStatus.APPLIED
+    }.map { it.first }.toMutableSet()
 
     override fun commit(key: K, dependencies: Set<K>) {
         if (committed.contains(key) || executed.contains(key)) {
             return
         }
+
+        dependencyGraphStore.setDependenciesPerKey(key, dependencies)
+        dependencyGraphStore.setStatusPerKey(key, DependencyStatus.COMMITTED)
 
         committed.add(key)
         //sequenceNumbers(key) = sequenceNumber
@@ -70,6 +88,9 @@ class JGraphTDependencyGraph<K : Comparable<K>> : DependencyGraph<K> {
         }.flatten().toList()
 
         executable.forEach { key ->
+            dependencyGraphStore.setStatusPerKey(key, DependencyStatus.APPLIED)
+            dependencyGraphStore.deleteDependenciesPerKey(key)
+
             graph.removeVertex(key)
             committed.remove(key)
             //sequenceNumbers -= key

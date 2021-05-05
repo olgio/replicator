@@ -31,7 +31,15 @@
 
         <kotlin.code.style>official</kotlin.code.style>
         <kotlin.compiler.jvmTarget>1.8</kotlin.compiler.jvmTarget>
-        <kotlin.version>1.4.21</kotlin.version>
+        <kotlin.version>1.4.32</kotlin.version>
+        <kotlin.coroutines.version>1.4.3</kotlin.coroutines.version>
+        <kotlin.serialization.version>1.2.0</kotlin.serialization.version>
+
+        <logback.version>1.2.3</logback.version>
+        <jgrapht.version>1.4.0</jgrapht.version>
+
+        <junit.version>5.6.0</junit.version>
+        <assertj.version>3.18.1</assertj.version>
     </properties>
 
     <repositories>
@@ -99,7 +107,7 @@
             <dependency>
                 <groupId>org.jgrapht</groupId>
                 <artifactId>jgrapht-core</artifactId>
-                <version>1.4.0</version>
+                <version>${jgrapht.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -181,19 +189,19 @@
         <dependency>
             <groupId>org.jetbrains.kotlinx</groupId>
             <artifactId>kotlinx-coroutines-core</artifactId>
-            <version>1.4.2</version>
+            <version>${kotlin.coroutines.version}</version>
         </dependency>
         <dependency>
             <groupId>org.jetbrains.kotlinx</groupId>
             <artifactId>kotlinx-coroutines-test</artifactId>
-            <version>1.4.2</version>
+            <version>${kotlin.coroutines.version}</version>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>org.jetbrains.kotlinx</groupId>
             <artifactId>kotlinx-serialization-protobuf</artifactId>
-            <version>1.0.1</version>
+            <version>${kotlin.serialization.version}</version>
             <type>pom</type>
         </dependency>
 
@@ -201,32 +209,32 @@
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
-            <version>1.2.3</version>
+            <version>${logback.version}</version>
         </dependency>
 
         <!--        tests-->
         <dependency>
             <groupId>org.jetbrains.kotlin</groupId>
             <artifactId>kotlin-test-junit5</artifactId>
-            <version>1.4.10</version>
+            <version>${kotlin.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
-            <version>5.6.0</version>
+            <version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-engine</artifactId>
-            <version>5.6.0</version>
+            <version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
-            <version>3.18.1</version>
+            <version>${assertj.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

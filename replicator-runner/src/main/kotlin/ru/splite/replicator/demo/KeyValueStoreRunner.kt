@@ -11,14 +11,18 @@ import org.kodein.di.instance
 import org.kodein.di.singleton
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import ru.splite.replicator.atlas.graph.Dependency
+import ru.splite.replicator.demo.keyvalue.KeyValueConflictIndex
 import ru.splite.replicator.demo.keyvalue.KeyValueStateMachine
 import ru.splite.replicator.metrics.Metrics
+import ru.splite.replicator.statemachine.ConflictIndex
 import ru.splite.replicator.statemachine.ConflictOrderedStateMachine
 import ru.splite.replicator.timer.flow.DelayTimerFactory
 import ru.splite.replicator.timer.flow.TimerFactory
 import ru.splite.replicator.transport.NodeIdentifier
 import ru.splite.replicator.transport.grpc.GrpcAddress
 import ru.splite.replicator.transport.grpc.GrpcTransport
+import java.net.InetAddress
 
 class KeyValueStoreRunner(
     protocolDependencyContainer: DI.Module,
@@ -42,6 +46,8 @@ class KeyValueStoreRunner(
 
         bind<ConflictOrderedStateMachine<ByteArray, ByteArray>>() with singleton { KeyValueStateMachine() }
 
+        bind<ConflictIndex<Dependency, ByteArray>>() with singleton { KeyValueConflictIndex() }
+
         bind<KeyValueStoreController>() with singleton {
             KeyValueStoreController(
                 config.port,
@@ -50,6 +56,9 @@ class KeyValueStoreRunner(
             )
         }
 
+        if (config.rocksDbFile != null) {
+            import(RocksDbDependencyContainer.module, allowOverride = true)
+        }
     }
 
     fun run() {
@@ -77,7 +86,8 @@ fun main(args: Array<String>) {
     config.googleProjectId?.let { googleProjectId ->
         Metrics.initializeStackdriver(
             googleProjectId, listOf(
-                Tag.of("protocol", config.protocol.name)
+                Tag.of("protocol", config.protocol.name),
+                Tag.of("pod", InetAddress.getLocalHost().hostName)
             )
         )
     }

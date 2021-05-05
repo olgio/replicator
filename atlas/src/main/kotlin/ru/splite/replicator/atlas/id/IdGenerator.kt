@@ -8,5 +8,5 @@ interface IdGenerator<S> {
     /**
      * Генерация нового идентификатора команды
      */
-    fun generateNext(): Id<S>
+    suspend fun generateNext(): Id<S>
 }

@@ -4,7 +4,7 @@ import com.google.common.base.Stopwatch
 import com.google.protobuf.ByteString
 import io.grpc.ConnectivityState
 import io.grpc.ManagedChannel
-import io.grpc.ManagedChannelBuilder
+import io.grpc.netty.NettyChannelBuilder
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.message.proto.BinaryMessageRequest
@@ -13,6 +13,7 @@ import ru.splite.replicator.metrics.Metrics
 import ru.splite.replicator.metrics.Metrics.recordStopwatch
 import ru.splite.replicator.transport.NodeIdentifier
 import ru.splite.replicator.transport.grpc.GrpcAddress
+import ru.splite.replicator.transport.grpc.GrpcTransport.Companion.NETTY_INITIAL_WINDOW_SIZE
 import ru.splite.replicator.transport.grpc.ShutdownSupportable
 import java.util.concurrent.TimeUnit
 
@@ -46,6 +47,18 @@ internal class GrpcClientStub(override val address: GrpcAddress) : ClientStub, S
         return response
     }
 
+    override suspend fun ping(from: NodeIdentifier) {
+        val stopwatch = Stopwatch.createStarted()
+        val request = BinaryMessageRequest.newBuilder()
+            .setFrom(from.identifier)
+            .setMessage(ByteString.EMPTY)
+            .setPing(true)
+            .build()
+        stub.call(request)
+        stopwatch.stop()
+        Metrics.registry.sendMessageLatency.recordStopwatch(stopwatch)
+    }
+
     override fun shutdown() {
         (stub.channel as ManagedChannel).shutdown()
     }
@@ -56,8 +69,9 @@ internal class GrpcClientStub(override val address: GrpcAddress) : ClientStub, S
 
     private fun createStub(): BinaryRpcGrpcKt.BinaryRpcCoroutineStub {
         LOGGER.info("Initializing grpc stub for address $address")
-        val channel = ManagedChannelBuilder.forAddress(address.host, address.port)
+        val channel = NettyChannelBuilder.forAddress(address.host, address.port)
             .usePlaintext()
+            .initialFlowControlWindow(NETTY_INITIAL_WINDOW_SIZE)
             .build()
         try {
             val connectivityState = channel.getState(true)

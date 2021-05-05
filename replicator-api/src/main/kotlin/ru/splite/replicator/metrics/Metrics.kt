@@ -87,6 +87,8 @@ object Metrics {
             meterRegistry.config().commonTags(tags)
             meterRegistry
         }
+        //force initialize lazy property
+        registry
     }
 
     fun Timer.recordStopwatch(stopwatch: Stopwatch) {

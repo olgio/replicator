@@ -3,7 +3,7 @@ package ru.splite.replicator.transport.grpc
 import com.google.common.base.Stopwatch
 import com.google.protobuf.ByteString
 import io.grpc.Server
-import io.grpc.ServerBuilder
+import io.grpc.netty.NettyServerBuilder
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.message.proto.BinaryMessageRequest
@@ -43,6 +43,15 @@ class GrpcTransport(addresses: Map<NodeIdentifier, GrpcAddress>) : Transport, Cl
         return stub.send(receiver.address, payload)
     }
 
+    suspend fun pingAll(): Int {
+        val from = stubs.filter { it.value is GrpcServer }.keys.first()
+        return stubs.values.map {
+            kotlin.runCatching {
+                it.ping(from)
+            }
+        }.count { it.isSuccess }
+    }
+
     fun awaitTermination() {
         stubs.values.filterIsInstance<GrpcServer>().forEach {
             it.awaitTermination()
@@ -62,8 +71,9 @@ class GrpcTransport(addresses: Map<NodeIdentifier, GrpcAddress>) : Transport, Cl
         private val receiver: Receiver
     ) : ClientStub, ShutdownSupportable {
 
-        private val server: Server = ServerBuilder
+        private val server: Server = NettyServerBuilder
             .forPort(address.port)
+            .initialFlowControlWindow(NETTY_INITIAL_WINDOW_SIZE)
             .addService(BinaryRpcService(receiver))
             .build()
 
@@ -74,6 +84,8 @@ class GrpcTransport(addresses: Map<NodeIdentifier, GrpcAddress>) : Transport, Cl
             LOGGER.trace("Received local message for $address")
             return receiver.receive(from, bytes)
         }
+
+        override suspend fun ping(from: NodeIdentifier) = Unit
 
         fun start() {
             server.start()
@@ -105,6 +117,12 @@ class GrpcTransport(addresses: Map<NodeIdentifier, GrpcAddress>) : Transport, Cl
                 check(stubs.containsKey(src)) {
                     "Cannot receive message from $src because stub not found"
                 }
+                if (request.ping) {
+                    return BinaryMessageResponse
+                        .newBuilder()
+                        .setMessage(request.message)
+                        .build()
+                }
                 val stopwatch = Stopwatch.createStarted()
                 val responseBytes = receiver.receive(src, request.message.toByteArray())
                 Metrics.registry.receiveMessageLatency.recordStopwatch(stopwatch.stop())
@@ -121,5 +139,7 @@ class GrpcTransport(addresses: Map<NodeIdentifier, GrpcAddress>) : Transport, Cl
 
     companion object {
         private val LOGGER: Logger = LoggerFactory.getLogger(javaClass.enclosingClass)
+
+        const val NETTY_INITIAL_WINDOW_SIZE = 1024 * 64
     }
 }

@@ -8,6 +8,7 @@ package ru.splite.replicator.message.proto;
 message BinaryMessageRequest {
     string from    = 1;
     bytes  message = 2;
+    bool   ping    = 3;
 }
 
 message BinaryMessageResponse {
