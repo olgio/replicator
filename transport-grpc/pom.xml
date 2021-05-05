@@ -13,6 +13,8 @@
 
     <properties>
         <grpc.kotlin.version>1.0.0</grpc.kotlin.version>
+        <grpc.version>1.37.0</grpc.version>
+        <netty.version>4.1.63.Final</netty.version>
     </properties>
 
     <dependencies>
@@ -31,15 +33,41 @@
             <artifactId>grpc-kotlin-stub</artifactId>
             <version>${grpc.kotlin.version}</version>
         </dependency>
+
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-protobuf</artifactId>
+            <version>${grpc.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-stub</artifactId>
+            <version>${grpc.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>io.grpc</groupId>
             <artifactId>grpc-netty</artifactId>
         </dependency>
         <dependency>
             <groupId>io.netty</groupId>
+            <artifactId>netty-handler-proxy</artifactId>
+            <version>${netty.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-codec-http2</artifactId>
+            <version>${netty.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-transport-native-kqueue</artifactId>
+            <version>${netty.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.netty</groupId>
             <artifactId>netty-transport-native-epoll</artifactId>
-            <version>4.1.52.Final</version>
-            <classifier>linux-x86_64</classifier>
+            <version>${netty.version}</version>
         </dependency>
     </dependencies>
 

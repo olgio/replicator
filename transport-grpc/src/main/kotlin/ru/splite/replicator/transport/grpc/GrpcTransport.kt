@@ -3,7 +3,7 @@ package ru.splite.replicator.transport.grpc
 import com.google.common.base.Stopwatch
 import com.google.protobuf.ByteString
 import io.grpc.Server
-import io.grpc.ServerBuilder
+import io.grpc.netty.NettyServerBuilder
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.message.proto.BinaryMessageRequest
@@ -71,8 +71,9 @@ class GrpcTransport(addresses: Map<NodeIdentifier, GrpcAddress>) : Transport, Cl
         private val receiver: Receiver
     ) : ClientStub, ShutdownSupportable {
 
-        private val server: Server = ServerBuilder
+        private val server: Server = NettyServerBuilder
             .forPort(address.port)
+            .initialFlowControlWindow(NETTY_INITIAL_WINDOW_SIZE)
             .addService(BinaryRpcService(receiver))
             .build()
 
@@ -138,5 +139,7 @@ class GrpcTransport(addresses: Map<NodeIdentifier, GrpcAddress>) : Transport, Cl
 
     companion object {
         private val LOGGER: Logger = LoggerFactory.getLogger(javaClass.enclosingClass)
+
+        const val NETTY_INITIAL_WINDOW_SIZE = 1024 * 64
     }
 }
