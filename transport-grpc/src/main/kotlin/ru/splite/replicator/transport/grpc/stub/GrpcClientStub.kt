@@ -47,12 +47,15 @@ internal class GrpcClientStub(override val address: GrpcAddress) : ClientStub, S
     }
 
     override suspend fun ping(from: NodeIdentifier) {
+        val stopwatch = Stopwatch.createStarted()
         val request = BinaryMessageRequest.newBuilder()
             .setFrom(from.identifier)
             .setMessage(ByteString.EMPTY)
             .setPing(true)
             .build()
         stub.call(request)
+        stopwatch.stop()
+        Metrics.registry.sendMessageLatency.recordStopwatch(stopwatch)
     }
 
     override fun shutdown() {
