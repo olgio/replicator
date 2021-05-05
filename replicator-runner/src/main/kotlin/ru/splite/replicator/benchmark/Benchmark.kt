@@ -7,15 +7,18 @@ import kotlinx.cli.default
 import kotlinx.coroutines.*
 import org.kodein.di.*
 import ru.splite.replicator.atlas.AtlasProtocolConfig
+import ru.splite.replicator.atlas.graph.Dependency
 import ru.splite.replicator.demo.AtlasDependencyContainer
 import ru.splite.replicator.demo.RaftDependencyContainer
 import ru.splite.replicator.demo.keyvalue.KeyValueCommand
+import ru.splite.replicator.demo.keyvalue.KeyValueConflictIndex
 import ru.splite.replicator.demo.keyvalue.KeyValueReply
 import ru.splite.replicator.demo.keyvalue.KeyValueStateMachine
 import ru.splite.replicator.metrics.Metrics
 import ru.splite.replicator.raft.RaftProtocolConfig
 import ru.splite.replicator.raft.asMajority
 import ru.splite.replicator.raft.protocol.RaftProtocol
+import ru.splite.replicator.statemachine.ConflictIndex
 import ru.splite.replicator.statemachine.StateMachineCommandSubmitter
 import ru.splite.replicator.timer.flow.DelayTimerFactory
 import ru.splite.replicator.timer.flow.TimerFactory
@@ -102,6 +105,8 @@ class Benchmark {
                     bind<Transport>() with instance(transport)
 
                     bind<KeyValueStateMachine>() with singleton { KeyValueStateMachine() }
+
+                    bind<ConflictIndex<Dependency, ByteArray>>() with singleton { KeyValueConflictIndex() }
                 }.direct
             }
 
