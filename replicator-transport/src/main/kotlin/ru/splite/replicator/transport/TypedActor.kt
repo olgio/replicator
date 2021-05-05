@@ -47,16 +47,26 @@ abstract class TypedActor<T>(
     abstract suspend fun receive(src: NodeIdentifier, payload: T): T
 
     override suspend fun receive(src: NodeIdentifier, payload: ByteArray): ByteArray {
-        val start = System.currentTimeMillis()
+        val transportWatch = Stopwatch.createUnstarted()
+        val serializerWatch = Stopwatch.createUnstarted()
 
+        serializerWatch.start()
         val request: T = binaryFormat.decodeFromByteArray(this.serializer, payload)
+        serializerWatch.stop()
+
+        transportWatch.start()
         val response: T = receive(src, request)
+        transportWatch.stop()
+
+        serializerWatch.start()
         val responseBytes: ByteArray = binaryFormat.encodeToByteArray(this.serializer, response)
+        serializerWatch.stop()
 
         LOGGER.debug(
-            "Handled message from {} in {} ms: {} ==> {}",
+            "Handled message from {} in {} ms, serialized in {} ms: {} ==> {}",
             src,
-            System.currentTimeMillis() - start,
+            transportWatch.elapsed(TimeUnit.MILLISECONDS),
+            serializerWatch.elapsed(TimeUnit.MILLISECONDS),
             request,
             response
         )
