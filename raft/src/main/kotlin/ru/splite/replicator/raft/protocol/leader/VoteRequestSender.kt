@@ -2,6 +2,8 @@ package ru.splite.replicator.raft.protocol.leader
 
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.log.ReplicatedLogStore
 import ru.splite.replicator.raft.message.RaftMessage
@@ -14,7 +16,8 @@ import ru.splite.replicator.transport.sender.MessageSender
 internal class VoteRequestSender(
     private val nodeIdentifier: NodeIdentifier,
     private val localNodeStateStore: NodeStateStore,
-    private val logStore: ReplicatedLogStore
+    private val logStore: ReplicatedLogStore,
+    private val stateMutex: Mutex
 ) {
 
     suspend fun sendVoteRequestsAsCandidate(
@@ -22,7 +25,9 @@ internal class VoteRequestSender(
         nodeIdentifiers: Collection<NodeIdentifier>,
         quorumSize: Int
     ): Boolean = coroutineScope {
-        val voteRequest: RaftMessage.VoteRequest = becomeCandidate()
+        val voteRequest: RaftMessage.VoteRequest = stateMutex.withLock {
+            becomeCandidate()
+        }
 
         val voteGrantedCount = nodeIdentifiers
             .map {
@@ -43,8 +48,10 @@ internal class VoteRequestSender(
 
         LOGGER.info("VoteResult for term ${voteRequest.term}: ${voteGrantedCount}/${messageSender.getAllNodes().size} (quorum = ${quorumSize})")
         if (voteGrantedCount >= quorumSize) {
-            becomeLeader()
-            reinitializeExternalNodeStates(messageSender.getAllNodes())
+            stateMutex.withLock {
+                becomeLeader()
+                reinitializeExternalNodeStates(messageSender.getAllNodes())
+            }
             true
         } else {
             false

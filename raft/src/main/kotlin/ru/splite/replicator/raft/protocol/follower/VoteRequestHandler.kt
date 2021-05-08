@@ -1,5 +1,7 @@
 package ru.splite.replicator.raft.protocol.follower
 
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.log.ReplicatedLogStore
 import ru.splite.replicator.raft.message.RaftMessage
@@ -8,11 +10,13 @@ import ru.splite.replicator.raft.state.NodeType
 
 internal class VoteRequestHandler(
     private val localNodeStateStore: NodeStateStore,
-    private val logStore: ReplicatedLogStore
+    private val logStore: ReplicatedLogStore,
+    private val stateMutex: Mutex
 ) {
 
-    fun handleVoteRequest(request: RaftMessage.VoteRequest): RaftMessage.VoteResponse {
-        localNodeStateStore.getState().let { localNodeState ->
+    suspend fun handleVoteRequest(request: RaftMessage.VoteRequest): RaftMessage.VoteResponse {
+        stateMutex.withLock {
+            val localNodeState = localNodeStateStore.getState()
             //текущий терм больше полученного -> получили устаревший запрос -> отклоняем
             if (localNodeState.currentTerm > request.term) {
                 LOGGER.debug("VoteRequest rejected: currentTerm ${localNodeState.currentTerm} > requestTerm ${request.term}. request = $request")

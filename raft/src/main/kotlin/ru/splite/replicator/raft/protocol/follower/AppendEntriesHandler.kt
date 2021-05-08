@@ -1,5 +1,7 @@
 package ru.splite.replicator.raft.protocol.follower
 
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.log.ReplicatedLogStore
 import ru.splite.replicator.raft.message.RaftMessage
@@ -10,11 +12,13 @@ import ru.splite.replicator.raft.state.NodeType
 internal class AppendEntriesHandler(
     private val localNodeStateStore: NodeStateStore,
     private val logStore: ReplicatedLogStore,
-    private val commitEntries: CommitEntries
+    private val commitEntries: CommitEntries,
+    private val stateMutex: Mutex
 ) {
 
     suspend fun handleAppendEntries(request: RaftMessage.AppendEntries): RaftMessage.AppendEntriesResponse {
-        localNodeStateStore.getState().let { localNodeState ->
+        stateMutex.withLock {
+            val localNodeState = localNodeStateStore.getState()
             //игнорируем запрос из терма меньше текущего
             if (localNodeState.currentTerm > request.term) {
                 LOGGER.debug("request skipped $request because of currentTerm ${localNodeState.currentTerm} < requestTerm ${request.term}")

@@ -1,8 +1,9 @@
 package ru.splite.replicator.raft.protocol.leader
 
-import kotlinx.coroutines.Deferred
-import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.log.ReplicatedLogStore
 import ru.splite.replicator.raft.message.RaftMessage
@@ -15,63 +16,56 @@ import ru.splite.replicator.transport.sender.MessageSender
 internal class AppendEntriesSender(
     private val nodeIdentifier: NodeIdentifier,
     private val localNodeStateStore: NodeStateStore,
-    private val logStore: ReplicatedLogStore
+    private val logStore: ReplicatedLogStore,
+    private val stateMutex: Mutex
 ) {
 
     private data class AppendEntriesResult(
         val dstNodeIdentifier: NodeIdentifier,
-        val matchIndex: Long,
         val isSuccess: Boolean
     )
 
     suspend fun sendAppendEntriesIfLeader(
         nodeIdentifiers: Collection<NodeIdentifier>,
         messageSender: MessageSender<RaftMessage>
-    ) =
-        coroutineScope {
-            LOGGER.info("Sending AppendEntries (term ${localNodeStateStore.getState().currentTerm})")
+    ) = coroutineScope {
+        LOGGER.info("Sending AppendEntries (term ${localNodeStateStore.getState().currentTerm})")
 
-            nodeIdentifiers.map { dstNodeIdentifier ->
-                val nextIndexPerNode: Long = localNodeStateStore.getExternalNodeState(dstNodeIdentifier).nextIndex
-                val appendEntriesRequest: RaftMessage.AppendEntries =
-                    buildAppendEntries(fromIndex = nextIndexPerNode)
-                val matchIndexIfSuccess = nextIndexPerNode + appendEntriesRequest.entries.size - 1
-                val deferredAppendEntriesResult: Deferred<AppendEntriesResult> = async {
-                    kotlin.runCatching {
-                        val appendEntriesResponse = messageSender.sendOrThrow(dstNodeIdentifier, appendEntriesRequest)
-                                as RaftMessage.AppendEntriesResponse
-                        AppendEntriesResult(
-                            dstNodeIdentifier,
-                            matchIndexIfSuccess,
-                            appendEntriesResponse.entriesAppended
-                        )
-                    }.getOrElse {
-                        LOGGER.trace("Exception while sending AppendEntries to $dstNodeIdentifier", it)
-                        AppendEntriesResult(dstNodeIdentifier, matchIndexIfSuccess, false)
-                    }
-                }
-                deferredAppendEntriesResult
-            }.map { deferredAppendEntriesResult ->
-                val appendEntriesResult = deferredAppendEntriesResult.await()
-                if (appendEntriesResult.isSuccess) {
-                    val matchIndex = appendEntriesResult.matchIndex
-                    localNodeStateStore.setExternalNodeState(
-                        appendEntriesResult.dstNodeIdentifier,
-                        ExternalNodeState(nextIndex = matchIndex + 1, matchIndex = matchIndex)
-                    )
-                } else {
-                    val currentState = localNodeStateStore.getExternalNodeState(appendEntriesResult.dstNodeIdentifier)
-                    localNodeStateStore.setExternalNodeState(
-                        appendEntriesResult.dstNodeIdentifier,
-                        ExternalNodeState(
-                            nextIndex = maxOf(0, currentState.nextIndex - 1),
-                            matchIndex = currentState.matchIndex
-                        )
-                    )
-                }
+        nodeIdentifiers.forEach { dstNodeIdentifier ->
+            launch {
+                sendAppendEntriesToNode(messageSender, dstNodeIdentifier)
             }
-            Unit
         }
+    }
+
+    private suspend fun sendAppendEntriesToNode(
+        messageSender: MessageSender<RaftMessage>,
+        dstNodeIdentifier: NodeIdentifier
+    ) {
+        val appendEntriesRequest: RaftMessage.AppendEntries = stateMutex.withLock {
+            val nextIndexPerNode: Long = localNodeStateStore.getExternalNodeState(dstNodeIdentifier).nextIndex
+            buildAppendEntries(fromIndex = nextIndexPerNode)
+        }
+        val appendEntriesResult = sendAppendEntriesMessage(messageSender, dstNodeIdentifier, appendEntriesRequest)
+        stateMutex.withLock {
+            if (appendEntriesResult.isSuccess) {
+                val matchIndexIfSuccess = appendEntriesRequest.prevLogIndex + appendEntriesRequest.entries.size
+                localNodeStateStore.setExternalNodeState(
+                    appendEntriesResult.dstNodeIdentifier,
+                    ExternalNodeState(nextIndex = matchIndexIfSuccess + 1, matchIndex = matchIndexIfSuccess)
+                )
+            } else {
+                val currentState = localNodeStateStore.getExternalNodeState(appendEntriesResult.dstNodeIdentifier)
+                localNodeStateStore.setExternalNodeState(
+                    appendEntriesResult.dstNodeIdentifier,
+                    ExternalNodeState(
+                        nextIndex = maxOf(0, currentState.nextIndex - 1),
+                        matchIndex = currentState.matchIndex
+                    )
+                )
+            }
+        }
+    }
 
     private fun buildAppendEntries(fromIndex: Long): RaftMessage.AppendEntries =
         localNodeStateStore.getState().let { localNodeState ->
@@ -117,6 +111,22 @@ internal class AppendEntriesSender(
                 entries = emptyList()
             )
         }
+
+    private suspend fun sendAppendEntriesMessage(
+        messageSender: MessageSender<RaftMessage>,
+        dstNodeIdentifier: NodeIdentifier,
+        appendEntriesRequest: RaftMessage.AppendEntries
+    ) = kotlin.runCatching {
+        val appendEntriesResponse = messageSender.sendOrThrow(dstNodeIdentifier, appendEntriesRequest)
+                as RaftMessage.AppendEntriesResponse
+        AppendEntriesResult(
+            dstNodeIdentifier,
+            appendEntriesResponse.entriesAppended
+        )
+    }.getOrElse {
+        LOGGER.trace("Exception while sending AppendEntries to $dstNodeIdentifier", it)
+        AppendEntriesResult(dstNodeIdentifier, false)
+    }
 
     companion object {
         private val LOGGER = LoggerFactory.getLogger(javaClass.enclosingClass)

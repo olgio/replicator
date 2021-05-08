@@ -3,6 +3,7 @@ package ru.splite.replicator.raft.protocol
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.sync.Mutex
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.log.LogEntry
 import ru.splite.replicator.log.ReplicatedLogStore
@@ -50,13 +51,18 @@ class BaseRaftProtocol(
     private val commitEntries =
         CommitEntries(localNodeStateStore, replicatedLogStore, commitEntriesCondition)
 
-    private val appendEntriesSender = AppendEntriesSender(config.address, localNodeStateStore, replicatedLogStore)
+    private val stateMutex = Mutex()
 
-    private val appendEntriesHandler = AppendEntriesHandler(localNodeStateStore, replicatedLogStore, commitEntries)
+    private val appendEntriesSender =
+        AppendEntriesSender(config.address, localNodeStateStore, replicatedLogStore, stateMutex)
 
-    private val voteRequestSender = VoteRequestSender(config.address, localNodeStateStore, replicatedLogStore)
+    private val appendEntriesHandler =
+        AppendEntriesHandler(localNodeStateStore, replicatedLogStore, commitEntries, stateMutex)
 
-    private val voteRequestHandler = VoteRequestHandler(localNodeStateStore, replicatedLogStore)
+    private val voteRequestSender =
+        VoteRequestSender(config.address, localNodeStateStore, replicatedLogStore, stateMutex)
+
+    private val voteRequestHandler = VoteRequestHandler(localNodeStateStore, replicatedLogStore, stateMutex)
 
     private val commandAppender = CommandAppender(localNodeStateStore, replicatedLogStore)
 
