@@ -54,7 +54,7 @@ class AtlasCommandSubmitter(
     private suspend fun coordinateCommand(
         commandCoordinator: CommandCoordinator,
         command: ByteArray
-    ): AtlasMessage.MCommit {
+    ): AtlasMessage.MCommit = coroutineScope {
         val fastQuorumNodes = messageSender.getNearestNodes(atlasProtocol.config.fastQuorumSize)
         LOGGER.debug(
             "fastQuorumNodes=${fastQuorumNodes.map { it.identifier }}. " +
@@ -63,15 +63,18 @@ class AtlasCommandSubmitter(
 
         val collectMessage = commandCoordinator.buildCollect(command, fastQuorumNodes)
 
-        val collectAckDecision = messageSender.sendToAllOrThrow(fastQuorumNodes) {
-            collectMessage
+        val collectAckDecision = fastQuorumNodes.map {
+            async {
+                val collectAck = messageSender.sendOrThrow(it, collectMessage) as AtlasMessage.MCollectAck
+                commandCoordinator.handleCollectAck(it, collectAck)
+            }
         }.map {
-            commandCoordinator.handleCollectAck(it.dst, it.response as AtlasMessage.MCollectAck)
+            it.await()
         }.firstOrNull {
             it != CommandCoordinator.CollectAckDecision.NONE
         } ?: CommandCoordinator.CollectAckDecision.NONE
 
-        return when (collectAckDecision) {
+        when (collectAckDecision) {
             CommandCoordinator.CollectAckDecision.COMMIT -> {
                 Metrics.registry.atlasFastPathCounter.increment()
                 sendCommitToAllExternalContext(commandCoordinator, fastQuorumNodes)
@@ -101,10 +104,7 @@ class AtlasCommandSubmitter(
 
         val coroutineName = CoroutineName("commit-${commandCoordinator.commandId}")
         coroutineScopeToSendCommit.launch(coroutineName) {
-            LOGGER.debug(
-                "Sending commits async. " +
-                        "commandId=${commandCoordinator.commandId}"
-            )
+            LOGGER.debug("Sending commits async. commandId={}", commandCoordinator.commandId)
             val successCommitsSize = messageSender.getAllNodes().map {
                 async {
                     messageSender.sendOrNull(
@@ -113,10 +113,7 @@ class AtlasCommandSubmitter(
                     )
                 }
             }.mapNotNull { it.await() }.size
-            LOGGER.debug(
-                "Successfully sent $successCommitsSize commits. " +
-                        "commandId=${commandCoordinator.commandId}"
-            )
+            LOGGER.debug("Successfully sent {} commits for {}", successCommitsSize, commandCoordinator.commandId)
         }
         return commitForFastPath
     }
@@ -125,17 +122,21 @@ class AtlasCommandSubmitter(
         commandCoordinator: CommandCoordinator,
         fastQuorumNodes: Collection<NodeIdentifier>,
         consensusMessage: AtlasMessage.MConsensus
-    ): AtlasMessage.MCommit {
+    ): AtlasMessage.MCommit = coroutineScope {
         val slowQuorumNodes = messageSender.getNearestNodes(atlasProtocol.config.slowQuorumSize)
-        messageSender.sendToAllOrThrow(slowQuorumNodes) {
-            consensusMessage
+        slowQuorumNodes.map {
+            async {
+                val consensusAck =
+                    messageSender.sendOrThrow(it, consensusMessage) as AtlasMessage.MConsensusAck
+                commandCoordinator.handleConsensusAck(it, consensusAck)
+            }
         }.map {
-            commandCoordinator.handleConsensusAck(it.dst, it.response as AtlasMessage.MConsensusAck)
+            it.await()
         }.firstOrNull {
             it == CommandCoordinator.ConsensusAckDecision.COMMIT
         } ?: error("Slow quorum invariant violated")
 
-        return sendCommitToAllExternalContext(commandCoordinator, fastQuorumNodes)
+        sendCommitToAllExternalContext(commandCoordinator, fastQuorumNodes)
     }
 
     private suspend fun recoveryCommand(commandCoordinator: CommandCoordinator): AtlasMessage.MCommit {

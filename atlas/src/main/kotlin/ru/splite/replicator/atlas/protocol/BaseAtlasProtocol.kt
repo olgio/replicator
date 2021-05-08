@@ -36,7 +36,7 @@ class BaseAtlasProtocol(
 
         private val accepts = mutableSetOf<NodeIdentifier>()
 
-        private val quorumDependencies by lazy { QuorumDependencies() }
+        private val quorumDependencies = QuorumDependencies()
 
         private val recoveryAcknowledgments by lazy { mutableMapOf<NodeIdentifier, AtlasMessage.MRecoveryAck>() }
 
