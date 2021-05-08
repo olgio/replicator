@@ -26,19 +26,21 @@ class JobLauncher(
             timerFactory
                 .sourceMergedExpirationFlow(flow = protocol.appendEntryEventFlow, period = period)
                 .collect {
-                    if (protocol.isLeader) {
-                        val result = kotlin.runCatching {
-                            raftProtocolController.sendAppendEntriesIfLeader()
-                            val indexWithTerm = raftProtocolController.commitLogEntriesIfLeader()
-                            if (indexWithTerm != null) {
+                    coroutineScope.launch {
+                        if (protocol.isLeader) {
+                            val result = kotlin.runCatching {
                                 raftProtocolController.sendAppendEntriesIfLeader()
+                                val indexWithTerm = raftProtocolController.commitLogEntriesIfLeader()
+                                if (indexWithTerm != null) {
+                                    raftProtocolController.sendAppendEntriesIfLeader()
+                                }
                             }
-                        }
-                        if (result.isFailure) {
-                            LOGGER.error(
-                                "Cannot send appendEntries because of nested exception",
-                                result.exceptionOrNull()
-                            )
+                            if (result.isFailure) {
+                                LOGGER.error(
+                                    "Cannot send appendEntries because of nested exception",
+                                    result.exceptionOrNull()
+                                )
+                            }
                         }
                     }
                 }
