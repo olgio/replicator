@@ -39,15 +39,30 @@ internal class AppendEntriesHandler(
             )
 
             if (request.prevLogIndex >= 0) {
-                val prevLogConsistent: Boolean =
-                    logStore.getLogEntryByIndex(request.prevLogIndex)?.let { prevLogEntry ->
-                        prevLogEntry.term == request.prevLogTerm
-                    } ?: false
+                val prevLogEntry = logStore.getLogEntryByIndex(request.prevLogIndex)
+                    ?: return RaftMessage.AppendEntriesResponse(
+                        term = localNodeState.currentTerm,
+                        entriesAppended = false,
+                        conflictIndex = logStore.lastLogIndex()?.plus(1L) ?: 0L
+                    )
 
-                if (!prevLogConsistent) {
-                    return RaftMessage.AppendEntriesResponse(term = request.term, entriesAppended = false)
+                if (prevLogEntry.term != request.prevLogTerm) {
+
+                    var firstTermIndex = request.prevLogIndex
+
+                    while (firstTermIndex > 0L && logStore
+                            .getLogEntryByIndex(firstTermIndex - 1L)
+                            ?.term == prevLogEntry.term
+                    ) {
+                        firstTermIndex -= 1L
+                    }
+
+                    return RaftMessage.AppendEntriesResponse(
+                        term = request.term,
+                        entriesAppended = false,
+                        conflictIndex = firstTermIndex
+                    )
                 }
-
             }
 
             request.entries.forEachIndexed { index, logEntry ->

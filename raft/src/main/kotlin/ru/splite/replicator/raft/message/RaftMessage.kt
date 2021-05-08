@@ -34,7 +34,8 @@ sealed class RaftMessage {
     @Serializable
     data class AppendEntriesResponse(
         val term: Long,
-        val entriesAppended: Boolean
+        val entriesAppended: Boolean,
+        val conflictIndex: Long = -1L
     ) : RaftMessage()
 
     @Serializable

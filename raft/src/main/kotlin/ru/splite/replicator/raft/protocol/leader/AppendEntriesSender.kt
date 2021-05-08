@@ -20,21 +20,18 @@ internal class AppendEntriesSender(
     private val stateMutex: Mutex
 ) {
 
-    private data class AppendEntriesResult(
-        val dstNodeIdentifier: NodeIdentifier,
-        val isSuccess: Boolean
-    )
-
     suspend fun sendAppendEntriesIfLeader(
         nodeIdentifiers: Collection<NodeIdentifier>,
         messageSender: MessageSender<RaftMessage>
     ) = coroutineScope {
         LOGGER.info("Sending AppendEntries (term ${localNodeStateStore.getState().currentTerm})")
 
-        nodeIdentifiers.forEach { dstNodeIdentifier ->
+        nodeIdentifiers.map { dstNodeIdentifier ->
             launch {
                 sendAppendEntriesToNode(messageSender, dstNodeIdentifier)
             }
+        }.forEach {
+            it.join()
         }
     }
 
@@ -43,23 +40,56 @@ internal class AppendEntriesSender(
         dstNodeIdentifier: NodeIdentifier
     ) {
         val appendEntriesRequest: RaftMessage.AppendEntries = stateMutex.withLock {
-            val nextIndexPerNode: Long = localNodeStateStore.getExternalNodeState(dstNodeIdentifier).nextIndex
-            buildAppendEntries(fromIndex = nextIndexPerNode)
+            val currentState: ExternalNodeState = localNodeStateStore.getExternalNodeState(dstNodeIdentifier)
+            val nextIndexPerNode: Long = currentState.nextIndex
+            val newAppendEntriesRequest = buildAppendEntries(fromIndex = nextIndexPerNode)
+            localNodeStateStore.setExternalNodeState(
+                dstNodeIdentifier,
+                ExternalNodeState(
+                    nextIndex = nextIndexPerNode + newAppendEntriesRequest.entries.size,
+                    matchIndex = currentState.matchIndex
+                )
+            )
+            newAppendEntriesRequest
         }
         val appendEntriesResult = sendAppendEntriesMessage(messageSender, dstNodeIdentifier, appendEntriesRequest)
+
         stateMutex.withLock {
-            if (appendEntriesResult.isSuccess) {
-                val matchIndexIfSuccess = appendEntriesRequest.prevLogIndex + appendEntriesRequest.entries.size
+            val currentState = localNodeStateStore.getExternalNodeState(dstNodeIdentifier)
+            if (appendEntriesResult == null) {
+                val newNextIndex = maxOf(
+                    currentState.nextIndex - appendEntriesRequest.entries.size,
+                    currentState.matchIndex + 1L
+                )
                 localNodeStateStore.setExternalNodeState(
-                    appendEntriesResult.dstNodeIdentifier,
-                    ExternalNodeState(nextIndex = matchIndexIfSuccess + 1, matchIndex = matchIndexIfSuccess)
+                    dstNodeIdentifier,
+                    ExternalNodeState(
+                        nextIndex = newNextIndex,
+                        matchIndex = currentState.matchIndex
+                    )
+                )
+                return
+            }
+            if (appendEntriesResult.entriesAppended) {
+                val newMatchIndex = appendEntriesRequest.prevLogIndex + appendEntriesRequest.entries.size
+                localNodeStateStore.setExternalNodeState(
+                    dstNodeIdentifier,
+                    ExternalNodeState(
+                        nextIndex = currentState.nextIndex,
+                        matchIndex = maxOf(newMatchIndex, currentState.matchIndex)
+                    )
                 )
             } else {
-                val currentState = localNodeStateStore.getExternalNodeState(appendEntriesResult.dstNodeIdentifier)
+                if (appendEntriesResult.term > localNodeStateStore.getState().currentTerm) {
+                    return
+                }
+                val newNextIndex = if (appendEntriesResult.conflictIndex >= 0L) {
+                    appendEntriesResult.conflictIndex
+                } else maxOf(0L, currentState.nextIndex - 1L)
                 localNodeStateStore.setExternalNodeState(
-                    appendEntriesResult.dstNodeIdentifier,
+                    dstNodeIdentifier,
                     ExternalNodeState(
-                        nextIndex = maxOf(0, currentState.nextIndex - 1),
+                        nextIndex = maxOf(newNextIndex, currentState.matchIndex + 1L),
                         matchIndex = currentState.matchIndex
                     )
                 )
@@ -117,16 +147,11 @@ internal class AppendEntriesSender(
         dstNodeIdentifier: NodeIdentifier,
         appendEntriesRequest: RaftMessage.AppendEntries
     ) = kotlin.runCatching {
-        val appendEntriesResponse = messageSender.sendOrThrow(dstNodeIdentifier, appendEntriesRequest)
-                as RaftMessage.AppendEntriesResponse
-        AppendEntriesResult(
-            dstNodeIdentifier,
-            appendEntriesResponse.entriesAppended
-        )
-    }.getOrElse {
-        LOGGER.trace("Exception while sending AppendEntries to $dstNodeIdentifier", it)
-        AppendEntriesResult(dstNodeIdentifier, false)
-    }
+        messageSender
+            .sendOrThrow(dstNodeIdentifier, appendEntriesRequest) as RaftMessage.AppendEntriesResponse
+    }.onFailure {
+        LOGGER.error("Exception while sending AppendEntries to $dstNodeIdentifier", it)
+    }.getOrNull()
 
     companion object {
         private val LOGGER = LoggerFactory.getLogger(javaClass.enclosingClass)

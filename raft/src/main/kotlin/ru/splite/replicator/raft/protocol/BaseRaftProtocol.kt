@@ -48,10 +48,10 @@ class BaseRaftProtocol(
     private val leaderAliveMutableFlow: MutableStateFlow<Instant> = MutableStateFlow(Instant.now())
     override val leaderAliveEventFlow: StateFlow<Instant> = leaderAliveMutableFlow
 
-    private val commitEntries =
-        CommitEntries(localNodeStateStore, replicatedLogStore, commitEntriesCondition)
-
     private val stateMutex = Mutex()
+
+    private val commitEntries =
+        CommitEntries(localNodeStateStore, replicatedLogStore, commitEntriesCondition, stateMutex)
 
     private val appendEntriesSender =
         AppendEntriesSender(config.address, localNodeStateStore, replicatedLogStore, stateMutex)
