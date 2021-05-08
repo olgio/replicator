@@ -26,23 +26,7 @@ class JobLauncher(
             timerFactory
                 .sourceMergedExpirationFlow(flow = protocol.appendEntryEventFlow, period = period)
                 .collect {
-                    coroutineScope.launch {
-                        if (protocol.isLeader) {
-                            val result = kotlin.runCatching {
-                                raftProtocolController.sendAppendEntriesIfLeader()
-                                val indexWithTerm = raftProtocolController.commitLogEntriesIfLeader()
-                                if (indexWithTerm != null) {
-                                    raftProtocolController.sendAppendEntriesIfLeader()
-                                }
-                            }
-                            if (result.isFailure) {
-                                LOGGER.error(
-                                    "Cannot send appendEntries because of nested exception",
-                                    result.exceptionOrNull()
-                                )
-                            }
-                        }
-                    }
+                    sendAppendEntriesToAll(coroutineScope)
                 }
         }
     }
@@ -60,6 +44,24 @@ class JobLauncher(
                         raftProtocolController.sendVoteRequestsAsCandidate()
                     }
                 }
+        }
+    }
+
+    private fun sendAppendEntriesToAll(coroutineScope: CoroutineScope) = coroutineScope.launch {
+        if (protocol.isLeader) {
+            val result = kotlin.runCatching {
+                raftProtocolController.sendAppendEntriesIfLeader()
+                val indexWithTerm = raftProtocolController.commitLogEntriesIfLeader()
+                if (indexWithTerm != null) {
+                    raftProtocolController.sendAppendEntriesIfLeader()
+                }
+            }
+            if (result.isFailure) {
+                LOGGER.error(
+                    "Cannot send appendEntries because of nested exception",
+                    result.exceptionOrNull()
+                )
+            }
         }
     }
 
