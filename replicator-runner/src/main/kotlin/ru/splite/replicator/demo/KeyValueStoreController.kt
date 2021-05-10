@@ -81,9 +81,9 @@ class KeyValueStoreController(
             KeyValueReply.deserializer(resultBytes)
         }
         stopwatch.stop()
-        LOGGER.debug("Submitted command $command in ${stopwatch.elapsed(TimeUnit.MILLISECONDS)} ms")
 
         if (responseResult.isSuccess) {
+            LOGGER.debug("Submitted command $command in ${stopwatch.elapsed(TimeUnit.MILLISECONDS)} ms")
             Metrics.registry.commandSubmitLatency.recordStopwatch(stopwatch)
         } else {
             Metrics.registry.commandSubmitErrorLatency.recordStopwatch(stopwatch)
