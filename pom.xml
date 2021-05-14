@@ -9,7 +9,7 @@
         <module>raft</module>
         <module>replicator-api</module>
         <module>replicator-timers</module>
-        <module>replicator-tests</module>
+        <module>replicator-test-utils</module>
         <module>paxos</module>
         <module>atlas</module>
         <module>transport-grpc</module>
@@ -75,7 +75,7 @@
             </dependency>
             <dependency>
                 <groupId>ru.splite.replicator</groupId>
-                <artifactId>replicator-tests</artifactId>
+                <artifactId>replicator-test-utils</artifactId>
                 <version>DEV-SNAPSHOT</version>
             </dependency>
             <dependency>

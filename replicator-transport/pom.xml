@@ -18,7 +18,7 @@
         </dependency>
         <dependency>
             <groupId>ru.splite.replicator</groupId>
-            <artifactId>replicator-tests</artifactId>
+            <artifactId>replicator-test-utils</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
