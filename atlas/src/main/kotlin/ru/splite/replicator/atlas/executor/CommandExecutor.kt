@@ -4,7 +4,10 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.produce
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -26,8 +29,6 @@ class CommandExecutor(
     private val stateMachine: StateMachine<ByteArray, ByteArray>
 ) {
 
-    private object NewCommitEvent
-
     private val commandBlockersChannel = Channel<Id<NodeIdentifier>>(capacity = Channel.UNLIMITED)
 
     val commandBlockersFlow: Flow<Id<NodeIdentifier>> = commandBlockersChannel.receiveAsFlow()
@@ -36,7 +37,7 @@ class CommandExecutor(
 
     private val completableDeferredResponses = ConcurrentHashMap<Id<NodeIdentifier>, CompletableDeferred<ByteArray>>()
 
-    private val committedChannel = Channel<NewCommitEvent>(capacity = Channel.UNLIMITED)
+    private val committedChannel = MutableStateFlow<Id<NodeIdentifier>?>(null)
 
     private val graphMutex = Mutex()
 
@@ -52,26 +53,33 @@ class CommandExecutor(
         }
     }
 
-    suspend fun commit(commandId: Id<NodeIdentifier>, command: Command, dependencies: Set<Dependency>) {
+    fun commit(commandId: Id<NodeIdentifier>, command: Command, dependencies: Set<Dependency>) {
         commandBuffer[commandId] = command
-        graphMutex.withLock {
-            dependencyGraph.commit(Dependency(commandId), dependencies)
-        }
-        committedChannel.offer(NewCommitEvent)
+        dependencyGraph.commit(Dependency(commandId), dependencies)
+        committedChannel.value = commandId
         LOGGER.debug("Added to graph commandId=$commandId, dependencies=${dependencies.map { it.dot }}")
     }
 
     fun launchCommandExecutor(coroutineContext: CoroutineContext, coroutineScope: CoroutineScope): Job {
         return coroutineScope.launch(coroutineContext) {
-            for (newCommitEvent in committedChannel) {
-                Metrics.registry.atlasCommandExecutorLatency.measureAndRecord {
-                    executeAvailableCommands()
+
+            val executableCommandChannel = produce(capacity = Channel.UNLIMITED) {
+                committedChannel.collect {
+                    Metrics.registry.atlasCommandExecutorLatency.measureAndRecord {
+                        fetchAvailableCommands().forEach {
+                            send(it.dot)
+                        }
+                    }
                 }
+            }
+
+            for (command in executableCommandChannel) {
+                executeCommand(command)
             }
         }
     }
 
-    private suspend fun executeAvailableCommands() {
+    private suspend fun fetchAvailableCommands(): Collection<Dependency> {
         val keysToExecute = graphMutex.withLock {
             dependencyGraph.evaluateKeyToExecute()
         }
@@ -82,13 +90,11 @@ class CommandExecutor(
                     "blockers=${keysToExecute.blockers.map { it.dot }}"
         )
 
-        keysToExecute.executable.forEach {
-            executeCommand(it.dot)
-        }
-
         keysToExecute.blockers.forEach {
             commandBlockersChannel.send(it.dot)
         }
+
+        return keysToExecute.executable
     }
 
     private fun executeCommand(commandId: Id<NodeIdentifier>) {
