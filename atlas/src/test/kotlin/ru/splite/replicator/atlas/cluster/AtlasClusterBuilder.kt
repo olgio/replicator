@@ -27,7 +27,7 @@ class AtlasClusterBuilder {
             val timerFactory = DelayTimerFactory()
             val stateMachine = KeyValueStateMachine()
             val dependencyGraph = JGraphTDependencyGraph<Dependency>()
-            val commandExecutor = CommandExecutor(dependencyGraph, stateMachine)
+            val commandExecutor = CommandExecutor(config, dependencyGraph, stateMachine)
             val idGenerator = InMemoryIdGenerator(config.address)
             val atlasProtocol = BaseAtlasProtocol(
                 config,

@@ -8,11 +8,12 @@ import kotlinx.coroutines.channels.produce
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.consumeAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.slf4j.LoggerFactory
+import ru.splite.replicator.atlas.AtlasProtocolConfig
 import ru.splite.replicator.atlas.graph.Dependency
 import ru.splite.replicator.atlas.graph.DependencyGraph
 import ru.splite.replicator.atlas.id.Id
@@ -25,13 +26,14 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.CoroutineContext
 
 class CommandExecutor(
+    private val config: AtlasProtocolConfig,
     private val dependencyGraph: DependencyGraph<Dependency>,
     private val stateMachine: StateMachine<ByteArray, ByteArray>
 ) {
 
     private val commandBlockersChannel = Channel<Id<NodeIdentifier>>(capacity = Channel.UNLIMITED)
 
-    val commandBlockersFlow: Flow<Id<NodeIdentifier>> = commandBlockersChannel.receiveAsFlow()
+    val commandBlockersFlow: Flow<Id<NodeIdentifier>> = commandBlockersChannel.consumeAsFlow()
 
     private val commandBuffer = ConcurrentHashMap<Id<NodeIdentifier>, Command>()
 
@@ -90,8 +92,10 @@ class CommandExecutor(
                     "blockers=${keysToExecute.blockers.map { it.dot }}"
         )
 
-        keysToExecute.blockers.forEach {
-            commandBlockersChannel.send(it.dot)
+        if (config.enableRecovery) {
+            keysToExecute.blockers.forEach {
+                commandBlockersChannel.send(it.dot)
+            }
         }
 
         return keysToExecute.executable
