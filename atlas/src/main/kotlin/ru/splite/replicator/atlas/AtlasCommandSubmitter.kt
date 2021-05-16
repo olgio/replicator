@@ -29,7 +29,7 @@ class AtlasCommandSubmitter(
 
     override suspend fun submit(command: ByteArray): ByteArray {
         val commandCoordinator = atlasProtocol.createCommandCoordinator()
-        LOGGER.debug("Started coordinating commandId=${commandCoordinator.commandId}")
+        LOGGER.debug("Created coordinator. commandId=${commandCoordinator.commandId}")
         return withTimeout(atlasProtocol.config.commandExecutorTimeout) {
             val response = commandExecutor.awaitCommandResponse(commandCoordinator.commandId) {
                 val commitMessage = kotlin.runCatching {
@@ -38,7 +38,7 @@ class AtlasCommandSubmitter(
                     if (atlasProtocol.config.enableRecovery) {
                         recoveryCommand(commandCoordinator)
                     } else {
-                        LOGGER.error("Failed to coordinate commandId=${commandCoordinator.commandId}", it)
+                        LOGGER.error("Failed to coordinate. commandId=${commandCoordinator.commandId}", it)
                         throw it
                     }
                 }
@@ -46,7 +46,7 @@ class AtlasCommandSubmitter(
                     "Cannot commit command because chosen value is NOOP"
                 }
             }
-            LOGGER.debug("Successfully completed commandId=${commandCoordinator.commandId}")
+            LOGGER.debug("Extracted response. commandId=${commandCoordinator.commandId}")
             response
         }
     }
@@ -57,8 +57,9 @@ class AtlasCommandSubmitter(
     ): AtlasMessage.MCommit = coroutineScope {
         val fastQuorumNodes = messageSender.getNearestNodes(atlasProtocol.config.fastQuorumSize)
         LOGGER.debug(
-            "fastQuorumNodes=${fastQuorumNodes.map { it.identifier }}. " +
-                    "commandId=${commandCoordinator.commandId}"
+            "Starting fast path. quorum={} commandId={}",
+            fastQuorumNodes.map { it.identifier },
+            commandCoordinator.commandId
         )
 
         val collectMessage = commandCoordinator.buildCollect(command, fastQuorumNodes)
@@ -77,11 +78,12 @@ class AtlasCommandSubmitter(
         when (collectAckDecision) {
             CommandCoordinator.CollectAckDecision.COMMIT -> {
                 Metrics.registry.atlasFastPathCounter.increment()
+                LOGGER.debug("Successful fast path. commandId=${commandCoordinator.commandId}")
                 sendCommitToAllExternalContext(commandCoordinator, fastQuorumNodes)
             }
             CommandCoordinator.CollectAckDecision.CONFLICT -> {
                 Metrics.registry.atlasSlowPathCounter.increment()
-                LOGGER.debug("Chosen slow path. commandId=${commandCoordinator.commandId}")
+                LOGGER.debug("Starting slow path. commandId=${commandCoordinator.commandId}")
                 val consensusMessage = commandCoordinator.buildConsensus()
                 sendConsensusMessage(commandCoordinator, fastQuorumNodes, consensusMessage)
             }
@@ -99,6 +101,7 @@ class AtlasCommandSubmitter(
         fastQuorumNodes: Collection<NodeIdentifier>
     ): AtlasMessage.MCommit {
         val commitForFastPath = commandCoordinator.buildCommit(withPayload = false)
+        LOGGER.debug("Built commit message. commandId={}", commandCoordinator.commandId)
 
         val commitWithPayload = commandCoordinator.buildCommit(withPayload = true)
 
@@ -135,6 +138,7 @@ class AtlasCommandSubmitter(
         }.firstOrNull {
             it == CommandCoordinator.ConsensusAckDecision.COMMIT
         } ?: error("Slow quorum invariant violated")
+        LOGGER.debug("Successful slow path. commandId=${commandCoordinator.commandId}")
 
         sendCommitToAllExternalContext(commandCoordinator, fastQuorumNodes)
     }
