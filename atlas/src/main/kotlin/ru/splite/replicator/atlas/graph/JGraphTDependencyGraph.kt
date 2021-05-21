@@ -1,5 +1,6 @@
 package ru.splite.replicator.atlas.graph
 
+import kotlinx.coroutines.runBlocking
 import org.jgrapht.alg.connectivity.KosarajuStrongConnectivityInspector
 import org.jgrapht.graph.AsSubgraph
 import org.jgrapht.graph.DefaultEdge
@@ -22,21 +23,25 @@ class JGraphTDependencyGraph<K : Comparable<K>>(
 
     private val committedQueue = ConcurrentLinkedQueue<KeyWithDependencies<K>>()
 
-    private val commandStatuses = ConcurrentHashMap(
-        dependencyGraphStore
-            .getStatuses()
-            .map {
-                it.first to it.second
-            }.toMap()
-    )
+    private val commandStatuses = runBlocking {
+        ConcurrentHashMap(
+            dependencyGraphStore
+                .getStatuses()
+                .map {
+                    it.first to it.second
+                }.toMap()
+        )
+    }
 
-    private val graph = SimpleDirectedGraph<K, DefaultEdge>(DefaultEdge::class.java).apply {
-        dependencyGraphStore.getDependencies().forEach { (key, dependencies) ->
-            addDependenciesToGraph(key, dependencies)
+    private val graph = runBlocking {
+        SimpleDirectedGraph<K, DefaultEdge>(DefaultEdge::class.java).apply {
+            dependencyGraphStore.getDependencies().forEach { (key, dependencies) ->
+                addDependenciesToGraph(key, dependencies)
+            }
         }
     }
 
-    override fun commit(key: K, dependencies: Set<K>) {
+    override suspend fun commit(key: K, dependencies: Set<K>) {
         val currentStatus = commandStatuses[key]
         if (currentStatus == DependencyStatus.COMMITTED
             || currentStatus == DependencyStatus.APPLIED
@@ -70,7 +75,7 @@ class JGraphTDependencyGraph<K : Comparable<K>>(
                 iterator.asSequence().all { commandStatuses[it] == DependencyStatus.COMMITTED }
     }
 
-    override fun evaluateKeyToExecute(): KeysToExecute<K> {
+    override suspend fun evaluateKeyToExecute(): KeysToExecute<K> {
         for (i in (0 until MAX_COMMITTED_BATCH_SIZE)) {
             val keyWithDependencies = committedQueue.poll()
             if (keyWithDependencies == null) {

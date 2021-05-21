@@ -6,9 +6,12 @@ interface NodeStateStore {
 
     fun getState(): LocalNodeState
 
-    fun setState(localNodeState: LocalNodeState): LocalNodeState
+    suspend fun setState(localNodeState: LocalNodeState): LocalNodeState
 
     fun getExternalNodeState(nodeIdentifier: NodeIdentifier): ExternalNodeState
 
-    fun setExternalNodeState(nodeIdentifier: NodeIdentifier, externalNodeState: ExternalNodeState): ExternalNodeState
+    suspend fun setExternalNodeState(
+        nodeIdentifier: NodeIdentifier,
+        externalNodeState: ExternalNodeState
+    ): ExternalNodeState
 }

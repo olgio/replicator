@@ -55,7 +55,7 @@ class CommandExecutor(
         }
     }
 
-    fun commit(commandId: Id<NodeIdentifier>, command: Command, dependencies: Set<Dependency>) {
+    suspend fun commit(commandId: Id<NodeIdentifier>, command: Command, dependencies: Set<Dependency>) {
         commandBuffer[commandId] = command
         dependencyGraph.commit(Dependency(commandId), dependencies)
         committedChannel.value = commandId
@@ -101,7 +101,7 @@ class CommandExecutor(
         return keysToExecute.executable
     }
 
-    private fun executeCommand(commandId: Id<NodeIdentifier>) {
+    private suspend fun executeCommand(commandId: Id<NodeIdentifier>) {
         LOGGER.debug("Executing on state machine commandId=$commandId")
         val response = kotlin.runCatching {
             when (val commandToExecute = commandBuffer.remove(commandId)) {

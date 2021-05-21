@@ -1,5 +1,6 @@
 package ru.splite.replicator.atlas.graph
 
+import kotlinx.coroutines.test.runBlockingTest
 import org.assertj.core.api.Assertions.assertThat
 import ru.splite.replicator.atlas.id.Id
 import ru.splite.replicator.transport.NodeIdentifier
@@ -8,7 +9,7 @@ import kotlin.test.Test
 class JGraphTDependencyGraphTests {
 
     @Test
-    fun reverseOrderCommitTest() {
+    fun reverseOrderCommitTest() = runBlockingTest {
         val dependencyGraph = JGraphTDependencyGraph<Dependency>()
         val dependency1 = createDependency(1, 1)
         val dependency2 = createDependency(1, 2)
@@ -36,7 +37,7 @@ class JGraphTDependencyGraphTests {
     }
 
     @Test
-    fun normalOrderCommitTest() {
+    fun normalOrderCommitTest() = runBlockingTest {
         val dependencyGraph = JGraphTDependencyGraph<Dependency>()
         val dependency1 = createDependency(1, 1)
         val dependency2 = createDependency(1, 2)
@@ -60,7 +61,7 @@ class JGraphTDependencyGraphTests {
     }
 
     @Test
-    fun strongConnectedComponentCommitTest() {
+    fun strongConnectedComponentCommitTest() = runBlockingTest {
         val dependencyGraph = JGraphTDependencyGraph<Dependency>()
         val dependency1 = createDependency(1, 1)
         val dependency2 = createDependency(1, 2)

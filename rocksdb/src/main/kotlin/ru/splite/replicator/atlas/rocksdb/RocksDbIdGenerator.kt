@@ -1,13 +1,14 @@
 package ru.splite.replicator.atlas.rocksdb
 
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import ru.splite.replicator.atlas.id.Id
 import ru.splite.replicator.atlas.id.IdGenerator
 import ru.splite.replicator.rocksdb.RocksDbStore
 import ru.splite.replicator.rocksdb.asLong
 import ru.splite.replicator.rocksdb.toByteArray
 import java.util.concurrent.atomic.AtomicLong
-import java.util.concurrent.locks.ReentrantLock
-import kotlin.concurrent.withLock
 
 class RocksDbIdGenerator<S>(
     private val node: S,
@@ -17,9 +18,11 @@ class RocksDbIdGenerator<S>(
 
     private val idSequenceStore = db.createColumnFamilyStore(ID_SEQUENCE_COLUMN_FAMILY_NAME)
 
-    private val incrementReservedLock = ReentrantLock()
+    private val incrementReservedLock = Mutex()
 
-    private val lastReservedId = AtomicLong(readLastReservedId())
+    private val lastReservedId = runBlocking {
+        AtomicLong(readLastReservedId())
+    }
 
     private val lastId = AtomicLong(lastReservedId.get())
 
@@ -27,8 +30,9 @@ class RocksDbIdGenerator<S>(
         return Id(node, generateNextId())
     }
 
-    private fun generateNextId(): Long {
-        return lastId.updateAndGet { oldValue ->
+    private suspend fun generateNextId(): Long {
+        while (true) {
+            val oldValue = lastId.get()
             if (oldValue >= lastReservedId.get()) {
                 incrementReservedLock.withLock {
                     val currentReservedId = lastReservedId.get()
@@ -39,11 +43,14 @@ class RocksDbIdGenerator<S>(
                     }
                 }
             }
-            oldValue + 1
+            val newValue = oldValue + 1
+            if (lastId.compareAndSet(oldValue, newValue)) {
+                return newValue
+            }
         }
     }
 
-    private fun readLastReservedId(): Long = idSequenceStore
+    private suspend fun readLastReservedId(): Long = idSequenceStore
         .getAsByteArray(ID_SEQUENCE_KEY)?.asLong() ?: 0L
 
 

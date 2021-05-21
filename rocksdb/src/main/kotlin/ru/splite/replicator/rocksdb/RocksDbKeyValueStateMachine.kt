@@ -10,7 +10,7 @@ class RocksDbKeyValueStateMachine(db: RocksDbStore) : ConflictOrderedStateMachin
 
     private val keyValueStore = db.createColumnFamilyStore(KV_COLUMN_FAMILY_NAME)
 
-    override fun apply(command: ByteArray): ByteArray {
+    override suspend fun apply(command: ByteArray): ByteArray {
         val reply = when (val deserialized: KeyValueCommand = KeyValueCommand.deserializer(command)) {
             is KeyValueCommand.GetValue -> {
                 val value = keyValueStore.getAsByteArray(deserialized.key)?.asString()

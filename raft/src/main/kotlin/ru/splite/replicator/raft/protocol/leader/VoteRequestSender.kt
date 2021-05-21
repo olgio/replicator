@@ -51,7 +51,7 @@ internal class VoteRequestSender(
         }
     }
 
-    private fun becomeCandidate(): RaftMessage.VoteRequest =
+    private suspend fun becomeCandidate(): RaftMessage.VoteRequest =
         localNodeStateStore.getState().let { localNodeState ->
             LOGGER.debug("State transition ${localNodeState.currentNodeType} (term ${localNodeState.currentTerm}) -> CANDIDATE")
             val newTerm = localNodeState.currentTerm + 1
@@ -72,7 +72,7 @@ internal class VoteRequestSender(
             )
         }
 
-    private fun becomeLeader() = localNodeStateStore.getState().let { localNodeState ->
+    private suspend fun becomeLeader() = localNodeStateStore.getState().let { localNodeState ->
         LOGGER.debug("State transition ${localNodeState.currentNodeType} -> LEADER (term ${localNodeState.currentTerm})")
         localNodeStateStore.setState(
             localNodeState.copy(
@@ -83,7 +83,7 @@ internal class VoteRequestSender(
         )
     }
 
-    private fun reinitializeExternalNodeStates(clusterNodeIdentifiers: Collection<NodeIdentifier>) {
+    private suspend fun reinitializeExternalNodeStates(clusterNodeIdentifiers: Collection<NodeIdentifier>) {
         val lastLogIndex = logStore.lastLogIndex()?.plus(1) ?: 0
         clusterNodeIdentifiers.forEach { dstNodeIdentifier ->
             localNodeStateStore.setExternalNodeState(

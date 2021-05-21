@@ -14,11 +14,11 @@ interface DependencyGraph<K : Comparable<K>> {
     /**
      * Добавление вершины [key] в граф и ее зависимостей (ребер графа) [dependencies]
      */
-    fun commit(key: K, dependencies: Set<K>)
+    suspend fun commit(key: K, dependencies: Set<K>)
 
     /**
      * Удаление и возвращение ключей, готовых к исполнению
      * @return ключи команд, готовых к исполнению
      */
-    fun evaluateKeyToExecute(): KeysToExecute<K>
+    suspend fun evaluateKeyToExecute(): KeysToExecute<K>
 }

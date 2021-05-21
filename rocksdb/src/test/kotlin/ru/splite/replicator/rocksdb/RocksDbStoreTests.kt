@@ -43,7 +43,7 @@ class RocksDbStoreTests {
     }
 
     @Test
-    fun localNodeStateTest() {
+    fun localNodeStateTest() = runBlockingTest {
         val newTerm = Random.nextLong()
         val leaderIdentifier = NodeIdentifier("node-1")
         kotlin.run {
@@ -67,7 +67,7 @@ class RocksDbStoreTests {
     }
 
     @Test
-    fun externalNodeStatesTest() {
+    fun externalNodeStatesTest() = runBlockingTest {
         val nodeIdentifier = NodeIdentifier("node-1")
         val externalNodeState = ExternalNodeState(2L, 3L)
         kotlin.run {
@@ -88,7 +88,7 @@ class RocksDbStoreTests {
     }
 
     @Test
-    fun commandStateTest() {
+    fun commandStateTest() = runBlockingTest {
         val nodeIdentifier = NodeIdentifier("node-1")
         val id = Id(nodeIdentifier, 0L)
         val commandState = CommandState(ballot = 2L)
@@ -110,7 +110,7 @@ class RocksDbStoreTests {
     }
 
     @Test
-    fun dependencyGraphTest() {
+    fun dependencyGraphTest() = runBlockingTest {
         val nodeIdentifier = NodeIdentifier("node-1")
         val dependency1 = Dependency(Id(nodeIdentifier, 0L))
         val dependency2 = Dependency(Id(nodeIdentifier, 1L))
@@ -136,7 +136,7 @@ class RocksDbStoreTests {
     }
 
     @Test
-    fun dependencyStatusTest() {
+    fun dependencyStatusTest() = runBlockingTest {
         val nodeIdentifier = NodeIdentifier("node-1")
         val dependency = Dependency(Id(nodeIdentifier, 0L))
 
@@ -216,7 +216,7 @@ class RocksDbStoreTests {
     }
 
     @Test
-    fun keyValueTest() {
+    fun keyValueTest() = runBlockingTest {
         val key = UUID.randomUUID().toString()
         kotlin.run {
             val keyValueStore = RocksDbKeyValueStateMachine(db)

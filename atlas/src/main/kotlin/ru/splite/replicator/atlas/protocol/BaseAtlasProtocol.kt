@@ -418,7 +418,7 @@ class BaseAtlasProtocol(
             )
         }
 
-    override fun getCommandStatus(commandId: Id<NodeIdentifier>): CommandStatus {
+    override suspend fun getCommandStatus(commandId: Id<NodeIdentifier>): CommandStatus {
         return this.commandStateStore.getCommandState(commandId)?.status ?: CommandStatus.START
     }
 

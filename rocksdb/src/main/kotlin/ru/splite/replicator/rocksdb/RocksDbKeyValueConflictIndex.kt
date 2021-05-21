@@ -1,5 +1,6 @@
 package ru.splite.replicator.rocksdb
 
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
@@ -19,7 +20,9 @@ class RocksDbKeyValueConflictIndex(db: RocksDbStore) : ConflictIndex<Dependency,
         val lastWrite: Dependency? = null
     )
 
-    private val lastReadWrite = ConcurrentHashMap(readLastReadWrite())
+    private val lastReadWrite = runBlocking {
+        ConcurrentHashMap(readLastReadWrite())
+    }
 
     private val locks = ConcurrentHashMap<String, Mutex>()
 
@@ -60,7 +63,7 @@ class RocksDbKeyValueConflictIndex(db: RocksDbStore) : ConflictIndex<Dependency,
         }
     }
 
-    private fun readLastReadWrite(): Map<String, LastReadWrite> =
+    private suspend fun readLastReadWrite(): Map<String, LastReadWrite> =
         conflictIndexStore.getAll(LastReadWrite.serializer()).map {
             it.key to it.value
         }.toMap()

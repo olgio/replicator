@@ -8,10 +8,10 @@ class InMemoryCommandStateStore : CommandStateStore {
 
     private val commands = ConcurrentHashMap<Id<NodeIdentifier>, CommandState>()
 
-    override fun getCommandState(commandId: Id<NodeIdentifier>): CommandState? =
+    override suspend fun getCommandState(commandId: Id<NodeIdentifier>): CommandState? =
         commands[commandId]
 
-    override fun setCommandState(commandId: Id<NodeIdentifier>, commandState: CommandState): CommandState =
+    override suspend fun setCommandState(commandId: Id<NodeIdentifier>, commandState: CommandState): CommandState =
         commandState.apply {
             commands[commandId] = this
         }

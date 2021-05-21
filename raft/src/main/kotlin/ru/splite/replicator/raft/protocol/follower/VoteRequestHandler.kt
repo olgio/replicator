@@ -11,7 +11,7 @@ internal class VoteRequestHandler(
     private val logStore: ReplicatedLogStore
 ) {
 
-    fun handleVoteRequest(request: RaftMessage.VoteRequest): RaftMessage.VoteResponse {
+    suspend fun handleVoteRequest(request: RaftMessage.VoteRequest): RaftMessage.VoteResponse {
         localNodeStateStore.getState().let { localNodeState ->
             //текущий терм больше полученного -> получили устаревший запрос -> отклоняем
             if (localNodeState.currentTerm > request.term) {

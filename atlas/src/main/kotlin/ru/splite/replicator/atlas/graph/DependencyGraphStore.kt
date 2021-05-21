@@ -2,15 +2,15 @@ package ru.splite.replicator.atlas.graph
 
 interface DependencyGraphStore<K> {
 
-    fun setDependenciesPerKey(key: K, dependencies: Set<K>)
+    suspend fun setDependenciesPerKey(key: K, dependencies: Set<K>)
 
-    fun deleteDependenciesPerKey(key: K)
+    suspend fun deleteDependenciesPerKey(key: K)
 
-    fun getDependencies(): Sequence<Pair<K, Set<K>>>
+    suspend fun getDependencies(): Sequence<Pair<K, Set<K>>>
 
-    fun setStatusPerKey(key: K, status: DependencyStatus)
+    suspend fun setStatusPerKey(key: K, status: DependencyStatus)
 
-    fun deleteStatusPerKey(key: K)
+    suspend fun deleteStatusPerKey(key: K)
 
-    fun getStatuses(): Sequence<Pair<K, DependencyStatus>>
+    suspend fun getStatuses(): Sequence<Pair<K, DependencyStatus>>
 }

@@ -1,5 +1,6 @@
 package ru.splite.replicator.raft.rocksdb
 
+import kotlinx.coroutines.runBlocking
 import ru.splite.replicator.raft.state.ExternalNodeState
 import ru.splite.replicator.raft.state.LocalNodeState
 import ru.splite.replicator.raft.state.NodeStateStore
@@ -14,15 +15,19 @@ class RocksDbNodeStateStore(db: RocksDbStore) : NodeStateStore {
 
     private val externalStateStore = db.createColumnFamilyStore(EXTERNAL_COLUMN_FAMILY_NAME)
 
-    private val currentState = AtomicReference(readState())
+    private val currentState = runBlocking {
+        AtomicReference(readState())
+    }
 
-    private val externalNodeStates = ConcurrentHashMap(readExternalStates())
+    private val externalNodeStates = runBlocking {
+        ConcurrentHashMap(readExternalStates())
+    }
 
     override fun getState(): LocalNodeState {
         return currentState.get()
     }
 
-    override fun setState(localNodeState: LocalNodeState): LocalNodeState {
+    override suspend fun setState(localNodeState: LocalNodeState): LocalNodeState {
         localStateStore.putAsType(STATE_KEY, localNodeState, LocalNodeState.serializer())
         currentState.set(localNodeState)
         return localNodeState
@@ -32,7 +37,7 @@ class RocksDbNodeStateStore(db: RocksDbStore) : NodeStateStore {
         return externalNodeStates[nodeIdentifier]!!
     }
 
-    override fun setExternalNodeState(
+    override suspend fun setExternalNodeState(
         nodeIdentifier: NodeIdentifier,
         externalNodeState: ExternalNodeState
     ): ExternalNodeState {
@@ -41,11 +46,11 @@ class RocksDbNodeStateStore(db: RocksDbStore) : NodeStateStore {
         return externalNodeState
     }
 
-    private fun readState(): LocalNodeState {
+    private suspend fun readState(): LocalNodeState {
         return localStateStore.getAsType(STATE_KEY, LocalNodeState.serializer()) ?: LocalNodeState()
     }
 
-    private fun readExternalStates(): Map<NodeIdentifier, ExternalNodeState> {
+    private suspend fun readExternalStates(): Map<NodeIdentifier, ExternalNodeState> {
         return externalStateStore
             .getAll(ExternalNodeState.serializer())
             .map { NodeIdentifier(it.key) to it.value }

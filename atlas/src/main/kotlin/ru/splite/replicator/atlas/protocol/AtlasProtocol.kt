@@ -24,5 +24,5 @@ interface AtlasProtocol {
 
     suspend fun createCommandCoordinator(commandId: Id<NodeIdentifier>): CommandCoordinator
 
-    fun getCommandStatus(commandId: Id<NodeIdentifier>): CommandStatus
+    suspend fun getCommandStatus(commandId: Id<NodeIdentifier>): CommandStatus
 }

@@ -10,14 +10,14 @@ class RocksDbCommandStateStore(db: RocksDbStore) : CommandStateStore {
 
     private val commandStateStore = db.createColumnFamilyStore(COMMAND_STATE_COLUMN_FAMILY_NAME)
 
-    override fun getCommandState(commandId: Id<NodeIdentifier>): CommandState? =
+    override suspend fun getCommandState(commandId: Id<NodeIdentifier>): CommandState? =
         commandStateStore.getAsType(
             commandId,
             Id.serializer(NodeIdentifier.serializer()),
             CommandState.serializer()
         )
 
-    override fun setCommandState(commandId: Id<NodeIdentifier>, commandState: CommandState): CommandState =
+    override suspend fun setCommandState(commandId: Id<NodeIdentifier>, commandState: CommandState): CommandState =
         commandState.apply {
             commandStateStore.putAsType(
                 commandId,

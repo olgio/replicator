@@ -13,35 +13,35 @@ class RocksDbStore(
 
     inner class ColumnFamilyStore(private val columnFamilyHandle: ColumnFamilyHandle) {
 
-        fun put(key: ByteArray, value: ByteArray) {
+        suspend fun put(key: ByteArray, value: ByteArray) {
             db.put(columnFamilyHandle, key, value)
         }
 
-        fun put(key: String, value: ByteArray) {
+        suspend fun put(key: String, value: ByteArray) {
             put(key.toByteArray(), value)
         }
 
-        fun put(key: Long, value: ByteArray) {
+        suspend fun put(key: Long, value: ByteArray) {
             put(key.toByteArray(), value)
         }
 
-        fun getAsByteArray(key: ByteArray): ByteArray? {
+        suspend fun getAsByteArray(key: ByteArray): ByteArray? {
             return db.get(columnFamilyHandle, key)
         }
 
-        fun getAsByteArray(key: String): ByteArray? {
+        suspend fun getAsByteArray(key: String): ByteArray? {
             return getAsByteArray(key.toByteArray())
         }
 
-        fun getAsByteArray(key: Long): ByteArray? {
+        suspend fun getAsByteArray(key: Long): ByteArray? {
             return getAsByteArray(key.toByteArray())
         }
 
-        fun delete(key: ByteArray) {
+        suspend fun delete(key: ByteArray) {
             db.delete(columnFamilyHandle, key)
         }
 
-        inline fun <reified K, reified T> getAsType(
+        suspend inline fun <reified K, reified T> getAsType(
             key: K,
             keySerializer: KSerializer<K>,
             serializer: KSerializer<T>
@@ -51,7 +51,7 @@ class RocksDbStore(
             )?.decodeFromByteArray(serializer)
         }
 
-        inline fun <reified K, reified T> putAsType(
+        suspend inline fun <reified K, reified T> putAsType(
             key: K,
             value: T,
             keySerializer: KSerializer<K>,
@@ -60,34 +60,34 @@ class RocksDbStore(
             put(key.encodeToByteArray(keySerializer), value.encodeToByteArray(serializer))
         }
 
-        inline fun <reified K> delete(
+        suspend inline fun <reified K> delete(
             key: K,
             keySerializer: KSerializer<K>
         ) {
             return delete(key.encodeToByteArray(keySerializer))
         }
 
-        inline fun <reified T> getAsType(key: String, serializer: KSerializer<T>): T? {
+        suspend inline fun <reified T> getAsType(key: String, serializer: KSerializer<T>): T? {
             return getAsByteArray(key)?.decodeFromByteArray(serializer)
         }
 
-        inline fun <reified T> putAsType(key: String, value: T, serializer: KSerializer<T>) {
+        suspend inline fun <reified T> putAsType(key: String, value: T, serializer: KSerializer<T>) {
             put(key, value.encodeToByteArray(serializer))
         }
 
-        inline fun <reified T> getAsType(key: Long, serializer: KSerializer<T>): T? {
+        suspend inline fun <reified T> getAsType(key: Long, serializer: KSerializer<T>): T? {
             return getAsByteArray(key)?.decodeFromByteArray(serializer)
         }
 
-        inline fun <reified T> putAsType(key: Long, value: T, serializer: KSerializer<T>) {
+        suspend inline fun <reified T> putAsType(key: Long, value: T, serializer: KSerializer<T>) {
             put(key, value.encodeToByteArray(serializer))
         }
 
-        fun getAll(): Sequence<KeyValue<ByteArray, ByteArray>> {
+        suspend fun getAll(): Sequence<KeyValue<ByteArray, ByteArray>> {
             return db.newIterator(columnFamilyHandle).asSequence()
         }
 
-        inline fun <reified V> getAll(
+        suspend inline fun <reified V> getAll(
             valueSerializer: KSerializer<V>
         ): Sequence<KeyValue<String, V>> {
             return getAll().map {
@@ -98,7 +98,7 @@ class RocksDbStore(
             }
         }
 
-        inline fun <reified K, reified V> getAll(
+        suspend inline fun <reified K, reified V> getAll(
             keySerializer: KSerializer<K>,
             valueSerializer: KSerializer<V>
         ): Sequence<KeyValue<K, V>> {
