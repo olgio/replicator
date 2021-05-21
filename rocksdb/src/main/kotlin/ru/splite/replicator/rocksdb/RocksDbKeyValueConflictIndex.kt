@@ -21,12 +21,12 @@ class RocksDbKeyValueConflictIndex(db: RocksDbStore) : ConflictIndex<Dependency,
 
     private val lastReadWrite = ConcurrentHashMap(readLastReadWrite())
 
-    private val conflictIndexLock = Mutex()
+    private val locks = ConcurrentHashMap<String, Mutex>()
 
-    override suspend fun putAndGetConflicts(key: Dependency, command: ByteArray): Set<Dependency> =
-        conflictIndexLock.withLock {
-            return when (val deserializedCommand = KeyValueCommand.deserializer(command)) {
-                is KeyValueCommand.GetValue -> {
+    override suspend fun putAndGetConflicts(key: Dependency, command: ByteArray): Set<Dependency> {
+        return when (val deserializedCommand = KeyValueCommand.deserializer(command)) {
+            is KeyValueCommand.GetValue -> {
+                locks.getOrPut(deserializedCommand.key) { Mutex() }.withLock {
                     //read depends on last write
                     val oldValue = lastReadWrite[deserializedCommand.key]
                     val newValue = if (oldValue == null) {
@@ -39,7 +39,9 @@ class RocksDbKeyValueConflictIndex(db: RocksDbStore) : ConflictIndex<Dependency,
 
                     setOfNotNull(newValue.lastWrite)
                 }
-                is KeyValueCommand.PutValue -> {
+            }
+            is KeyValueCommand.PutValue -> {
+                locks.getOrPut(deserializedCommand.key) { Mutex() }.withLock {
                     //write depends on last write and last read
                     val oldValue = lastReadWrite[deserializedCommand.key]
 
@@ -56,6 +58,7 @@ class RocksDbKeyValueConflictIndex(db: RocksDbStore) : ConflictIndex<Dependency,
                 }
             }
         }
+    }
 
     private fun readLastReadWrite(): Map<String, LastReadWrite> =
         conflictIndexStore.getAll(LastReadWrite.serializer()).map {
