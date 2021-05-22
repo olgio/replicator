@@ -1,19 +1,23 @@
 package ru.splite.replicator.rocksdb
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.BinaryFormat
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.protobuf.ProtoBuf
 import org.rocksdb.*
 import java.io.File
+import kotlin.coroutines.CoroutineContext
 
 class RocksDbStore(
     file: File,
-    columnFamilyNames: Collection<String>
+    columnFamilyNames: Collection<String>,
+    private val coroutineContext: CoroutineContext = Dispatchers.Unconfined
 ) {
 
     inner class ColumnFamilyStore(private val columnFamilyHandle: ColumnFamilyHandle) {
 
-        suspend fun put(key: ByteArray, value: ByteArray) {
+        suspend fun put(key: ByteArray, value: ByteArray) = withContext(coroutineContext) {
             db.put(columnFamilyHandle, key, value)
         }
 
@@ -25,8 +29,8 @@ class RocksDbStore(
             put(key.toByteArray(), value)
         }
 
-        suspend fun getAsByteArray(key: ByteArray): ByteArray? {
-            return db.get(columnFamilyHandle, key)
+        suspend fun getAsByteArray(key: ByteArray): ByteArray? = withContext(coroutineContext) {
+            db.get(columnFamilyHandle, key)
         }
 
         suspend fun getAsByteArray(key: String): ByteArray? {
@@ -37,7 +41,7 @@ class RocksDbStore(
             return getAsByteArray(key.toByteArray())
         }
 
-        suspend fun delete(key: ByteArray) {
+        suspend fun delete(key: ByteArray) = withContext(coroutineContext) {
             db.delete(columnFamilyHandle, key)
         }
 
@@ -83,8 +87,8 @@ class RocksDbStore(
             put(key, value.encodeToByteArray(serializer))
         }
 
-        suspend fun getAll(): Sequence<KeyValue<ByteArray, ByteArray>> {
-            return db.newIterator(columnFamilyHandle).asSequence()
+        suspend fun getAll(): Sequence<KeyValue<ByteArray, ByteArray>> = withContext(coroutineContext) {
+            db.newIterator(columnFamilyHandle).asSequence()
         }
 
         suspend inline fun <reified V> getAll(
