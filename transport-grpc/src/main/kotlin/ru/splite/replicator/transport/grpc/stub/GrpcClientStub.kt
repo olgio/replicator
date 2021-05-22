@@ -13,7 +13,7 @@ import ru.splite.replicator.metrics.Metrics
 import ru.splite.replicator.metrics.Metrics.recordStopwatch
 import ru.splite.replicator.transport.NodeIdentifier
 import ru.splite.replicator.transport.grpc.GrpcAddress
-import ru.splite.replicator.transport.grpc.GrpcTransport.Companion.NETTY_INITIAL_WINDOW_SIZE
+import ru.splite.replicator.transport.grpc.GrpcTransport
 import ru.splite.replicator.transport.grpc.ShutdownSupportable
 import java.util.concurrent.TimeUnit
 
@@ -71,7 +71,7 @@ internal class GrpcClientStub(override val address: GrpcAddress) : ClientStub, S
         LOGGER.info("Initializing grpc stub for address $address")
         val channel = NettyChannelBuilder.forAddress(address.host, address.port)
             .usePlaintext()
-            .initialFlowControlWindow(NETTY_INITIAL_WINDOW_SIZE)
+            .executor(GrpcTransport.GRPC_POOL)
             .build()
         try {
             val connectivityState = channel.getState(true)

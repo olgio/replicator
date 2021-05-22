@@ -4,6 +4,8 @@ import com.google.common.base.Stopwatch
 import com.google.protobuf.ByteString
 import io.grpc.Server
 import io.grpc.netty.NettyServerBuilder
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.asExecutor
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import ru.splite.replicator.message.proto.BinaryMessageRequest
@@ -25,7 +27,7 @@ class GrpcTransport(addresses: Map<NodeIdentifier, GrpcAddress>) : Transport, Cl
     }.toMap()
 
     override val nodes: Collection<NodeIdentifier>
-        get() = stubs.entries.sortedBy { it.value.unavailabilityRank }.map { it.key }
+        get() = stubs.entries.shuffled().sortedBy { it.value.unavailabilityRank }.map { it.key }
 
     override fun subscribe(address: NodeIdentifier, actor: Receiver) {
         val grpcAddress = stubs[address]?.address
@@ -73,7 +75,7 @@ class GrpcTransport(addresses: Map<NodeIdentifier, GrpcAddress>) : Transport, Cl
 
         private val server: Server = NettyServerBuilder
             .forPort(address.port)
-            .initialFlowControlWindow(NETTY_INITIAL_WINDOW_SIZE)
+            .executor(GRPC_POOL)
             .addService(BinaryRpcService(receiver))
             .build()
 
@@ -140,6 +142,6 @@ class GrpcTransport(addresses: Map<NodeIdentifier, GrpcAddress>) : Transport, Cl
     companion object {
         private val LOGGER: Logger = LoggerFactory.getLogger(javaClass.enclosingClass)
 
-        const val NETTY_INITIAL_WINDOW_SIZE = 1024 * 64
+        val GRPC_POOL = Dispatchers.Default.asExecutor()
     }
 }
