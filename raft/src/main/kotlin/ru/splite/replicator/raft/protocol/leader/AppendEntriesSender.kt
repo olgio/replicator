@@ -73,7 +73,7 @@ internal class AppendEntriesSender(
             Unit
         }
 
-    private fun buildAppendEntries(fromIndex: Long): RaftMessage.AppendEntries =
+    private suspend fun buildAppendEntries(fromIndex: Long): RaftMessage.AppendEntries =
         localNodeStateStore.getState().let { localNodeState ->
             if (fromIndex < 0) {
                 error("fromIndex cannot be negative")

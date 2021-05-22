@@ -52,9 +52,11 @@ internal class CommitEntries(
 
         LOGGER.debug("lastLogIndex = $lastLogIndex, firstUncommittedIndex = $firstUncommittedIndex")
 
-        val lastCommittableIndex: Long? = generateSequence(lastLogIndex) {
-            it - 1
-        }.takeWhile { uncommittedIndex ->
+        (5..0).forEach {
+
+        }
+
+        val lastCommittableIndex: Long? = (lastLogIndex downTo 0).takeWhile { uncommittedIndex ->
             if (uncommittedIndex < firstUncommittedIndex) {
                 return@takeWhile false
             }

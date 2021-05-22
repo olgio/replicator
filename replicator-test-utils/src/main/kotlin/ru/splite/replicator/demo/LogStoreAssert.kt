@@ -5,7 +5,7 @@ import ru.splite.replicator.log.ReplicatedLogStore
 
 class LogStoreAssert(private val logStores: List<ReplicatedLogStore>) {
 
-    fun hasOnlyTerms(vararg values: Long): LogStoreAssert {
+    suspend fun hasOnlyTerms(vararg values: Long): LogStoreAssert {
         logStores.forEach { logStore ->
             Assertions.assertThat(logStore.fullLogSize).isEqualTo(values.size.toLong())
             values.forEachIndexed { index, value ->
@@ -15,7 +15,7 @@ class LogStoreAssert(private val logStores: List<ReplicatedLogStore>) {
         return this
     }
 
-    fun <C> hasOnlyEntries(vararg values: C): LogStoreAssert {
+    suspend fun <C> hasOnlyEntries(vararg values: C): LogStoreAssert {
         logStores.forEach { logStore ->
             Assertions.assertThat(logStore.fullLogSize).isEqualTo(values.size.toLong())
             values.forEachIndexed { index, value ->
@@ -32,7 +32,7 @@ class LogStoreAssert(private val logStores: List<ReplicatedLogStore>) {
         return this
     }
 
-    fun isCommittedEntriesInSync(): LogStoreAssert {
+    suspend fun isCommittedEntriesInSync(): LogStoreAssert {
         val lastCommitIndex: Long? = logStores.firstOrNull()?.lastCommitIndex()
 
         logStores.forEach { logStore ->

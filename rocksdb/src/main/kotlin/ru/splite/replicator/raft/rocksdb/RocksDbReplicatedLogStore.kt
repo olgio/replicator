@@ -99,14 +99,12 @@ class RocksDbReplicatedLogStore(db: RocksDbStore) : ReplicatedLogStore {
         return newIndex
     }
 
-    override fun getLogEntryByIndex(index: Long): LogEntry? {
+    override suspend fun getLogEntryByIndex(index: Long): LogEntry? {
         validateIndex(index)
         if (index > lastIndex.get()) {
             return null
         }
-        return runBlocking {
-            logStore.getAsType(index, LogEntry.serializer())
-        }
+        return logStore.getAsType(index, LogEntry.serializer())
     }
 
     override fun lastLogIndex(): Long? {

@@ -107,13 +107,15 @@ internal class VoteRequestSender(
     ) {
         val firstUncommittedIndex: Long = logStore.lastCommitIndex()?.plus(1) ?: 0
 
-        val entries: MutableList<LogEntry> = generateSequence(firstUncommittedIndex) {
-            it + 1
-        }.map {
-            logStore.getLogEntryByIndex(it)
-        }.takeWhile {
-            it != null
-        }.filterNotNull().toMutableList()
+
+        val entries = mutableListOf<LogEntry>()
+
+        var currentIndex = firstUncommittedIndex
+        while (currentIndex >= 0) {
+            val logEntry = logStore.getLogEntryByIndex(currentIndex) ?: break
+            entries.add(logEntry)
+            currentIndex++
+        }
 
         voteResponses.forEach { voteResponse ->
             voteResponse.entries.forEachIndexed { index, logEntryFromFollower ->

@@ -81,7 +81,7 @@ class InMemoryReplicatedLogStore : ReplicatedLogStore {
         return lastAppliedIndex.updateAndGet { oldIndex -> max(oldIndex, index) }
     }
 
-    override fun getLogEntryByIndex(index: Long): LogEntry? {
+    override suspend fun getLogEntryByIndex(index: Long): LogEntry? {
         validateIndex(index)
         if (index > lastIndex.get()) {
             return null
