@@ -3,6 +3,7 @@ package ru.splite.replicator.demo
 import io.micrometer.core.instrument.Tag
 import kotlinx.cli.ArgParser
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.newFixedThreadPoolContext
 import kotlinx.coroutines.runBlocking
 import org.kodein.di.DI
@@ -61,14 +62,14 @@ class KeyValueStoreRunner(
         }
     }
 
-    fun run() {
+    fun run(): GrpcTransport {
         val storeController: KeyValueStoreController by dependencyContainer.instance()
         storeController.start()
 
         LOGGER.info("Application started")
 
         val transport: GrpcTransport by dependencyContainer.instance()
-        transport.awaitTermination()
+        return transport
     }
 
     companion object {
@@ -98,11 +99,16 @@ fun main(args: Array<String>) {
         RunnerConfig.Protocol.PAXOS -> PaxosDependencyContainer.module
     }
 
-    runBlocking(newFixedThreadPoolContext(config.threads, "node-${config.nodeIdentifier}")) {
+    val rootCoroutineContext = if (config.threads > 0) {
+        newFixedThreadPoolContext(config.threads, "node-${config.nodeIdentifier}")
+    } else Dispatchers.Default
+
+    val transport = runBlocking(rootCoroutineContext) {
         KeyValueStoreRunner(
             protocolDependencyContainer = protocolDependencyContainer,
             coroutineScope = this,
             config = config
         ).run()
     }
+    transport.awaitTermination()
 }
