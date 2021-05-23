@@ -121,15 +121,24 @@ class RocksDbStoreTests {
                 .isEmpty()
 
             dependencyGraphStore.setDependenciesPerKey(dependency1, setOf(dependency2))
+            dependencyGraphStore.setDependenciesPerKey(dependency2, emptySet())
+
             assertThat(dependencyGraphStore.getDependencies().toList())
-                .containsExactlyInAnyOrder(dependency1 to setOf(dependency2))
+                .containsExactlyInAnyOrder(
+                    dependency1 to setOf(dependency2),
+                    dependency2 to emptySet()
+                )
         }
 
         kotlin.run {
             val dependencyGraphStore = RocksDbDependencyGraphStore(db)
             assertThat(dependencyGraphStore.getDependencies().toList())
-                .containsExactlyInAnyOrder(dependency1 to setOf(dependency2))
+                .containsExactlyInAnyOrder(
+                    dependency1 to setOf(dependency2),
+                    dependency2 to emptySet()
+                )
             dependencyGraphStore.deleteDependenciesPerKey(dependency1)
+            dependencyGraphStore.deleteDependenciesPerKey(dependency2)
             assertThat(dependencyGraphStore.getDependencies().toList())
                 .isEmpty()
         }

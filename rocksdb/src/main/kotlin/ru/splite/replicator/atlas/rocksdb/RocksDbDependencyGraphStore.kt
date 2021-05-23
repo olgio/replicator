@@ -9,7 +9,7 @@ import ru.splite.replicator.rocksdb.RocksDbStore
 class RocksDbDependencyGraphStore(db: RocksDbStore) : DependencyGraphStore<Dependency> {
 
     @Serializable
-    private data class SetWrapper(val dependencies: Set<Dependency>)
+    private data class SetWrapper(val dependencies: Set<Dependency> = emptySet())
 
     private val dependencyGraphStore = db.createColumnFamilyStore(DEPENDENCY_GRAPH_COLUMN_FAMILY_NAME)
 

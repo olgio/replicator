@@ -1,6 +1,7 @@
 package ru.splite.replicator.atlas.graph
 
 import kotlinx.coroutines.runBlocking
+import org.jgrapht.Graph
 import org.jgrapht.alg.connectivity.KosarajuStrongConnectivityInspector
 import org.jgrapht.graph.AsSubgraph
 import org.jgrapht.graph.DefaultEdge
@@ -83,7 +84,7 @@ class JGraphTDependencyGraph<K : Comparable<K>>(
                 break
             }
             commandStatuses[keyWithDependencies.key] = DependencyStatus.COMMITTED
-            addDependenciesToGraph(keyWithDependencies.key, keyWithDependencies.dependencies)
+            graph.addDependenciesToGraph(keyWithDependencies.key, keyWithDependencies.dependencies)
         }
 
         val eligible = graph.vertexSet().filter { isEligible(it) }.toSet()
@@ -111,11 +112,11 @@ class JGraphTDependencyGraph<K : Comparable<K>>(
         )
     }
 
-    private fun addDependenciesToGraph(key: K, dependencies: Set<K>) {
-        graph.addVertex(key)
+    private fun Graph<K, DefaultEdge>.addDependenciesToGraph(key: K, dependencies: Set<K>) {
+        this.addVertex(key)
         dependencies.filter { commandStatuses[it] != DependencyStatus.APPLIED }.forEach {
-            graph.addVertex(it)
-            graph.addEdge(key, it)
+            this.addVertex(it)
+            this.addEdge(key, it)
         }
     }
 
