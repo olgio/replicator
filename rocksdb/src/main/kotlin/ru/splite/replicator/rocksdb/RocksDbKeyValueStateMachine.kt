@@ -14,12 +14,12 @@ class RocksDbKeyValueStateMachine(db: RocksDbStore) : ConflictOrderedStateMachin
         val reply = when (val deserialized: KeyValueCommand = KeyValueCommand.deserializer(command)) {
             is KeyValueCommand.GetValue -> {
                 val value = keyValueStore.getAsByteArray(deserialized.key)?.asString()
-                KeyValueReply(deserialized.key, value ?: "", value == null)
+                KeyValueReply.create(deserialized.key, value)
             }
             is KeyValueCommand.PutValue -> {
                 keyValueStore.put(deserialized.key, deserialized.value.toByteArray())
                 LOGGER.debug("Set key ${deserialized.key} to value ${deserialized.value}")
-                KeyValueReply(deserialized.key, deserialized.value, false)
+                KeyValueReply.create(deserialized.key, deserialized.value)
             }
         }
 
