@@ -56,20 +56,6 @@ class JGraphTDependencyGraph<K : Comparable<K>>(
         committedQueue.add(KeyWithDependencies(key, dependencies))
     }
 
-//    fun updateExecuted(keys: Set<K>) {
-//        executed.addAll(keys)
-//        committed.removeAll(keys)
-//        //sequenceNumbers.retain({ case (key, _) => !executed.contains(key) })
-//
-//        val verticesToRemove = mutableSetOf<K>()
-//        graph.vertexSet().forEach { key ->
-//            if (executed.contains(key)) {
-//                verticesToRemove += key
-//            }
-//        }
-//        graph.removeAllVertices(verticesToRemove)
-//    }
-
     private fun isEligible(key: K): Boolean {
         val iterator = BreadthFirstIterator(graph, key)
         return commandStatuses[key] == DependencyStatus.COMMITTED &&
@@ -77,15 +63,14 @@ class JGraphTDependencyGraph<K : Comparable<K>>(
     }
 
     override suspend fun evaluateKeyToExecute(): KeysToExecute<K> {
-        for (i in (0 until MAX_COMMITTED_BATCH_SIZE)) {
-            val keyWithDependencies = committedQueue.poll()
-            if (keyWithDependencies == null) {
-                LOGGER.debug("Added {} committed commands to graph", i)
-                break
-            }
+        var committedCommandsCount = 0
+        while (committedQueue.isNotEmpty()) {
+            val keyWithDependencies = committedQueue.poll() ?: break
             commandStatuses[keyWithDependencies.key] = DependencyStatus.COMMITTED
             graph.addDependenciesToGraph(keyWithDependencies.key, keyWithDependencies.dependencies)
+            committedCommandsCount++
         }
+        LOGGER.debug("Added {} committed commands to graph", committedCommandsCount)
 
         val eligible = graph.vertexSet().filter { isEligible(it) }.toSet()
 
@@ -121,8 +106,6 @@ class JGraphTDependencyGraph<K : Comparable<K>>(
     }
 
     companion object {
-        private const val MAX_COMMITTED_BATCH_SIZE = 256
-
         private val LOGGER = LoggerFactory.getLogger(javaClass.enclosingClass)
     }
 }
