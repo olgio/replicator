@@ -52,10 +52,6 @@ internal class CommitEntries(
 
         LOGGER.debug("lastLogIndex = $lastLogIndex, firstUncommittedIndex = $firstUncommittedIndex")
 
-        (5..0).forEach {
-
-        }
-
         val lastCommittableIndex: Long? = (lastLogIndex downTo 0).takeWhile { uncommittedIndex ->
             if (uncommittedIndex < firstUncommittedIndex) {
                 return@takeWhile false
