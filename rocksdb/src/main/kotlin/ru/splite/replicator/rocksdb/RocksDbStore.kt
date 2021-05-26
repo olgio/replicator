@@ -15,7 +15,10 @@ class RocksDbStore(
     private val coroutineContext: CoroutineContext = Dispatchers.Unconfined
 ) {
 
-    inner class ColumnFamilyStore(private val columnFamilyHandle: ColumnFamilyHandle) {
+    inner class ColumnFamilyStore(
+        private val columnFamilyHandle: ColumnFamilyHandle,
+        val binaryFormat: BinaryFormat
+    ) {
 
         suspend fun put(key: ByteArray, value: ByteArray) = withContext(coroutineContext) {
             db.put(columnFamilyHandle, key, value)
@@ -155,9 +158,6 @@ class RocksDbStore(
         }.toMap()
     }
 
-    fun createColumnFamilyStore(name: String): ColumnFamilyStore = ColumnFamilyStore(columnFamilyHandles[name]!!)
-
-    companion object {
-        val binaryFormat: BinaryFormat = ProtoBuf
-    }
+    fun createColumnFamilyStore(name: String, binaryFormat: BinaryFormat = ProtoBuf): ColumnFamilyStore =
+        ColumnFamilyStore(columnFamilyHandles[name]!!, binaryFormat)
 }
