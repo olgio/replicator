@@ -37,8 +37,4 @@ class QuorumDependencies {
     fun checkThresholdUnion(threshold: Int): Boolean {
         return this.thresholdDependencies.all { it.value >= threshold }
     }
-
-    fun checkUnion(): Boolean {
-        return false //TODO
-    }
 }
