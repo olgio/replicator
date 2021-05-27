@@ -9,6 +9,8 @@ import io.ktor.response.*
 import io.ktor.routing.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -19,12 +21,14 @@ import ru.splite.replicator.metrics.Metrics.recordStopwatch
 import ru.splite.replicator.statemachine.StateMachineCommandSubmitter
 import ru.splite.replicator.transport.NodeIdentifier
 import java.util.concurrent.TimeUnit
+import kotlin.coroutines.CoroutineContext
 
 
 class KeyValueStoreController(
     private val port: Int,
     private val nodeIdentifier: NodeIdentifier,
-    private val stateMachineCommandSubmitter: StateMachineCommandSubmitter<ByteArray, ByteArray>
+    private val stateMachineCommandSubmitter: StateMachineCommandSubmitter<ByteArray, ByteArray>,
+    private val coroutineContext: CoroutineContext = Dispatchers.Unconfined
 ) {
 
     fun start() {
@@ -36,6 +40,8 @@ class KeyValueStoreController(
                     LOGGER.error("Error while handling request", cause)
                 }
             }
+
+            install(CallLogging)
 
             install(DefaultHeaders) {
                 header("Node-Identifier", nodeIdentifier.identifier)
@@ -74,7 +80,7 @@ class KeyValueStoreController(
         }.start(wait = false)
     }
 
-    private suspend fun submitCommand(command: KeyValueCommand): KeyValueReply {
+    private suspend fun submitCommand(command: KeyValueCommand): KeyValueReply = withContext(coroutineContext) {
         val stopwatch = Stopwatch.createStarted()
         val responseResult = kotlin.runCatching {
             val resultBytes = stateMachineCommandSubmitter.submit(KeyValueCommand.serialize(command))
@@ -88,7 +94,7 @@ class KeyValueStoreController(
         } else {
             Metrics.registry.commandSubmitErrorLatency.recordStopwatch(stopwatch)
         }
-        return responseResult.getOrThrow()
+        responseResult.getOrThrow()
     }
 
     companion object {
