@@ -84,9 +84,6 @@ class JGraphTDependencyGraph<K : Comparable<K>>(
         }.flatten().toList()
 
         executable.forEach { key ->
-            dependencyGraphStore.setStatusPerKey(key, DependencyStatus.APPLIED)
-            dependencyGraphStore.deleteDependenciesPerKey(key)
-
             graph.removeVertex(key)
             commandStatuses[key] = DependencyStatus.APPLIED
         }
@@ -95,6 +92,11 @@ class JGraphTDependencyGraph<K : Comparable<K>>(
             executable,
             graph.vertexSet().filter { commandStatuses[it] != DependencyStatus.COMMITTED }.toList()
         )
+    }
+
+    override suspend fun markAsExecuted(key: K) {
+        dependencyGraphStore.setStatusPerKey(key, DependencyStatus.APPLIED)
+        dependencyGraphStore.deleteDependenciesPerKey(key)
     }
 
     private fun Graph<K, DefaultEdge>.addDependenciesToGraph(key: K, dependencies: Set<K>) {

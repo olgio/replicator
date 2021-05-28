@@ -21,4 +21,9 @@ interface DependencyGraph<K : Comparable<K>> {
      * @return ключи команд, готовых к исполнению
      */
     suspend fun evaluateKeyToExecute(): KeysToExecute<K>
+
+    /**
+     * Пометка вершины [key] как исполненной
+     */
+    suspend fun markAsExecuted(key: K)
 }

@@ -1,15 +1,12 @@
 package ru.splite.replicator.atlas.executor
 
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.produce
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.consumeAsFlow
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.slf4j.LoggerFactory
@@ -69,7 +66,7 @@ class CommandExecutor(
                 committedChannel.collect {
                     Metrics.registry.atlasCommandExecutorLatency.measureAndRecord {
                         fetchAvailableCommands().forEach {
-                            send(it.dot)
+                            send(it)
                         }
                     }
                 }
@@ -101,7 +98,8 @@ class CommandExecutor(
         return keysToExecute.executable
     }
 
-    private suspend fun executeCommand(commandId: Id<NodeIdentifier>) {
+    private suspend fun executeCommand(dependency: Dependency) {
+        val commandId = dependency.dot
         LOGGER.debug("Executing on state machine commandId=$commandId")
         val response = kotlin.runCatching {
             when (val commandToExecute = commandBuffer.remove(commandId)) {
@@ -115,6 +113,7 @@ class CommandExecutor(
                 )
             }
         }
+        dependencyGraph.markAsExecuted(dependency)
         LOGGER.debug("Executed on state machine commandId=$commandId")
         completableDeferredResponses[commandId]?.let { deferredResponse ->
             response.onSuccess { payload ->
