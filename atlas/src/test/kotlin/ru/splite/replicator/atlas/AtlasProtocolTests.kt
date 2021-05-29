@@ -442,10 +442,6 @@ class AtlasProtocolTests {
         }
     }
 
-    private suspend fun commandConflictCase() {
-
-    }
-
     private suspend fun CommandCoordinator.sendCollectAndAssert(
         parent: AtlasProtocolController,
         collectMessage: AtlasMessage.MCollect,
