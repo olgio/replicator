@@ -83,19 +83,19 @@ class BaseAtlasProtocol(
         }
 
         override suspend fun buildConsensus(): AtlasMessage.MConsensus {
-            val consensusMessage = withLock(commandId) {
+            val (consensusMessage, selfConsensusAck) = withLock(commandId) { commandState ->
                 check(quorumDependencies.isQuorumCompleted(config.fastQuorumSize)) {
                     "MConsensus message cannot be built because of fast quorum uncompleted"
                 }
                 val newConsensusValue = AtlasMessage.ConsensusValue(
-                    it.command.isNoop,
+                    commandState.command.isNoop,
                     quorumDependencies.dependenciesUnion
                 )
-                AtlasMessage.MConsensus(commandId, config.processId, newConsensusValue)
+                val consensusMessage = AtlasMessage.MConsensus(commandId, config.processId, newConsensusValue)
+                val selfConsensusAck = handleConsensusWithState(consensusMessage, commandState)
+                check(selfConsensusAck.isAck)
+                consensusMessage to selfConsensusAck
             }
-            val selfConsensusAck = handleConsensus(consensusMessage)
-            check(selfConsensusAck.isAck)
-//            check(commandState.synodState.ballot > 0)
             val selfConsensusAckDecision = handleConsensusAck(address, selfConsensusAck)
             check(selfConsensusAckDecision == ConsensusAckDecision.NONE)
             return consensusMessage
@@ -174,7 +174,7 @@ class BaseAtlasProtocol(
             from: NodeIdentifier,
             recoveryAck: AtlasMessage.MRecoveryAck
         ): AtlasMessage.MConsensus? {
-            val consensusMessage = withLock(recoveryAck) { commandState ->
+            val (consensusMessage, selfConsensusAck) = withLock(recoveryAck) { commandState ->
                 if (!recoveryAck.isAck) {
                     return null
                 } else if (recoveryAck.ballot != commandState.ballot) {
@@ -187,12 +187,12 @@ class BaseAtlasProtocol(
                     return null
                 }
 
-                buildConsensusForRecovery(commandState)
-            }
+                val consensusMessage = buildConsensusForRecovery(commandState)
+                val selfConsensusAck = handleConsensusWithState(consensusMessage, commandState)
+                check(selfConsensusAck.isAck)
 
-            val selfConsensusAck = handleConsensus(consensusMessage)
-            check(selfConsensusAck.isAck)
-            //check(commandState.synodState.ballot > config.processId)
+                consensusMessage to selfConsensusAck
+            }
             val selfConsensusAckDecision = handleConsensusAck(address, selfConsensusAck)
             check(selfConsensusAckDecision == ConsensusAckDecision.NONE)
 
@@ -308,42 +308,49 @@ class BaseAtlasProtocol(
 
     override suspend fun handleConsensus(message: AtlasMessage.MConsensus): AtlasMessage.MConsensusAck =
         withLock(message) { commandState ->
-            if (commandState.ballot > message.ballot) {
-                return AtlasMessage.MConsensusAck(
-                    isAck = false,
-                    commandId = message.commandId,
-                    ballot = commandState.ballot
-                )
-            }
+            handleConsensusWithState(message, commandState)
+        }
 
-            commandStateStore.setCommandState(
-                commandId = message.commandId,
-                commandState = commandState.copy(
-                    ballot = message.ballot,
-                    acceptedBallot = message.ballot,
-                    consensusValue = message.consensusValue
-                )
-            )
-
+    private suspend fun handleConsensusWithState(
+        message: AtlasMessage.MConsensus,
+        commandState: CommandState
+    ): AtlasMessage.MConsensusAck {
+        if (commandState.ballot > message.ballot) {
             return AtlasMessage.MConsensusAck(
-                isAck = true,
+                isAck = false,
                 commandId = message.commandId,
-                ballot = message.ballot
+                ballot = commandState.ballot
             )
         }
+
+        commandStateStore.setCommandState(
+            commandId = message.commandId,
+            commandState = commandState.copy(
+                ballot = message.ballot,
+                acceptedBallot = message.ballot,
+                consensusValue = message.consensusValue
+            )
+        )
+
+        return AtlasMessage.MConsensusAck(
+            isAck = true,
+            commandId = message.commandId,
+            ballot = message.ballot
+        )
+    }
 
     override suspend fun handleCommit(message: AtlasMessage.MCommit): AtlasMessage.MCommitAck =
         withLock(message) { commandState ->
             if (commandState.status == CommandStatus.START) {
                 if (message.command == Command.Empty) {
                     bufferedCommits[message.commandId] = message
-                    LOGGER.debug("Commit will be buffered until the payload arrives. commandId = ${message.commandId}")
+                    LOGGER.debug("Commit will be buffered until the payload arrives. commandId=${message.commandId}")
                     return AtlasMessage.MCommitAck(
                         isAck = false,
                         commandId = message.commandId
                     )
                 } else {
-                    LOGGER.debug("Payload received with commit message. commandId = ${message.commandId}")
+                    LOGGER.debug("Payload received with commit message. commandId=${message.commandId}")
                     val commandStateAfterUpdate = commandStateStore.setCommandState(
                         commandId = message.commandId,
                         commandState = commandState.copy(
@@ -412,6 +419,7 @@ class BaseAtlasProtocol(
                 commandId = message.commandId,
                 commandState = commandState.copy(
                     status = CommandStatus.RECOVERY,
+                    command = if (commandState.command.isNoop) message.command else commandState.command,
                     ballot = message.ballot
                 )
             )
@@ -436,7 +444,7 @@ class BaseAtlasProtocol(
         message: AtlasMessage.MCommit
     ): AtlasMessage.MCommitAck {
         if (commandState.status == CommandStatus.COMMIT) {
-            LOGGER.debug("Commit processed idempotently. commandId = ${message.commandId}")
+            LOGGER.debug("Commit processed idempotently. commandId=${message.commandId}")
             return AtlasMessage.MCommitAck(
                 isAck = true,
                 commandId = message.commandId
@@ -446,17 +454,23 @@ class BaseAtlasProtocol(
         val command = if (message.value.isNoop) {
             Command.WithNoop
         } else {
-            when (message.command) {
+            val commandWithPayload = when (message.command) {
                 is Command.Empty -> commandState.command
                 else -> message.command
             }
+            check(!commandWithPayload.isNoop) {
+                "Expected payload for commandId=${message.commandId} but received NOOP"
+            }
+            commandWithPayload
         }
-        check(command !is Command.Empty)
+        check(command !is Command.Empty) {
+            "Cannot commit commandId=${message.commandId} because payload is empty"
+        }
 
         LOGGER.debug(
             "Committing commandId={}, isNoop={}, dependencies={}",
             message.commandId,
-            command.isNoop,
+            message.value.isNoop,
             message.value.dependencies
         )
         commandExecutor.commit(message.commandId, command, message.value.dependencies)
