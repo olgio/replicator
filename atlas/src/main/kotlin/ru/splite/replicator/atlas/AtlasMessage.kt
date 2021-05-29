@@ -70,7 +70,7 @@ sealed class AtlasMessage {
     ) : AtlasMessage(), PerCommandMessage {
 
         override fun toString(): String {
-            return "MCommit(commandId=$commandId, value=$value)"
+            return "MCommit(commandId=$commandId, commandType=${command.javaClass.simpleName}, value=$value)"
         }
 
         override fun equals(other: Any?): Boolean {
@@ -118,6 +118,10 @@ sealed class AtlasMessage {
         val command: Command,
         val ballot: Long
     ) : AtlasMessage(), PerCommandMessage {
+
+        override fun toString(): String {
+            return "MRecovery(commandId=$commandId, ballot=$ballot, commandType=${command.javaClass.simpleName})"
+        }
 
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
