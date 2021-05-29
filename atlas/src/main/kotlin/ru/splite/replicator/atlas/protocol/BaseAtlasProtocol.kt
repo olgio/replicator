@@ -87,7 +87,10 @@ class BaseAtlasProtocol(
                 check(quorumDependencies.isQuorumCompleted(config.fastQuorumSize)) {
                     "MConsensus message cannot be built because of fast quorum uncompleted"
                 }
-                val newConsensusValue = AtlasMessage.ConsensusValue(false, quorumDependencies.dependenciesUnion)
+                val newConsensusValue = AtlasMessage.ConsensusValue(
+                    it.command.isNoop,
+                    quorumDependencies.dependenciesUnion
+                )
                 AtlasMessage.MConsensus(commandId, config.processId, newConsensusValue)
             }
             val selfConsensusAck = handleConsensus(consensusMessage)
@@ -125,6 +128,7 @@ class BaseAtlasProtocol(
                 quorumDependencies.addParticipant(from, collectAck.remoteDependencies, config.fastQuorumSize)
                 if (quorumDependencies.isQuorumCompleted(config.fastQuorumSize)) {
                     return if (quorumDependencies.checkThresholdUnion(config.f)) {
+                        check(!commandState.command.isNoop)
                         val newConsensusValue = AtlasMessage.ConsensusValue(
                             isNoop = false,
                             dependencies = quorumDependencies.dependenciesUnion
@@ -142,30 +146,27 @@ class BaseAtlasProtocol(
             }
 
         override suspend fun buildRecovery(): AtlasMessage.MRecovery {
-            val recoveryMessage = withLock(commandId) { commandState ->
-                val command = commandState.command
-
+            val (recoveryMessage, selfRecoveryAck) = withLock(commandId) { commandState ->
                 val currentBallot = commandState.ballot
                 val newBallot = config.processId + config.n * (currentBallot / config.n + 1)
 
-                AtlasMessage.MRecovery(
+                val recoveryMessage = AtlasMessage.MRecovery(
                     commandId = commandId,
-                    command = command,
+                    command = commandState.command,
                     ballot = newBallot
                 )
+
+                val selfRecoveryAck = handleRecoveryWithState(recoveryMessage, commandState)
+
+                //error if received MCommit from self
+                check(selfRecoveryAck is AtlasMessage.MRecoveryAck) {
+                    "Recovery from state COMMIT doesn't make sense"
+                }
+                check(selfRecoveryAck.isAck)
+                check(selfRecoveryAck.ballot > commandState.acceptedBallot)
+                recoveryMessage to selfRecoveryAck
             }
-
-            val selfRecoveryAck = handleRecovery(recoveryMessage)
-
-            //error if received MCommit from self
-            check(selfRecoveryAck is AtlasMessage.MRecoveryAck) {
-                "Recovery from state COMMIT doesn't make sense"
-            }
-            check(selfRecoveryAck.isAck)
-            //check(selfRecoveryAck.ballot > commandState.synodState.acceptedBallot)
-
             handleRecoveryAck(address, selfRecoveryAck)
-
             return recoveryMessage
         }
 
@@ -224,7 +225,7 @@ class BaseAtlasProtocol(
                         commandId = commandId,
                         ballot = commandState.ballot,
                         consensusValue = AtlasMessage.ConsensusValue(
-                            isNoop = false,
+                            isNoop = notEmptyQuorumAck.consensusValue.isNoop,
                             dependencies = dependencies
                         )
                     )
@@ -359,64 +360,72 @@ class BaseAtlasProtocol(
 
     override suspend fun handleRecovery(message: AtlasMessage.MRecovery): AtlasMessage =
         withLock(message) { commandState ->
-            if (commandState.status == CommandStatus.COMMIT) {
-                val consensusValue = commandState.consensusValue
-                    ?: error("Command status COMMIT but consensusValue absent")
-                return AtlasMessage.MCommit(
-                    commandId = message.commandId,
-                    value = consensusValue,
-                    command = commandState.command
-                )
-            }
+            handleRecoveryWithState(message, commandState)
+        }
 
-            if (commandState.ballot >= message.ballot) {
-                return AtlasMessage.MRecoveryAck(
-                    isAck = false,
-                    commandId = message.commandId,
-                    consensusValue = commandState.consensusValue ?: AtlasMessage.ConsensusValue(false),
-                    ballot = commandState.ballot,
-                    acceptedBallot = commandState.acceptedBallot
-                )
-            }
-
-            val commandStateAfterUpdate = if (commandState.ballot == 0L && commandState.status == CommandStatus.START) {
-                val dependency = Dependency(message.commandId)
-                val dependencies = when (message.command) {
-                    is Command.WithPayload -> conflictIndex.putAndGetConflicts(dependency, message.command.payload)
-                    else -> emptySet()
-                }
-                val newConsensusValue = AtlasMessage.ConsensusValue(
-                    isNoop = false,
-                    dependencies = dependencies
-                )
-                commandStateStore.setCommandState(
-                    commandId = message.commandId,
-                    commandState = commandState.copy(
-                        status = CommandStatus.RECOVERY,
-                        command = message.command,
-                        ballot = message.ballot,
-                        consensusValue = newConsensusValue
-                    )
-                )
-            } else {
-                commandStateStore.setCommandState(
-                    commandId = message.commandId,
-                    commandState = commandState.copy(
-                        status = CommandStatus.RECOVERY,
-                        ballot = message.ballot
-                    )
-                )
-            }
-
-            return AtlasMessage.MRecoveryAck(
-                isAck = true,
+    private suspend fun handleRecoveryWithState(
+        message: AtlasMessage.MRecovery,
+        commandState: CommandState
+    ): AtlasMessage {
+        if (commandState.status == CommandStatus.COMMIT) {
+            val consensusValue = commandState.consensusValue
+                ?: error("Command status COMMIT but consensusValue absent")
+            return AtlasMessage.MCommit(
                 commandId = message.commandId,
-                consensusValue = commandStateAfterUpdate.consensusValue!!,
-                quorum = commandStateAfterUpdate.quorum,
-                ballot = commandStateAfterUpdate.ballot,
-                acceptedBallot = commandStateAfterUpdate.acceptedBallot
+                value = consensusValue,
+                command = commandState.command
             )
         }
+
+        if (commandState.ballot >= message.ballot) {
+            return AtlasMessage.MRecoveryAck(
+                isAck = false,
+                commandId = message.commandId,
+                consensusValue = commandState.consensusValue ?: AtlasMessage.ConsensusValue(true),
+                ballot = commandState.ballot,
+                acceptedBallot = commandState.acceptedBallot
+            )
+        }
+
+        val commandStateAfterUpdate = if (commandState.ballot == 0L && commandState.status == CommandStatus.START) {
+            val dependency = Dependency(message.commandId)
+            val dependencies = when (message.command) {
+                is Command.WithPayload -> conflictIndex.putAndGetConflicts(dependency, message.command.payload)
+                is Command.WithNoop -> emptySet()
+                else -> error("Unexpected command state for recovery ${message.command}")
+            }
+            val newConsensusValue = AtlasMessage.ConsensusValue(
+                isNoop = message.command.isNoop,
+                dependencies = dependencies
+            )
+            commandStateStore.setCommandState(
+                commandId = message.commandId,
+                commandState = commandState.copy(
+                    status = CommandStatus.RECOVERY,
+                    command = message.command,
+                    ballot = message.ballot,
+                    consensusValue = newConsensusValue
+                )
+            )
+        } else {
+            commandStateStore.setCommandState(
+                commandId = message.commandId,
+                commandState = commandState.copy(
+                    status = CommandStatus.RECOVERY,
+                    ballot = message.ballot
+                )
+            )
+        }
+
+        return AtlasMessage.MRecoveryAck(
+            isAck = true,
+            commandId = message.commandId,
+            consensusValue = commandStateAfterUpdate.consensusValue!!,
+            quorum = commandStateAfterUpdate.quorum,
+            ballot = commandStateAfterUpdate.ballot,
+            acceptedBallot = commandStateAfterUpdate.acceptedBallot
+        )
+    }
 
     override suspend fun getCommandStatus(commandId: Id<NodeIdentifier>): CommandStatus {
         return this.commandStateStore.getCommandState(commandId)?.status ?: CommandStatus.START
@@ -433,12 +442,23 @@ class BaseAtlasProtocol(
                 commandId = message.commandId
             )
         }
-        val command = when (message.command) {
-            is Command.Empty -> commandState.command
-            else -> message.command
+
+        val command = if (message.value.isNoop) {
+            Command.WithNoop
+        } else {
+            when (message.command) {
+                is Command.Empty -> commandState.command
+                else -> message.command
+            }
         }
         check(command !is Command.Empty)
 
+        LOGGER.debug(
+            "Committing commandId={}, isNoop={}, dependencies={}",
+            message.commandId,
+            command.isNoop,
+            message.value.dependencies
+        )
         commandExecutor.commit(message.commandId, command, message.value.dependencies)
 
         commandStateStore.setCommandState(
