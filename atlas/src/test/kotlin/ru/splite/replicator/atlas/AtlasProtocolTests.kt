@@ -13,6 +13,7 @@ import ru.splite.replicator.atlas.protocol.CommandCoordinator.CollectAckDecision
 import ru.splite.replicator.atlas.protocol.CommandCoordinator.ConsensusAckDecision
 import ru.splite.replicator.atlas.state.Command
 import ru.splite.replicator.atlas.state.CommandStatus
+import ru.splite.replicator.atlas.state.InMemoryCommandStateStore
 import ru.splite.replicator.demo.keyvalue.KeyValueCommand
 import ru.splite.replicator.demo.keyvalue.KeyValueStateMachine
 import ru.splite.replicator.transport.CoroutineChannelTransport
@@ -484,13 +485,13 @@ class AtlasProtocolTests {
             n = n,
             f = f
         )
-        val commandExecutor = CommandExecutor(config, dependencyGraph, stateMachine)
+        val commandStateStore = InMemoryCommandStateStore()
+        val commandExecutor = CommandExecutor(
+            config, dependencyGraph, stateMachine, commandStateStore
+        )
         val idGenerator = InMemoryIdGenerator(nodeIdentifier)
         val atlasProtocol = BaseAtlasProtocol(
-            config,
-            idGenerator,
-            stateMachine.newConflictIndex(),
-            commandExecutor
+            config, idGenerator, stateMachine.newConflictIndex(), commandExecutor, commandStateStore
         )
         return AtlasProtocolController(this, atlasProtocol)
     }

@@ -9,6 +9,7 @@ import ru.splite.replicator.atlas.graph.Dependency
 import ru.splite.replicator.atlas.graph.JGraphTDependencyGraph
 import ru.splite.replicator.atlas.id.InMemoryIdGenerator
 import ru.splite.replicator.atlas.protocol.BaseAtlasProtocol
+import ru.splite.replicator.atlas.state.InMemoryCommandStateStore
 import ru.splite.replicator.demo.keyvalue.KeyValueStateMachine
 import ru.splite.replicator.timer.flow.DelayTimerFactory
 import ru.splite.replicator.transport.CoroutineChannelTransport
@@ -27,13 +28,13 @@ class AtlasClusterBuilder {
             val timerFactory = DelayTimerFactory()
             val stateMachine = KeyValueStateMachine()
             val dependencyGraph = JGraphTDependencyGraph<Dependency>()
-            val commandExecutor = CommandExecutor(config, dependencyGraph, stateMachine)
+            val commandStateStore = InMemoryCommandStateStore()
+            val commandExecutor = CommandExecutor(
+                config, dependencyGraph, stateMachine, commandStateStore
+            )
             val idGenerator = InMemoryIdGenerator(config.address)
             val atlasProtocol = BaseAtlasProtocol(
-                config,
-                idGenerator,
-                stateMachine.newConflictIndex(),
-                commandExecutor
+                config, idGenerator, stateMachine.newConflictIndex(), commandExecutor, commandStateStore
             )
             val atlasProtocolController = AtlasProtocolController(transport, atlasProtocol)
             val messageSender = MessageSender(atlasProtocolController, atlasProtocol.config.sendMessageTimeout)

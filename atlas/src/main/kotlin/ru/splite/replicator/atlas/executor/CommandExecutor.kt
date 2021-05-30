@@ -1,12 +1,15 @@
 package ru.splite.replicator.atlas.executor
 
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.produce
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.consumeAsFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.slf4j.LoggerFactory
@@ -15,6 +18,8 @@ import ru.splite.replicator.atlas.graph.Dependency
 import ru.splite.replicator.atlas.graph.DependencyGraph
 import ru.splite.replicator.atlas.id.Id
 import ru.splite.replicator.atlas.state.Command
+import ru.splite.replicator.atlas.state.CommandStateStore
+import ru.splite.replicator.atlas.state.CommandStatus
 import ru.splite.replicator.metrics.Metrics
 import ru.splite.replicator.metrics.Metrics.measureAndRecord
 import ru.splite.replicator.statemachine.StateMachine
@@ -25,7 +30,8 @@ import kotlin.coroutines.CoroutineContext
 class CommandExecutor(
     private val config: AtlasProtocolConfig,
     private val dependencyGraph: DependencyGraph<Dependency>,
-    private val stateMachine: StateMachine<ByteArray, ByteArray>
+    private val stateMachine: StateMachine<ByteArray, ByteArray>,
+    private val commandStateStore: CommandStateStore
 ) {
 
     private val commandBlockersChannel = Channel<Id<NodeIdentifier>>(capacity = Channel.UNLIMITED)
@@ -102,7 +108,7 @@ class CommandExecutor(
         val commandId = dependency.dot
         LOGGER.debug("Executing on state machine commandId=$commandId")
         val response = kotlin.runCatching {
-            when (val commandToExecute = commandBuffer.remove(commandId)) {
+            when (val commandToExecute = extractCommand(commandId)) {
                 is Command.WithPayload -> {
                     stateMachine.apply(commandToExecute.payload)
                 }
@@ -131,6 +137,19 @@ class CommandExecutor(
                 throw exception
             }
         }
+    }
+
+    private suspend fun extractCommand(commandId: Id<NodeIdentifier>): Command {
+        val commandFromBuffer = commandBuffer.remove(commandId)
+        if (commandFromBuffer != null) {
+            return commandFromBuffer
+        }
+        val commandState = commandStateStore.getCommandState(commandId)
+            ?: error("Cannot extract commandState from the store. commandState is null")
+        check(commandState.status == CommandStatus.COMMIT) {
+            "commandState from the store has uncommitted status ${commandState.status}"
+        }
+        return commandState.command
     }
 
     companion object {

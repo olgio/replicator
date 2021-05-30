@@ -42,7 +42,7 @@ object AtlasDependencyContainer {
         }
 
         bind<CommandExecutor>() with singleton {
-            CommandExecutor(instance(), instance(), instance())
+            CommandExecutor(instance(), instance(), instance(), instance())
         }
 
         bind<DependencyGraphStore<Dependency>>() with singleton { EmptyDependencyGraphStore() }
