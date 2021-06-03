@@ -248,7 +248,7 @@ class AtlasCommandSubmitter(
         try {
             return action()
         } finally {
-            activeCoordinators.remove(this.commandId, this)
+            activeCoordinators.remove(this.commandId)
         }
     }
 
