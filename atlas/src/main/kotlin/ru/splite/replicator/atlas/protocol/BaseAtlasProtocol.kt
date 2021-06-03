@@ -42,7 +42,8 @@ class BaseAtlasProtocol(
 
         override suspend fun buildCollect(
             commandBytes: ByteArray,
-            fastQuorumNodes: Set<NodeIdentifier>
+            fastQuorumNodes: Set<NodeIdentifier>,
+            handle: Boolean
         ): AtlasMessage.MCollect {
             if (fastQuorumNodes.size != config.fastQuorumSize) {
                 error("Fast quorum must be ${config.fastQuorumSize} size but ${fastQuorumNodes.size} received")
@@ -57,14 +58,16 @@ class BaseAtlasProtocol(
                 AtlasMessage.MCollect(commandId, command, fastQuorumNodes, dependencies)
             }
 
-            val selfCollectAck = handleCollect(address, collectMessage)
-            check(selfCollectAck.isAck)
-            val selfCollectAckDecision = handleCollectAck(address, selfCollectAck)
-            check(selfCollectAckDecision == CollectAckDecision.NONE)
+            if (handle) {
+                val selfCollectAck = handleCollect(address, collectMessage)
+                check(selfCollectAck.isAck)
+                val selfCollectAckDecision = handleCollectAck(address, selfCollectAck)
+                check(selfCollectAckDecision == CollectAckDecision.NONE)
+            }
             return collectMessage
         }
 
-        override suspend fun buildCommit(withPayload: Boolean): AtlasMessage.MCommit {
+        override suspend fun buildCommit(withPayload: Boolean, handle: Boolean): AtlasMessage.MCommit {
             val commitMessage = withLock(commandId) { commandState ->
                 check(commandState.status != CommandStatus.START) {
                     "Commit message cannot be created in START status"
@@ -78,11 +81,13 @@ class BaseAtlasProtocol(
                 }
                 AtlasMessage.MCommit(commandId, newConsensusValue, command)
             }
-            handleCommit(commitMessage)
+            if (handle) {
+                handleCommit(commitMessage)
+            }
             return commitMessage
         }
 
-        override suspend fun buildConsensus(): AtlasMessage.MConsensus {
+        override suspend fun buildConsensus(handle: Boolean): AtlasMessage.MConsensus {
             val (consensusMessage, selfConsensusAck) = withLock(commandId) { commandState ->
                 check(quorumDependencies.isQuorumCompleted(config.fastQuorumSize)) {
                     "MConsensus message cannot be built because of fast quorum uncompleted"
@@ -96,8 +101,10 @@ class BaseAtlasProtocol(
                 check(selfConsensusAck.isAck)
                 consensusMessage to selfConsensusAck
             }
-            val selfConsensusAckDecision = handleConsensusAck(address, selfConsensusAck)
-            check(selfConsensusAckDecision == ConsensusAckDecision.NONE)
+            if (handle) {
+                val selfConsensusAckDecision = handleConsensusAck(address, selfConsensusAck)
+                check(selfConsensusAckDecision == ConsensusAckDecision.NONE)
+            }
             return consensusMessage
         }
 
@@ -398,7 +405,7 @@ class BaseAtlasProtocol(
             val dependency = Dependency(message.commandId)
             val dependencies = when (message.command) {
                 is Command.WithPayload -> conflictIndex.putAndGetConflicts(dependency, message.command.payload)
-                is Command.WithNoop -> emptySet()
+                is Command.WithNoop -> conflictIndex.getAllConflicts(dependency)
                 else -> error("Unexpected command state for recovery ${message.command}")
             }
             val newConsensusValue = AtlasMessage.ConsensusValue(
