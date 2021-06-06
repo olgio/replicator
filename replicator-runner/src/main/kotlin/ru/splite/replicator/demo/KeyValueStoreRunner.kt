@@ -54,7 +54,8 @@ class KeyValueStoreRunner(
                 config.port,
                 config.nodeIdentifier,
                 config.maxConcurrentSubmits,
-                instance()
+                instance(),
+                Dispatchers.Default
             )
         }
 

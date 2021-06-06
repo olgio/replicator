@@ -1,5 +1,6 @@
 package ru.splite.replicator.demo
 
+import kotlinx.coroutines.Dispatchers
 import org.kodein.di.DI
 import org.kodein.di.bind
 import org.kodein.di.instance
@@ -38,7 +39,8 @@ object RocksDbDependencyContainer {
                         + RocksDbKeyValueConflictIndex.COLUMN_FAMILY_NAMES
                         + RocksDbCommandStateStore.COLUMN_FAMILY_NAMES
                         + RocksDbDependencyGraphStore.COLUMN_FAMILY_NAMES
-                        + RocksDbIdGenerator.COLUMN_FAMILY_NAMES
+                        + RocksDbIdGenerator.COLUMN_FAMILY_NAMES,
+                Dispatchers.IO
             )
         }
 
