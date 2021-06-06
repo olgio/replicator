@@ -23,44 +23,22 @@ object Metrics {
 
     class MetricsRegistry(micrometerRegistry: MeterRegistry) {
 
-        val commandSubmitLatency: Timer = Timer
-            .builder("replicator.submit.latency")
-            .minimumExpectedValue(Duration.ofMillis(1))
-            .maximumExpectedValue(Duration.ofSeconds(30))
-            .publishPercentiles(0.05, 0.5, 0.95, 0.99)
-            .publishPercentileHistogram()
+        val commandSubmitLatency: Timer = buildTimer("replicator.submit.latency")
             .register(micrometerRegistry)
 
-        val commandSubmitErrorLatency: Timer = Timer
-            .builder("replicator.submit.error.latency")
-            .minimumExpectedValue(Duration.ofMillis(1))
-            .maximumExpectedValue(Duration.ofSeconds(30))
-            .publishPercentiles(0.05, 0.5, 0.95, 0.99)
-            .publishPercentileHistogram()
+        val commandSubmitErrorLatency: Timer = buildTimer("replicator.submit.error.latency")
             .register(micrometerRegistry)
 
-        val sendMessageLatency: Timer = Timer
-            .builder("replicator.transport.send.latency")
-            .minimumExpectedValue(Duration.ofMillis(1))
-            .maximumExpectedValue(Duration.ofSeconds(30))
-            .publishPercentiles(0.05, 0.5, 0.95, 0.99)
-            .publishPercentileHistogram()
+        val sendMessageLatency: Timer = buildTimer("replicator.transport.send.latency")
             .register(micrometerRegistry)
 
-        val receiveMessageLatency: Timer = Timer
-            .builder("replicator.transport.receive.latency")
-            .minimumExpectedValue(Duration.ofMillis(1))
-            .maximumExpectedValue(Duration.ofSeconds(30))
-            .publishPercentiles(0.05, 0.5, 0.95, 0.99)
-            .publishPercentileHistogram()
+        val receiveMessageLatency: Timer = buildTimer("replicator.transport.receive.latency")
             .register(micrometerRegistry)
 
-        val atlasCommandExecutorLatency: Timer = Timer
-            .builder("replicator.atlas.executor.latency")
-            .minimumExpectedValue(Duration.ofMillis(1))
-            .maximumExpectedValue(Duration.ofSeconds(30))
-            .publishPercentiles(0.05, 0.5, 0.95, 0.99)
-            .publishPercentileHistogram()
+        val atlasCommandExecutorLatency: Timer = buildTimer("replicator.atlas.executor.latency")
+            .register(micrometerRegistry)
+
+        val atlasCommandCoordinateLatency: Timer = buildTimer("replicator.atlas.coordinator.latency")
             .register(micrometerRegistry)
 
         val atlasRecoveryCounter: Counter =
@@ -71,7 +49,20 @@ object Metrics {
 
         val atlasSlowPathCounter: Counter =
             micrometerRegistry.counter("replicator.atlas.slowpath.count")
+
+        val rocksDbWriteLatency: Timer = buildTimer("replicator.rocksdb.write.latency")
+            .register(micrometerRegistry)
+
+        val rocksDbReadLatency: Timer = buildTimer("replicator.rocksdb.read.latency")
+            .register(micrometerRegistry)
     }
+
+    private fun buildTimer(name: String): Timer.Builder = Timer
+        .builder(name)
+        .minimumExpectedValue(Duration.ofMillis(1))
+        .maximumExpectedValue(Duration.ofSeconds(30))
+        .publishPercentiles(0.05, 0.5, 0.95, 0.99)
+        .publishPercentileHistogram()
 
     fun initializeStackdriver(projectId: String, tags: List<Tag>) {
         this.meterRegistryBuildAction = {
@@ -95,12 +86,12 @@ object Metrics {
         this.record(stopwatch.elapsed(TimeUnit.NANOSECONDS), TimeUnit.NANOSECONDS)
     }
 
-    inline fun Timer.measureAndRecord(action: () -> Unit) {
+    inline fun <T> Timer.measureAndRecord(action: () -> T): T {
         val stopwatch = Stopwatch.createStarted()
         try {
-            action()
+            return action()
         } finally {
-            this.record(stopwatch.stop().elapsed(TimeUnit.NANOSECONDS), TimeUnit.NANOSECONDS)
+            this.recordStopwatch(stopwatch.stop())
         }
     }
 }

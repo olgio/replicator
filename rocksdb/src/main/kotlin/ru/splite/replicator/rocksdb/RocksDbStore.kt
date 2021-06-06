@@ -6,6 +6,8 @@ import kotlinx.serialization.BinaryFormat
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.protobuf.ProtoBuf
 import org.rocksdb.*
+import ru.splite.replicator.metrics.Metrics
+import ru.splite.replicator.metrics.Metrics.measureAndRecord
 import java.io.File
 import kotlin.coroutines.CoroutineContext
 
@@ -20,8 +22,10 @@ class RocksDbStore(
         val binaryFormat: BinaryFormat
     ) {
 
-        suspend fun put(key: ByteArray, value: ByteArray) = withContext(coroutineContext) {
-            db.put(columnFamilyHandle, key, value)
+        suspend fun put(key: ByteArray, value: ByteArray) = Metrics.registry.rocksDbWriteLatency.measureAndRecord {
+            withContext(coroutineContext) {
+                db.put(columnFamilyHandle, key, value)
+            }
         }
 
         suspend fun put(key: String, value: ByteArray) {
@@ -32,9 +36,12 @@ class RocksDbStore(
             put(key.toByteArray(), value)
         }
 
-        suspend fun getAsByteArray(key: ByteArray): ByteArray? = withContext(coroutineContext) {
-            db.get(columnFamilyHandle, key)
-        }
+        suspend fun getAsByteArray(key: ByteArray): ByteArray? =
+            Metrics.registry.rocksDbReadLatency.measureAndRecord {
+                withContext(coroutineContext) {
+                    db.get(columnFamilyHandle, key)
+                }
+            }
 
         suspend fun getAsByteArray(key: String): ByteArray? {
             return getAsByteArray(key.toByteArray())
@@ -44,8 +51,10 @@ class RocksDbStore(
             return getAsByteArray(key.toByteArray())
         }
 
-        suspend fun delete(key: ByteArray) = withContext(coroutineContext) {
-            db.delete(columnFamilyHandle, key)
+        suspend fun delete(key: ByteArray) = Metrics.registry.rocksDbWriteLatency.measureAndRecord {
+            withContext(coroutineContext) {
+                db.delete(columnFamilyHandle, key)
+            }
         }
 
         suspend inline fun <reified K, reified T> getAsType(

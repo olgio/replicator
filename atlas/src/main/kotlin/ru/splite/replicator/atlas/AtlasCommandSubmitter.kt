@@ -13,6 +13,7 @@ import ru.splite.replicator.atlas.protocol.AtlasProtocol
 import ru.splite.replicator.atlas.protocol.CommandCoordinator
 import ru.splite.replicator.atlas.state.CommandStatus
 import ru.splite.replicator.metrics.Metrics
+import ru.splite.replicator.metrics.Metrics.measureAndRecord
 import ru.splite.replicator.statemachine.StateMachineCommandSubmitter
 import ru.splite.replicator.timer.flow.TimerFactory
 import ru.splite.replicator.transport.NodeIdentifier
@@ -246,7 +247,9 @@ class AtlasCommandSubmitter(
             return null
         }
         try {
-            return action()
+            return Metrics.registry.atlasCommandCoordinateLatency.measureAndRecord {
+                action()
+            }
         } finally {
             activeCoordinators.remove(this.commandId)
         }
