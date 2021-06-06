@@ -77,4 +77,6 @@ class RocksDbKeyValueConflictIndex(db: RocksDbStore) : ConflictIndex<Dependency,
             CONFLICT_INDEX_COLUMN_FAMILY_NAME
         )
     }
+
+    override suspend fun putAndGetConflictsForNoop(key: Dependency): Set<Dependency> = emptySet()
 }

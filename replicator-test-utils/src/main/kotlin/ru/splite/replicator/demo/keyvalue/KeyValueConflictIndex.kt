@@ -37,4 +37,6 @@ class KeyValueConflictIndex<K> : ConflictIndex<K, ByteArray> {
             }
         }
     }
+
+    override suspend fun putAndGetConflictsForNoop(key: K): Set<K> = emptySet()
 }

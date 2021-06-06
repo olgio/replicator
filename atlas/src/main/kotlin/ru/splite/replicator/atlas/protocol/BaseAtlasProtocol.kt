@@ -405,7 +405,7 @@ class BaseAtlasProtocol(
             val dependency = Dependency(message.commandId)
             val dependencies = when (message.command) {
                 is Command.WithPayload -> conflictIndex.putAndGetConflicts(dependency, message.command.payload)
-                is Command.WithNoop -> emptySet()
+                is Command.WithNoop -> conflictIndex.putAndGetConflictsForNoop(dependency)
                 else -> error("Unexpected command state for recovery ${message.command}")
             }
             val newConsensusValue = AtlasMessage.ConsensusValue(
