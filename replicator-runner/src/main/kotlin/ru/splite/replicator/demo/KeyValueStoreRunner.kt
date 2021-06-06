@@ -53,6 +53,7 @@ class KeyValueStoreRunner(
             KeyValueStoreController(
                 config.port,
                 config.nodeIdentifier,
+                config.maxConcurrentSubmits,
                 instance()
             )
         }
