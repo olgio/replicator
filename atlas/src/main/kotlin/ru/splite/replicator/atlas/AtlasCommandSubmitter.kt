@@ -165,6 +165,9 @@ class AtlasCommandSubmitter(
         }.mapNotNull {
             when (val response = it.response) {
                 is AtlasMessage.MCommit -> {
+                    addCommandsToRecoveryWithoutDelay(
+                        response.value.dependencies.map { dependency -> dependency.dot }
+                    )
                     response
                 }
                 is AtlasMessage.MRecoveryAck -> {
@@ -200,6 +203,14 @@ class AtlasCommandSubmitter(
                 commitMessage
             }
             else -> error("Cannot recovery command ${commandCoordinator.commandId}")
+        }
+    }
+
+    private suspend fun addCommandsToRecoveryWithoutDelay(commands: Collection<Id<NodeIdentifier>>) {
+        commands.filter {
+            !activeCoordinators.containsKey(it) && atlasProtocol.getCommandStatus(it) != CommandStatus.COMMIT
+        }.forEach {
+            coroutineScopeToSendCommit.launchCommandRecovery(it)
         }
     }
 
