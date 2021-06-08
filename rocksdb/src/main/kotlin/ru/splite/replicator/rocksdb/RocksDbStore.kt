@@ -159,6 +159,7 @@ class RocksDbStore(
             setCreateIfMissing(true)
             setCreateMissingColumnFamilies(true)
             setErrorIfExists(false)
+            setEnablePipelinedWrite(true)
         }
         val columnFamilyHandlesArray = ArrayList<ColumnFamilyHandle>(columnFamilyNames.size)
         db = RocksDB.open(options, file.absolutePath, columnFamilyDescriptors, columnFamilyHandlesArray)
