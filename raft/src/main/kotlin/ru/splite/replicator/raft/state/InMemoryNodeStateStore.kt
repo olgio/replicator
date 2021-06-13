@@ -12,7 +12,7 @@ class InMemoryNodeStateStore : NodeStateStore {
 
     override fun getState(): LocalNodeState = currentState.get()
 
-    override fun setState(localNodeState: LocalNodeState): LocalNodeState {
+    override suspend fun setState(localNodeState: LocalNodeState): LocalNodeState {
         val oldState = currentState.get()
         check(oldState.currentTerm <= localNodeState.currentTerm) {
             "Cannot decrease term: ${oldState.currentTerm} > ${localNodeState.currentTerm}"
@@ -27,7 +27,7 @@ class InMemoryNodeStateStore : NodeStateStore {
     override fun getExternalNodeState(nodeIdentifier: NodeIdentifier): ExternalNodeState =
         externalNodeStates[nodeIdentifier] ?: error("Cannot resolve externalNodeState for $nodeIdentifier")
 
-    override fun setExternalNodeState(
+    override suspend fun setExternalNodeState(
         nodeIdentifier: NodeIdentifier,
         externalNodeState: ExternalNodeState
     ): ExternalNodeState {

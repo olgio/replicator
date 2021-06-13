@@ -14,7 +14,11 @@ class RunnerConfig(parser: ArgParser) {
 
     val threads by parser
         .option(type = ArgType.Int, description = "Count of threads")
-        .default(10)
+        .default(0)
+
+    val maxConcurrentSubmits by parser
+        .option(type = ArgType.Int, description = "Max count of concurrent submits")
+        .default(500)
 
     val f by parser
         .option(type = ArgType.Int, description = "Count of possible failures")

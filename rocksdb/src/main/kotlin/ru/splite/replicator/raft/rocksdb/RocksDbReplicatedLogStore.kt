@@ -1,6 +1,7 @@
 package ru.splite.replicator.raft.rocksdb
 
 import com.google.common.primitives.Longs
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.slf4j.Logger
@@ -20,11 +21,17 @@ class RocksDbReplicatedLogStore(db: RocksDbStore) : ReplicatedLogStore {
 
     private val indexStore = db.createColumnFamilyStore(LOG_INDEX_FAMILY_NAME)
 
-    private val lastIndex = AtomicLong(readIndexByKey(LAST_INDEX_KEY))
+    private val lastIndex = runBlocking {
+        AtomicLong(readIndexByKey(LAST_INDEX_KEY))
+    }
 
-    private val lastCommitIndex = AtomicLong(readIndexByKey(COMMIT_INDEX_KEY))
+    private val lastCommitIndex = runBlocking {
+        AtomicLong(readIndexByKey(COMMIT_INDEX_KEY))
+    }
 
-    private val lastAppliedIndex = AtomicLong(readIndexByKey(APPLIED_INDEX_KEY))
+    private val lastAppliedIndex = runBlocking {
+        AtomicLong(readIndexByKey(APPLIED_INDEX_KEY))
+    }
 
     private val logMutex = Mutex()
 
@@ -92,7 +99,7 @@ class RocksDbReplicatedLogStore(db: RocksDbStore) : ReplicatedLogStore {
         return newIndex
     }
 
-    override fun getLogEntryByIndex(index: Long): LogEntry? {
+    override suspend fun getLogEntryByIndex(index: Long): LogEntry? {
         validateIndex(index)
         if (index > lastIndex.get()) {
             return null
@@ -124,21 +131,21 @@ class RocksDbReplicatedLogStore(db: RocksDbStore) : ReplicatedLogStore {
         }
     }
 
-    private fun readIndexByKey(storeKey: String): Long {
+    private suspend fun readIndexByKey(storeKey: String): Long {
         return indexStore.getAsByteArray(storeKey)?.asLong() ?: -1L
     }
 
-    private fun putLastLogIndex(index: Long) {
+    private suspend fun putLastLogIndex(index: Long) {
         indexStore.put(LAST_INDEX_KEY, Longs.toByteArray(index))
         lastIndex.set(index)
     }
 
-    private fun putCommitIndex(index: Long) {
+    private suspend fun putCommitIndex(index: Long) {
         indexStore.put(COMMIT_INDEX_KEY, Longs.toByteArray(index))
         lastCommitIndex.set(index)
     }
 
-    private fun putAppliedIndex(index: Long) {
+    private suspend fun putAppliedIndex(index: Long) {
         indexStore.put(APPLIED_INDEX_KEY, Longs.toByteArray(index))
         lastAppliedIndex.set(index)
     }

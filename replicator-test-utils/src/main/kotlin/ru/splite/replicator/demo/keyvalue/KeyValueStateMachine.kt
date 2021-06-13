@@ -12,16 +12,16 @@ class KeyValueStateMachine : ConflictOrderedStateMachine<ByteArray, ByteArray> {
     val currentState: Map<String, String>
         get() = store
 
-    override fun apply(bytes: ByteArray): ByteArray {
+    override suspend fun apply(bytes: ByteArray): ByteArray {
         val reply = when (val command: KeyValueCommand = KeyValueCommand.deserializer(bytes)) {
             is KeyValueCommand.GetValue -> {
                 val value = store[command.key]
-                KeyValueReply(command.key, value ?: "", value == null)
+                KeyValueReply.create(command.key, value)
             }
             is KeyValueCommand.PutValue -> {
                 store[command.key] = command.value
                 LOGGER.debug("Set key ${command.key} to value ${command.value}")
-                KeyValueReply(command.key, command.value, false)
+                KeyValueReply.create(command.key, command.value)
             }
         }
 

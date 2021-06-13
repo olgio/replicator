@@ -43,7 +43,7 @@ class RocksDbStoreTests {
     }
 
     @Test
-    fun localNodeStateTest() {
+    fun localNodeStateTest() = runBlockingTest {
         val newTerm = Random.nextLong()
         val leaderIdentifier = NodeIdentifier("node-1")
         kotlin.run {
@@ -67,7 +67,7 @@ class RocksDbStoreTests {
     }
 
     @Test
-    fun externalNodeStatesTest() {
+    fun externalNodeStatesTest() = runBlockingTest {
         val nodeIdentifier = NodeIdentifier("node-1")
         val externalNodeState = ExternalNodeState(2L, 3L)
         kotlin.run {
@@ -88,7 +88,7 @@ class RocksDbStoreTests {
     }
 
     @Test
-    fun commandStateTest() {
+    fun commandStateTest() = runBlockingTest {
         val nodeIdentifier = NodeIdentifier("node-1")
         val id = Id(nodeIdentifier, 0L)
         val commandState = CommandState(ballot = 2L)
@@ -110,7 +110,7 @@ class RocksDbStoreTests {
     }
 
     @Test
-    fun dependencyGraphTest() {
+    fun dependencyGraphTest() = runBlockingTest {
         val nodeIdentifier = NodeIdentifier("node-1")
         val dependency1 = Dependency(Id(nodeIdentifier, 0L))
         val dependency2 = Dependency(Id(nodeIdentifier, 1L))
@@ -121,22 +121,31 @@ class RocksDbStoreTests {
                 .isEmpty()
 
             dependencyGraphStore.setDependenciesPerKey(dependency1, setOf(dependency2))
+            dependencyGraphStore.setDependenciesPerKey(dependency2, emptySet())
+
             assertThat(dependencyGraphStore.getDependencies().toList())
-                .containsExactlyInAnyOrder(dependency1 to setOf(dependency2))
+                .containsExactlyInAnyOrder(
+                    dependency1 to setOf(dependency2),
+                    dependency2 to emptySet()
+                )
         }
 
         kotlin.run {
             val dependencyGraphStore = RocksDbDependencyGraphStore(db)
             assertThat(dependencyGraphStore.getDependencies().toList())
-                .containsExactlyInAnyOrder(dependency1 to setOf(dependency2))
+                .containsExactlyInAnyOrder(
+                    dependency1 to setOf(dependency2),
+                    dependency2 to emptySet()
+                )
             dependencyGraphStore.deleteDependenciesPerKey(dependency1)
+            dependencyGraphStore.deleteDependenciesPerKey(dependency2)
             assertThat(dependencyGraphStore.getDependencies().toList())
                 .isEmpty()
         }
     }
 
     @Test
-    fun dependencyStatusTest() {
+    fun dependencyStatusTest() = runBlockingTest {
         val nodeIdentifier = NodeIdentifier("node-1")
         val dependency = Dependency(Id(nodeIdentifier, 0L))
 
@@ -216,7 +225,7 @@ class RocksDbStoreTests {
     }
 
     @Test
-    fun keyValueTest() {
+    fun keyValueTest() = runBlockingTest {
         val key = UUID.randomUUID().toString()
         kotlin.run {
             val keyValueStore = RocksDbKeyValueStateMachine(db)

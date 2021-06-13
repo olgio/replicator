@@ -41,7 +41,7 @@ interface ReplicatedLogStore {
     /**
      * @return запись журнала с индексом [index]
      */
-    fun getLogEntryByIndex(index: Long): LogEntry?
+    suspend fun getLogEntryByIndex(index: Long): LogEntry?
 
     /**
      * @return индекс последнего заполненного слота журнала

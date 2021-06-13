@@ -14,5 +14,5 @@ interface StateMachine<T, R> {
      * Применение команды [command] к конечному автомату.
      * @return результат применения команды
      */
-    fun apply(command: T): R
+    suspend fun apply(command: T): R
 }

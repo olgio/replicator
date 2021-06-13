@@ -75,8 +75,7 @@ internal class VoteRequestHandler(
         }
     }
 
-    private fun candidateCanBeLeader(request: RaftMessage.VoteRequest): Boolean {
-        //TODO
+    private suspend fun candidateCanBeLeader(request: RaftMessage.VoteRequest): Boolean {
         val lastLogIndex: Long = logStore.lastLogIndex() ?: -1
         val lastLogTerm: Long = if (lastLogIndex < 0) -1 else logStore.getLogEntryByIndex(lastLogIndex)!!.term
 

@@ -50,9 +50,8 @@ internal class AppendEntriesHandler(
 
                     var firstTermIndex = request.prevLogIndex
 
-                    while (firstTermIndex > 0L && logStore
-                            .getLogEntryByIndex(firstTermIndex - 1L)
-                            ?.term == prevLogEntry.term
+                    while (firstTermIndex > 0L
+                        && logStore.getLogEntryByIndex(firstTermIndex - 1L)?.term == prevLogEntry.term
                     ) {
                         firstTermIndex -= 1L
                     }

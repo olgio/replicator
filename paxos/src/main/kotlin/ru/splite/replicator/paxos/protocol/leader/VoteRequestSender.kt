@@ -65,7 +65,7 @@ internal class VoteRequestSender(
         }
     }
 
-    private fun becomeCandidate(nextTerm: Long, lastCommitIndex: Long?): RaftMessage.PaxosVoteRequest {
+    private suspend fun becomeCandidate(nextTerm: Long, lastCommitIndex: Long?): RaftMessage.PaxosVoteRequest {
         localNodeStateStore.getState().let { localNodeState ->
             LOGGER.debug("State transition ${localNodeState.currentNodeType} (term ${localNodeState.currentTerm}) -> CANDIDATE")
             localNodeStateStore.setState(
@@ -81,7 +81,7 @@ internal class VoteRequestSender(
         }
     }
 
-    private fun becomeLeader() = localNodeStateStore.getState().let { localNodeState ->
+    private suspend fun becomeLeader() = localNodeStateStore.getState().let { localNodeState ->
         LOGGER.debug("State transition ${localNodeState.currentNodeType} -> LEADER (term ${localNodeState.currentTerm})")
         localNodeStateStore.setState(
             localNodeState.copy(
@@ -91,7 +91,7 @@ internal class VoteRequestSender(
         )
     }
 
-    private fun reinitializeExternalNodeStates(clusterNodeIdentifiers: Collection<NodeIdentifier>) {
+    private suspend fun reinitializeExternalNodeStates(clusterNodeIdentifiers: Collection<NodeIdentifier>) {
         val nextIndex: Long = logStore.lastCommitIndex()?.plus(1) ?: 0
         clusterNodeIdentifiers.forEach { dstNodeIdentifier ->
             localNodeStateStore.setExternalNodeState(
@@ -107,13 +107,15 @@ internal class VoteRequestSender(
     ) {
         val firstUncommittedIndex: Long = logStore.lastCommitIndex()?.plus(1) ?: 0
 
-        val entries: MutableList<LogEntry> = generateSequence(firstUncommittedIndex) {
-            it + 1
-        }.map {
-            logStore.getLogEntryByIndex(it)
-        }.takeWhile {
-            it != null
-        }.filterNotNull().toMutableList()
+
+        val entries = mutableListOf<LogEntry>()
+
+        var currentIndex = firstUncommittedIndex
+        while (currentIndex >= 0) {
+            val logEntry = logStore.getLogEntryByIndex(currentIndex) ?: break
+            entries.add(logEntry)
+            currentIndex++
+        }
 
         voteResponses.forEach { voteResponse ->
             voteResponse.entries.forEachIndexed { index, logEntryFromFollower ->

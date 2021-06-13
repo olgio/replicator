@@ -56,11 +56,8 @@ class JobLauncher(
                     raftProtocolController.sendAppendEntriesIfLeader()
                 }
             }
-            if (result.isFailure) {
-                LOGGER.error(
-                    "Cannot send appendEntries because of nested exception",
-                    result.exceptionOrNull()
-                )
+            result.onFailure { e ->
+                LOGGER.error("Cannot send appendEntries because of nested exception", e)
             }
         }
     }

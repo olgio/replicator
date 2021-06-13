@@ -4,16 +4,22 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.produce
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.consumeAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.slf4j.LoggerFactory
+import ru.splite.replicator.atlas.AtlasProtocolConfig
 import ru.splite.replicator.atlas.graph.Dependency
 import ru.splite.replicator.atlas.graph.DependencyGraph
 import ru.splite.replicator.atlas.id.Id
 import ru.splite.replicator.atlas.state.Command
+import ru.splite.replicator.atlas.state.CommandStateStore
+import ru.splite.replicator.atlas.state.CommandStatus
 import ru.splite.replicator.metrics.Metrics
 import ru.splite.replicator.metrics.Metrics.measureAndRecord
 import ru.splite.replicator.statemachine.StateMachine
@@ -22,21 +28,21 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.CoroutineContext
 
 class CommandExecutor(
+    private val config: AtlasProtocolConfig,
     private val dependencyGraph: DependencyGraph<Dependency>,
-    private val stateMachine: StateMachine<ByteArray, ByteArray>
+    private val stateMachine: StateMachine<ByteArray, ByteArray>,
+    private val commandStateStore: CommandStateStore
 ) {
-
-    private object NewCommitEvent
 
     private val commandBlockersChannel = Channel<Id<NodeIdentifier>>(capacity = Channel.UNLIMITED)
 
-    val commandBlockersFlow: Flow<Id<NodeIdentifier>> = commandBlockersChannel.receiveAsFlow()
+    val commandBlockersFlow: Flow<Id<NodeIdentifier>> = commandBlockersChannel.consumeAsFlow()
 
     private val commandBuffer = ConcurrentHashMap<Id<NodeIdentifier>, Command>()
 
     private val completableDeferredResponses = ConcurrentHashMap<Id<NodeIdentifier>, CompletableDeferred<ByteArray>>()
 
-    private val committedChannel = Channel<NewCommitEvent>(capacity = Channel.UNLIMITED)
+    private val committedChannel = MutableStateFlow<Id<NodeIdentifier>?>(null)
 
     private val graphMutex = Mutex()
 
@@ -54,24 +60,31 @@ class CommandExecutor(
 
     suspend fun commit(commandId: Id<NodeIdentifier>, command: Command, dependencies: Set<Dependency>) {
         commandBuffer[commandId] = command
-        graphMutex.withLock {
-            dependencyGraph.commit(Dependency(commandId), dependencies)
-        }
-        committedChannel.offer(NewCommitEvent)
+        dependencyGraph.commit(Dependency(commandId), dependencies)
+        committedChannel.value = commandId
         LOGGER.debug("Added to graph commandId=$commandId, dependencies=${dependencies.map { it.dot }}")
     }
 
     fun launchCommandExecutor(coroutineContext: CoroutineContext, coroutineScope: CoroutineScope): Job {
         return coroutineScope.launch(coroutineContext) {
-            for (newCommitEvent in committedChannel) {
-                Metrics.registry.atlasCommandExecutorLatency.measureAndRecord {
-                    executeAvailableCommands()
+
+            val executableCommandChannel = produce(capacity = Channel.UNLIMITED) {
+                committedChannel.collect {
+                    Metrics.registry.atlasCommandExecutorLatency.measureAndRecord {
+                        fetchAvailableCommands().forEach {
+                            send(it)
+                        }
+                    }
                 }
+            }
+
+            for (command in executableCommandChannel) {
+                executeCommand(command)
             }
         }
     }
 
-    private suspend fun executeAvailableCommands() {
+    private suspend fun fetchAvailableCommands(): Collection<Dependency> {
         val keysToExecute = graphMutex.withLock {
             dependencyGraph.evaluateKeyToExecute()
         }
@@ -82,19 +95,20 @@ class CommandExecutor(
                     "blockers=${keysToExecute.blockers.map { it.dot }}"
         )
 
-        keysToExecute.executable.forEach {
-            executeCommand(it.dot)
+        if (config.enableRecovery) {
+            keysToExecute.blockers.forEach {
+                commandBlockersChannel.send(it.dot)
+            }
         }
 
-        keysToExecute.blockers.forEach {
-            commandBlockersChannel.send(it.dot)
-        }
+        return keysToExecute.executable
     }
 
-    private fun executeCommand(commandId: Id<NodeIdentifier>) {
+    private suspend fun executeCommand(dependency: Dependency) {
+        val commandId = dependency.dot
         LOGGER.debug("Executing on state machine commandId=$commandId")
         val response = kotlin.runCatching {
-            when (val commandToExecute = commandBuffer.remove(commandId)) {
+            when (val commandToExecute = extractCommand(commandId)) {
                 is Command.WithPayload -> {
                     stateMachine.apply(commandToExecute.payload)
                 }
@@ -105,6 +119,7 @@ class CommandExecutor(
                 )
             }
         }
+        dependencyGraph.markAsExecuted(dependency)
         LOGGER.debug("Executed on state machine commandId=$commandId")
         completableDeferredResponses[commandId]?.let { deferredResponse ->
             response.onSuccess { payload ->
@@ -122,6 +137,19 @@ class CommandExecutor(
                 throw exception
             }
         }
+    }
+
+    private suspend fun extractCommand(commandId: Id<NodeIdentifier>): Command {
+        val commandFromBuffer = commandBuffer.remove(commandId)
+        if (commandFromBuffer != null) {
+            return commandFromBuffer
+        }
+        val commandState = commandStateStore.getCommandState(commandId)
+            ?: error("Cannot extract commandState from the store. commandState is null")
+        check(commandState.status == CommandStatus.COMMIT) {
+            "commandState from the store has uncommitted status ${commandState.status}"
+        }
+        return commandState.command
     }
 
     companion object {

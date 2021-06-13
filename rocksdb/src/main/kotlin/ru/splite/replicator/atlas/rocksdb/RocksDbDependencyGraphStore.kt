@@ -9,13 +9,13 @@ import ru.splite.replicator.rocksdb.RocksDbStore
 class RocksDbDependencyGraphStore(db: RocksDbStore) : DependencyGraphStore<Dependency> {
 
     @Serializable
-    private data class SetWrapper(val dependencies: Set<Dependency>)
+    private data class SetWrapper(val dependencies: Set<Dependency> = emptySet())
 
     private val dependencyGraphStore = db.createColumnFamilyStore(DEPENDENCY_GRAPH_COLUMN_FAMILY_NAME)
 
     private val dependencyStatusStore = db.createColumnFamilyStore(DEPENDENCY_STATUS_COLUMN_FAMILY_NAME)
 
-    override fun setDependenciesPerKey(key: Dependency, dependencies: Set<Dependency>) {
+    override suspend fun setDependenciesPerKey(key: Dependency, dependencies: Set<Dependency>) {
         dependencyGraphStore.putAsType(
             key,
             SetWrapper(dependencies),
@@ -24,17 +24,17 @@ class RocksDbDependencyGraphStore(db: RocksDbStore) : DependencyGraphStore<Depen
         )
     }
 
-    override fun deleteDependenciesPerKey(key: Dependency) {
+    override suspend fun deleteDependenciesPerKey(key: Dependency) {
         dependencyGraphStore.delete(key, Dependency.serializer())
     }
 
-    override fun getDependencies(): Sequence<Pair<Dependency, Set<Dependency>>> {
+    override suspend fun getDependencies(): Sequence<Pair<Dependency, Set<Dependency>>> {
         return dependencyGraphStore.getAll(Dependency.serializer(), SetWrapper.serializer()).map {
             it.key to it.value.dependencies
         }
     }
 
-    override fun setStatusPerKey(key: Dependency, status: DependencyStatus) {
+    override suspend fun setStatusPerKey(key: Dependency, status: DependencyStatus) {
         dependencyStatusStore.putAsType(
             key,
             status,
@@ -43,11 +43,11 @@ class RocksDbDependencyGraphStore(db: RocksDbStore) : DependencyGraphStore<Depen
         )
     }
 
-    override fun deleteStatusPerKey(key: Dependency) {
+    override suspend fun deleteStatusPerKey(key: Dependency) {
         dependencyStatusStore.delete(key, Dependency.serializer())
     }
 
-    override fun getStatuses(): Sequence<Pair<Dependency, DependencyStatus>> {
+    override suspend fun getStatuses(): Sequence<Pair<Dependency, DependencyStatus>> {
         return dependencyStatusStore.getAll(Dependency.serializer(), DependencyStatus.serializer()).map {
             it.key to it.value
         }

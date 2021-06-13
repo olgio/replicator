@@ -1,6 +1,7 @@
 package ru.splite.replicator.paxos.protocol.follower
 
 import org.slf4j.LoggerFactory
+import ru.splite.replicator.log.LogEntry
 import ru.splite.replicator.log.ReplicatedLogStore
 import ru.splite.replicator.raft.message.RaftMessage
 import ru.splite.replicator.raft.state.NodeStateStore
@@ -10,7 +11,7 @@ internal class VoteRequestHandler(
     private val logStore: ReplicatedLogStore
 ) {
 
-    fun handleVoteRequest(request: RaftMessage.PaxosVoteRequest): RaftMessage.PaxosVoteResponse {
+    suspend fun handleVoteRequest(request: RaftMessage.PaxosVoteRequest): RaftMessage.PaxosVoteResponse {
         localNodeStateStore.getState().let { localNodeState ->
             //текущий терм больше полученного -> получили устаревший запрос -> отклоняем
             if (localNodeState.currentTerm > request.term) {
@@ -24,14 +25,13 @@ internal class VoteRequestHandler(
 
             val fromLogIndex: Long = request.leaderCommit + 1
 
-            val entries = generateSequence(fromLogIndex) {
-                it + 1
-            }.map {
-                logStore.getLogEntryByIndex(it)
-            }.takeWhile {
-                it != null
-            }.filterNotNull().toList()
-
+            val entries = mutableListOf<LogEntry>()
+            var currentIndex = fromLogIndex
+            while (currentIndex >= 0) {
+                val logEntry = logStore.getLogEntryByIndex(currentIndex) ?: break
+                entries.add(logEntry)
+                currentIndex++
+            }
 
             return RaftMessage.PaxosVoteResponse(
                 term = localNodeState.currentTerm,

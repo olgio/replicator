@@ -6,15 +6,19 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.mapNotNull
 import org.slf4j.LoggerFactory
+import ru.splite.replicator.atlas.exception.StaleBallotNumberException
 import ru.splite.replicator.atlas.executor.CommandExecutor
+import ru.splite.replicator.atlas.id.Id
 import ru.splite.replicator.atlas.protocol.AtlasProtocol
 import ru.splite.replicator.atlas.protocol.CommandCoordinator
 import ru.splite.replicator.atlas.state.CommandStatus
 import ru.splite.replicator.metrics.Metrics
+import ru.splite.replicator.metrics.Metrics.measureAndRecord
 import ru.splite.replicator.statemachine.StateMachineCommandSubmitter
 import ru.splite.replicator.timer.flow.TimerFactory
 import ru.splite.replicator.transport.NodeIdentifier
 import ru.splite.replicator.transport.sender.MessageSender
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.CoroutineContext
 
 /**
@@ -27,26 +31,30 @@ class AtlasCommandSubmitter(
     private val commandExecutor: CommandExecutor
 ) : StateMachineCommandSubmitter<ByteArray, ByteArray> {
 
+    private val activeCoordinators = ConcurrentHashMap<Id<NodeIdentifier>, CommandCoordinator>()
+
     override suspend fun submit(command: ByteArray): ByteArray {
         val commandCoordinator = atlasProtocol.createCommandCoordinator()
-        LOGGER.debug("Started coordinating commandId=${commandCoordinator.commandId}")
+        LOGGER.debug("Created coordinator. commandId=${commandCoordinator.commandId}")
         return withTimeout(atlasProtocol.config.commandExecutorTimeout) {
             val response = commandExecutor.awaitCommandResponse(commandCoordinator.commandId) {
-                val commitMessage = kotlin.runCatching {
-                    coordinateCommand(commandCoordinator, command)
-                }.getOrElse {
-                    if (atlasProtocol.config.enableRecovery) {
-                        recoveryCommand(commandCoordinator)
-                    } else {
-                        LOGGER.error("Failed to coordinate commandId=${commandCoordinator.commandId}", it)
-                        throw it
+                commandCoordinator.withLockOrSkip {
+                    val commitMessage = kotlin.runCatching {
+                        coordinateCommand(commandCoordinator, command)
+                    }.getOrElse {
+                        if (atlasProtocol.config.enableRecovery) {
+                            recoveryCommand(commandCoordinator)
+                        } else {
+                            LOGGER.error("Failed to coordinate. commandId=${commandCoordinator.commandId}", it)
+                            throw it
+                        }
                     }
-                }
-                check(!commitMessage.value.isNoop) {
-                    "Cannot commit command because chosen value is NOOP"
-                }
+                    check(!commitMessage.value.isNoop) {
+                        "Cannot commit command because chosen value is NOOP"
+                    }
+                } ?: error("Cannot acquire lock for coordinator commandId=${commandCoordinator.commandId}")
             }
-            LOGGER.debug("Successfully completed commandId=${commandCoordinator.commandId}")
+            LOGGER.debug("Extracted response. commandId=${commandCoordinator.commandId}")
             response
         }
     }
@@ -57,11 +65,12 @@ class AtlasCommandSubmitter(
     ): AtlasMessage.MCommit = coroutineScope {
         val fastQuorumNodes = messageSender.getNearestNodes(atlasProtocol.config.fastQuorumSize)
         LOGGER.debug(
-            "fastQuorumNodes=${fastQuorumNodes.map { it.identifier }}. " +
-                    "commandId=${commandCoordinator.commandId}"
+            "Starting fast path. quorum={} commandId={}",
+            fastQuorumNodes.map { it.identifier },
+            commandCoordinator.commandId
         )
 
-        val collectMessage = commandCoordinator.buildCollect(command, fastQuorumNodes)
+        val collectMessage = commandCoordinator.buildCollect(command, fastQuorumNodes, false)
 
         val collectAckDecision = fastQuorumNodes.map {
             async {
@@ -77,12 +86,13 @@ class AtlasCommandSubmitter(
         when (collectAckDecision) {
             CommandCoordinator.CollectAckDecision.COMMIT -> {
                 Metrics.registry.atlasFastPathCounter.increment()
+                LOGGER.debug("Successful fast path. commandId=${commandCoordinator.commandId}")
                 sendCommitToAllExternalContext(commandCoordinator, fastQuorumNodes)
             }
             CommandCoordinator.CollectAckDecision.CONFLICT -> {
                 Metrics.registry.atlasSlowPathCounter.increment()
-                LOGGER.debug("Chosen slow path. commandId=${commandCoordinator.commandId}")
-                val consensusMessage = commandCoordinator.buildConsensus()
+                LOGGER.debug("Starting slow path. commandId=${commandCoordinator.commandId}")
+                val consensusMessage = commandCoordinator.buildConsensus(false)
                 sendConsensusMessage(commandCoordinator, fastQuorumNodes, consensusMessage)
             }
             else -> {
@@ -98,12 +108,12 @@ class AtlasCommandSubmitter(
         commandCoordinator: CommandCoordinator,
         fastQuorumNodes: Collection<NodeIdentifier>
     ): AtlasMessage.MCommit {
-        val commitForFastPath = commandCoordinator.buildCommit(withPayload = false)
+        val commitForFastPath = commandCoordinator.buildCommit(withPayload = false, handle = false)
+        LOGGER.debug("Built commit message. commandId={}", commandCoordinator.commandId)
 
-        val commitWithPayload = commandCoordinator.buildCommit(withPayload = true)
+        val commitWithPayload = commandCoordinator.buildCommit(withPayload = true, handle = false)
 
-        val coroutineName = CoroutineName("commit-${commandCoordinator.commandId}")
-        coroutineScopeToSendCommit.launch(coroutineName) {
+        coroutineScopeToSendCommit.launch(SupervisorJob()) {
             LOGGER.debug("Sending commits async. commandId={}", commandCoordinator.commandId)
             val successCommitsSize = messageSender.getAllNodes().map {
                 async {
@@ -135,20 +145,29 @@ class AtlasCommandSubmitter(
         }.firstOrNull {
             it == CommandCoordinator.ConsensusAckDecision.COMMIT
         } ?: error("Slow quorum invariant violated")
+        LOGGER.debug("Successful slow path. commandId=${commandCoordinator.commandId}")
 
         sendCommitToAllExternalContext(commandCoordinator, fastQuorumNodes)
     }
 
     private suspend fun recoveryCommand(commandCoordinator: CommandCoordinator): AtlasMessage.MCommit {
-        LOGGER.debug("Started recovery commandId=${commandCoordinator.commandId}")
         Metrics.registry.atlasRecoveryCounter.increment()
         val recoveryMessage = commandCoordinator.buildRecovery()
+        LOGGER.debug(
+            "Started recovery commandId={}, ballot={}, isNoop={}",
+            commandCoordinator.commandId,
+            recoveryMessage.ballot,
+            recoveryMessage.command.isNoop
+        )
 
         val decisionMessage = messageSender.sendToAllAsFlow(messageSender.getAllNodes()) {
             recoveryMessage
         }.mapNotNull {
             when (val response = it.response) {
                 is AtlasMessage.MCommit -> {
+                    addCommandsToRecoveryWithoutDelay(
+                        response.value.dependencies.map { dependency -> dependency.dot }
+                    )
                     response
                 }
                 is AtlasMessage.MRecoveryAck -> {
@@ -160,8 +179,9 @@ class AtlasCommandSubmitter(
             ?: error("Cannot choose decision for recovery. commandId=${commandCoordinator.commandId}")
 
         LOGGER.debug(
-            "Received decision $decisionMessage while recovery. " +
-                    "commandId=${commandCoordinator.commandId}"
+            "After sending MRecovery the decision was made {}. commandId={}",
+            decisionMessage,
+            commandCoordinator.commandId
         )
 
         return when (decisionMessage) {
@@ -170,23 +190,47 @@ class AtlasCommandSubmitter(
                 check(commitAck.isAck) {
                     "Received MCommit message while recovery but commit rejected"
                 }
-                LOGGER.debug(
-                    "Completed recovery with ${decisionMessage}. " +
-                            "commandId=${commandCoordinator.commandId}"
-                )
+                LOGGER.debug("Completed recovery with {}. commandId={}", decisionMessage, commandCoordinator.commandId)
                 decisionMessage
             }
             is AtlasMessage.MConsensus -> {
                 val commitMessage = sendConsensusMessage(commandCoordinator, emptyList(), decisionMessage)
                 LOGGER.debug(
-                    "Completed recovery with ${commitMessage}. " +
-                            "commandId=${commandCoordinator.commandId}"
+                    "Completed recovery after consensus with {}. commandId={}",
+                    commitMessage,
+                    commandCoordinator.commandId
                 )
                 commitMessage
             }
             else -> error("Cannot recovery command ${commandCoordinator.commandId}")
         }
     }
+
+    private suspend fun addCommandsToRecoveryWithoutDelay(commands: Collection<Id<NodeIdentifier>>) {
+        commands.filter {
+            !activeCoordinators.containsKey(it) && atlasProtocol.getCommandStatus(it) != CommandStatus.COMMIT
+        }.forEach {
+            coroutineScopeToSendCommit.launchCommandRecovery(it)
+        }
+    }
+
+    private fun CoroutineScope.launchCommandRecovery(commandId: Id<NodeIdentifier>): Job =
+        launch(SupervisorJob()) {
+            try {
+                val commandCoordinator = atlasProtocol.createCommandCoordinator(commandId)
+                commandCoordinator.withLockOrSkip {
+                    if (atlasProtocol.getCommandStatus(commandId) == CommandStatus.COMMIT) {
+                        LOGGER.debug("Command already committed. commandId=${commandId}")
+                        return@launch
+                    }
+                    recoveryCommand(commandCoordinator)
+                }
+            } catch (e: StaleBallotNumberException) {
+                LOGGER.debug("$e. commandId=${commandId}")
+            } catch (e: Exception) {
+                LOGGER.error("Error while command recovery. commandId=${commandId}", e)
+            }
+        }
 
     fun launchCommandRecoveryLoop(
         coroutineContext: CoroutineContext,
@@ -202,18 +246,23 @@ class AtlasCommandSubmitter(
             atlasProtocol.config.commandRecoveryDelay
         )
         delayedFlow.collect {
-            launch {
-                try {
-                    if (atlasProtocol.getCommandStatus(it) == CommandStatus.COMMIT) {
-                        LOGGER.debug("Command already committed. commandId=${it}")
-                        return@launch
-                    }
-                    val commandCoordinator = atlasProtocol.createCommandCoordinator(it)
-                    recoveryCommand(commandCoordinator)
-                } catch (e: Exception) {
-                    LOGGER.error("Error while command recovery. commandId=${it}", e)
-                }
+            launchCommandRecovery(it)
+        }
+    }
+
+    private inline fun <T> CommandCoordinator.withLockOrSkip(action: () -> T): T? {
+        val activeCoordinator = activeCoordinators.getOrPut(this.commandId) {
+            this
+        }
+        if (activeCoordinator != this) {
+            return null
+        }
+        try {
+            return Metrics.registry.atlasCommandCoordinateLatency.measureAndRecord {
+                action()
             }
+        } finally {
+            activeCoordinators.remove(this.commandId)
         }
     }
 

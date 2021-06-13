@@ -28,8 +28,8 @@ class MessageSender<T>(
                 actor.send(dst, payload)
             }
         }
-        if (result.isFailure) {
-            LOGGER.error("Failed request ${actor.address} -> $dst: ${result.exceptionOrNull()}")
+        result.onFailure { e ->
+            LOGGER.error("Failed request ${actor.address} -> $dst: $e")
         }
         return result.getOrNull()
     }

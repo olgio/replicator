@@ -1,47 +1,63 @@
 package ru.splite.replicator.rocksdb
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.BinaryFormat
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.protobuf.ProtoBuf
 import org.rocksdb.*
+import ru.splite.replicator.metrics.Metrics
+import ru.splite.replicator.metrics.Metrics.measureAndRecord
 import java.io.File
+import kotlin.coroutines.CoroutineContext
 
 class RocksDbStore(
     file: File,
-    columnFamilyNames: Collection<String>
+    columnFamilyNames: Collection<String>,
+    private val coroutineContext: CoroutineContext = Dispatchers.Unconfined
 ) {
 
-    inner class ColumnFamilyStore(private val columnFamilyHandle: ColumnFamilyHandle) {
+    inner class ColumnFamilyStore(
+        private val columnFamilyHandle: ColumnFamilyHandle,
+        val binaryFormat: BinaryFormat
+    ) {
 
-        fun put(key: ByteArray, value: ByteArray) {
-            db.put(columnFamilyHandle, key, value)
+        suspend fun put(key: ByteArray, value: ByteArray) = Metrics.registry.rocksDbWriteLatency.measureAndRecord {
+            withContext(coroutineContext) {
+                db.put(columnFamilyHandle, key, value)
+            }
         }
 
-        fun put(key: String, value: ByteArray) {
+        suspend fun put(key: String, value: ByteArray) {
             put(key.toByteArray(), value)
         }
 
-        fun put(key: Long, value: ByteArray) {
+        suspend fun put(key: Long, value: ByteArray) {
             put(key.toByteArray(), value)
         }
 
-        fun getAsByteArray(key: ByteArray): ByteArray? {
-            return db.get(columnFamilyHandle, key)
-        }
+        suspend fun getAsByteArray(key: ByteArray): ByteArray? =
+            Metrics.registry.rocksDbReadLatency.measureAndRecord {
+                withContext(coroutineContext) {
+                    db.get(columnFamilyHandle, key)
+                }
+            }
 
-        fun getAsByteArray(key: String): ByteArray? {
+        suspend fun getAsByteArray(key: String): ByteArray? {
             return getAsByteArray(key.toByteArray())
         }
 
-        fun getAsByteArray(key: Long): ByteArray? {
+        suspend fun getAsByteArray(key: Long): ByteArray? {
             return getAsByteArray(key.toByteArray())
         }
 
-        fun delete(key: ByteArray) {
-            db.delete(columnFamilyHandle, key)
+        suspend fun delete(key: ByteArray) = Metrics.registry.rocksDbWriteLatency.measureAndRecord {
+            withContext(coroutineContext) {
+                db.delete(columnFamilyHandle, key)
+            }
         }
 
-        inline fun <reified K, reified T> getAsType(
+        suspend inline fun <reified K, reified T> getAsType(
             key: K,
             keySerializer: KSerializer<K>,
             serializer: KSerializer<T>
@@ -51,7 +67,7 @@ class RocksDbStore(
             )?.decodeFromByteArray(serializer)
         }
 
-        inline fun <reified K, reified T> putAsType(
+        suspend inline fun <reified K, reified T> putAsType(
             key: K,
             value: T,
             keySerializer: KSerializer<K>,
@@ -60,34 +76,34 @@ class RocksDbStore(
             put(key.encodeToByteArray(keySerializer), value.encodeToByteArray(serializer))
         }
 
-        inline fun <reified K> delete(
+        suspend inline fun <reified K> delete(
             key: K,
             keySerializer: KSerializer<K>
         ) {
             return delete(key.encodeToByteArray(keySerializer))
         }
 
-        inline fun <reified T> getAsType(key: String, serializer: KSerializer<T>): T? {
+        suspend inline fun <reified T> getAsType(key: String, serializer: KSerializer<T>): T? {
             return getAsByteArray(key)?.decodeFromByteArray(serializer)
         }
 
-        inline fun <reified T> putAsType(key: String, value: T, serializer: KSerializer<T>) {
+        suspend inline fun <reified T> putAsType(key: String, value: T, serializer: KSerializer<T>) {
             put(key, value.encodeToByteArray(serializer))
         }
 
-        inline fun <reified T> getAsType(key: Long, serializer: KSerializer<T>): T? {
+        suspend inline fun <reified T> getAsType(key: Long, serializer: KSerializer<T>): T? {
             return getAsByteArray(key)?.decodeFromByteArray(serializer)
         }
 
-        inline fun <reified T> putAsType(key: Long, value: T, serializer: KSerializer<T>) {
+        suspend inline fun <reified T> putAsType(key: Long, value: T, serializer: KSerializer<T>) {
             put(key, value.encodeToByteArray(serializer))
         }
 
-        fun getAll(): Sequence<KeyValue<ByteArray, ByteArray>> {
-            return db.newIterator(columnFamilyHandle).asSequence()
+        suspend fun getAll(): Sequence<KeyValue<ByteArray, ByteArray>> = withContext(coroutineContext) {
+            db.newIterator(columnFamilyHandle).asSequence()
         }
 
-        inline fun <reified V> getAll(
+        suspend inline fun <reified V> getAll(
             valueSerializer: KSerializer<V>
         ): Sequence<KeyValue<String, V>> {
             return getAll().map {
@@ -98,7 +114,7 @@ class RocksDbStore(
             }
         }
 
-        inline fun <reified K, reified V> getAll(
+        suspend inline fun <reified K, reified V> getAll(
             keySerializer: KSerializer<K>,
             valueSerializer: KSerializer<V>
         ): Sequence<KeyValue<K, V>> {
@@ -143,6 +159,7 @@ class RocksDbStore(
             setCreateIfMissing(true)
             setCreateMissingColumnFamilies(true)
             setErrorIfExists(false)
+            setEnablePipelinedWrite(true)
         }
         val columnFamilyHandlesArray = ArrayList<ColumnFamilyHandle>(columnFamilyNames.size)
         db = RocksDB.open(options, file.absolutePath, columnFamilyDescriptors, columnFamilyHandlesArray)
@@ -151,9 +168,6 @@ class RocksDbStore(
         }.toMap()
     }
 
-    fun createColumnFamilyStore(name: String): ColumnFamilyStore = ColumnFamilyStore(columnFamilyHandles[name]!!)
-
-    companion object {
-        val binaryFormat: BinaryFormat = ProtoBuf
-    }
+    fun createColumnFamilyStore(name: String, binaryFormat: BinaryFormat = ProtoBuf): ColumnFamilyStore =
+        ColumnFamilyStore(columnFamilyHandles[name]!!, binaryFormat)
 }

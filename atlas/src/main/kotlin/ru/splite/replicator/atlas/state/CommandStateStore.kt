@@ -5,7 +5,7 @@ import ru.splite.replicator.transport.NodeIdentifier
 
 interface CommandStateStore {
 
-    fun getCommandState(commandId: Id<NodeIdentifier>): CommandState?
+    suspend fun getCommandState(commandId: Id<NodeIdentifier>): CommandState?
 
-    fun setCommandState(commandId: Id<NodeIdentifier>, commandState: CommandState): CommandState
+    suspend fun setCommandState(commandId: Id<NodeIdentifier>, commandState: CommandState): CommandState
 }
